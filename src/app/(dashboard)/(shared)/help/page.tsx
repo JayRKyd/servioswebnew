@@ -7,7 +7,7 @@ const FAQS = [
   { q: 'What payment methods are accepted?', a: 'We accept major credit and debit cards via Stripe. Payments are processed securely at the time of booking confirmation.' },
   { q: 'How do I cancel a booking?', a: 'Open the booking from My Bookings and tap Cancel Booking. Cancellations are free if made at least 24 hours before the scheduled time.' },
   { q: 'How does the landlord-tenant system work?', a: 'Landlords can add their properties and invite tenants. Tenants can report maintenance issues, communicate with their landlord, and access property information through their tenant dashboard.' },
-  { q: 'What are the service islands?', a: 'Servios operates across the Bahamas including New Providence, Grand Bahama, Abaco, Eleuthera, Exuma, and more.' },
+  { q: 'What areas do you cover?', a: 'Servios operates across London and surrounding areas including Central, North, South, East, and West London. More regions coming soon.' },
 ]
 
 export default function HelpPage() {
@@ -35,7 +35,7 @@ export default function HelpPage() {
 
       <div className="rounded-xl bg-primary/[0.06] p-6 ring-1 ring-blue-200">
         <h2 className="font-semibold text-gray-900 mb-2">Still need help?</h2>
-        <p className="text-sm text-gray-600 mb-4">Our support team is available Mon–Fri, 9am–6pm EST.</p>
+        <p className="text-sm text-gray-600 mb-4">Our support team is available Mon–Fri, 9am–6pm GMT.</p>
         <a href="mailto:support@servios.app" className="inline-block rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark">Contact Support</a>
       </div>
     </div>

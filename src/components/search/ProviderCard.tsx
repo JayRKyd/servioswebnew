@@ -88,8 +88,8 @@ export function ProviderCard({
               <span className="text-xs font-normal text-gray-400">/hr</span>
             </p>
           )}
-          {provider.islands.length > 0 && (
-            <p className="text-xs text-gray-400">📍 {provider.islands[0]}</p>
+          {provider.areas?.length > 0 && (
+            <p className="text-xs text-gray-400">📍 {provider.areas[0]}</p>
           )}
           {provider._rankingInfo?.geoDistance != null && provider._rankingInfo.geoDistance > 0 && (
             <p className="text-xs text-gray-400">

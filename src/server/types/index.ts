@@ -35,7 +35,7 @@ export interface ProviderProfile {
   rating_count: number
   is_verified: boolean
   is_active: boolean
-  islands: string[]
+  service_areas: string[]
   service_radius?: number
 }
 
@@ -101,7 +101,7 @@ export interface Property {
 export interface Address {
   street: string
   city: string
-  island: string
+  area: string
   postalCode?: string
   coordinates?: { lat: number; lng: number }
 }

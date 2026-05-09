@@ -32,17 +32,17 @@ export default function ProviderProfilePage() {
         </div>
         {profile.bio && <div className="border-t pt-4"><p className="text-sm text-gray-500 mb-1">Bio</p><p className="text-sm text-gray-700">{profile.bio}</p></div>}
         <div className="grid grid-cols-2 gap-4 border-t pt-4">
-          {profile.hourly_rate && <div><p className="text-xs text-gray-400">Hourly Rate</p><p className="font-medium">USD {profile.hourly_rate}</p></div>}
+          {profile.hourly_rate && <div><p className="text-xs text-gray-400">Hourly Rate</p><p className="font-medium">£{profile.hourly_rate}/hr</p></div>}
           {profile.rating_count > 0 && <div><p className="text-xs text-gray-400">Rating</p><p className="font-medium">{profile.rating_average?.toFixed(1)} ({profile.rating_count} reviews)</p></div>}
           {profile.phone && <div><p className="text-xs text-gray-400">Phone</p><p className="font-medium">{profile.phone}</p></div>}
           {profile.website && <div><p className="text-xs text-gray-400">Website</p><p className="font-medium text-primary">{profile.website}</p></div>}
         </div>
-        {profile.islands?.length > 0 && (
+        {profile.service_areas?.length > 0 && (
           <div className="border-t pt-4">
-            <p className="text-xs text-gray-400 mb-2">Service Islands</p>
+            <p className="text-xs text-gray-400 mb-2">Service Areas</p>
             <div className="flex flex-wrap gap-2">
-              {profile.islands.map((island: string) => (
-                <span key={island} className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-primary">{island}</span>
+              {profile.service_areas.map((area: string) => (
+                <span key={area} className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-primary">{area}</span>
               ))}
             </div>
           </div>

@@ -54,7 +54,7 @@ search.post('/upsert/:userId', authMiddleware, async (c) => {
     first_name:     p.first_name,
     last_name:      p.last_name,
     bio:            p.bio ?? '',
-    islands:        Array.isArray(p.service_areas) ? p.service_areas : [],
+    areas:          Array.isArray(p.service_areas) ? p.service_areas : [],
     hourly_rate:    p.hourly_rate ?? 0,
     rating_average: parseFloat(p.rating_average) ?? 0,
     rating_count:   p.total_reviews ?? 0,

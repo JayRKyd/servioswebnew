@@ -64,8 +64,8 @@ export function ProviderFilters({
       <div className="space-y-2">
         <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">Area</label>
         <select
-          value={filters.island}
-          onChange={(e) => onChange('island', e.target.value)}
+          value={filters.area}
+          onChange={(e) => onChange('area', e.target.value)}
           className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
         >
           {AREAS.map((i) => (
@@ -93,7 +93,7 @@ export function ProviderFilters({
       {/* Max hourly rate */}
       <div className="space-y-2">
         <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">
-          Max rate: {filters.maxPrice < 1000 ? 'USD ' + filters.maxPrice + '/hr' : 'Any'}
+          Max rate: {filters.maxPrice < 1000 ? '£' + filters.maxPrice + '/hr' : 'Any'}
         </label>
         <input
           type="range" min="0" max="1000" step="25"
@@ -102,7 +102,7 @@ export function ProviderFilters({
           className="w-full accent-blue-600"
         />
         <div className="flex justify-between text-xs text-gray-400">
-          <span>USD 0</span><span>USD 1000+</span>
+          <span>£0</span><span>£1000+</span>
         </div>
       </div>
 
@@ -125,11 +125,11 @@ export function ProviderFilters({
       </div>
 
       {/* Clear filters */}
-      {(filters.category || filters.island || filters.minRating > 0 || filters.maxPrice < 1000) && (
+      {(filters.category || filters.area || filters.minRating > 0 || filters.maxPrice < 1000) && (
         <button
           onClick={() => {
             onChange('category', '')
-            onChange('island', '')
+            onChange('area', '')
             onChange('minRating', 0)
             onChange('maxPrice', 1000)
           }}

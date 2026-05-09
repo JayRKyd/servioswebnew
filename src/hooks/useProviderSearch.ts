@@ -10,7 +10,7 @@ export type ProviderHit = {
   first_name: string
   last_name: string
   bio: string
-  islands: string[]
+  areas: string[]
   hourly_rate: number
   rating_average: number
   rating_count: number
@@ -24,7 +24,7 @@ export type SearchFilters = {
   category: string
   minRating: number
   maxPrice: number
-  island: string
+  area: string
   sortBy: 'rating' | 'price_asc' | 'price_desc' | 'distance'
   aroundLat?: number
   aroundLng?: number
@@ -35,7 +35,7 @@ const DEFAULT_FILTERS: SearchFilters = {
   category: '',
   minRating: 0,
   maxPrice: 1000,
-  island: '',
+  area: '',
   sortBy: 'rating',
 }
 
@@ -69,7 +69,7 @@ export function useProviderSearch() {
 
     const facetFilters: string[][] = []
     if (f.category) facetFilters.push([`categories:${f.category}`])
-    if (f.island)   facetFilters.push([`islands:${f.island}`])
+    if (f.area)     facetFilters.push([`areas:${f.area}`])
 
     const numericFilters: string[] = []
     if (f.minRating > 0)   numericFilters.push(`rating_average >= ${f.minRating}`)
@@ -121,7 +121,7 @@ export function useProviderSearch() {
       objectID:     p.user_id,
       avatar_url:   p.profile_image_url,
       rating_count: p.total_reviews,
-      islands:      [],
+      areas:        [],
       categories:   p.trade_category ? [p.trade_category] : [],
     })))
     setTotal(rows.length)

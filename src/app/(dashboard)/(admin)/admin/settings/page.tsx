@@ -4,7 +4,7 @@ export default function AdminSettingsPage() {
   const items = [
     { label: 'Commission Rates', description: 'Adjust platform commission rates by service type', href: '/admin/settings/commission-rates' },
     { label: 'Service Categories', description: 'Manage available service categories', href: '#' },
-    { label: 'Bahamas Islands', description: 'Configure available service islands', href: '#' },
+    { label: 'Service Areas', description: 'Configure available service areas and regions', href: '#' },
   ]
   return (
     <div className="space-y-6">

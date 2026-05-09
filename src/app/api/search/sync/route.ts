@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       first_name:     p.first_name,
       last_name:      p.last_name,
       bio:            p.bio ?? '',
-      islands:        Array.isArray(p.service_areas) ? p.service_areas : [],
+      areas:          Array.isArray(p.service_areas) ? p.service_areas : [],
       hourly_rate:    p.hourly_rate ?? 0,
       rating_average: parseFloat(p.rating_average) ?? 0,
       rating_count:   p.total_reviews ?? 0,
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     indexName: 'providers',
     indexSettings: {
       searchableAttributes: ['business_name', 'first_name', 'last_name', 'bio', 'categories'],
-      attributesForFaceting: ['islands', 'categories', 'hourly_rate', 'rating_average'],
+      attributesForFaceting: ['areas', 'categories', 'hourly_rate', 'rating_average'],
       customRanking: ['desc(rating_average)', 'desc(rating_count)'],
     },
   })

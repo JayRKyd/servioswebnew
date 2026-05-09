@@ -11,7 +11,7 @@ providers.use('*', authMiddleware)
 
 const searchSchema = z.object({
   service: z.string().optional(),
-  island: z.string().optional(),
+  area: z.string().optional(),
   minRating: z.coerce.number().optional(),
   maxRate: z.coerce.number().optional(),
   date: z.string().optional(),
@@ -22,7 +22,7 @@ const updateProfileSchema = z.object({
   bio: z.string().optional(),
   hourlyRate: z.number().optional(),
   serviceRadius: z.number().optional(),
-  islands: z.array(z.string()).optional(),
+  serviceAreas: z.array(z.string()).optional(),
   phone: z.string().optional(),
   website: z.string().optional(),
 })
@@ -46,7 +46,7 @@ providers.get('/', async (c) => {
     .eq('is_verified', true)
     .eq('is_active', true)
 
-  if (params['island']) query = query.contains('islands', [params['island']])
+  if (params['area']) query = query.contains('service_areas', [params['area']])
   if (params['minRating']) query = query.gte('rating_average', Number(params['minRating']))
   if (params['maxRate']) query = query.lte('hourly_rate', Number(params['maxRate']))
   if (params['service']) {
@@ -112,7 +112,7 @@ providers.put('/profile', requireActiveRole('provider'), zValidator('json', upda
       bio: body.bio,
       hourly_rate: body.hourlyRate,
       service_radius: body.serviceRadius,
-      islands: body.islands,
+      service_areas: body.serviceAreas,
       phone: body.phone,
       website: body.website,
     })
