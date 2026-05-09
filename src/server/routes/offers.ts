@@ -201,22 +201,58 @@ offers.post('/:conversationId/offers/:offerId/accept', async (c) => {
   if (offer.proposed_by === userId) throw new HTTPException(400, { message: 'You cannot accept your own offer' })
   if (offer.status !== 'sent') throw new HTTPException(400, { message: `Offer is already ${offer.status}` })
 
-  // Create booking_milestones from the offer
-  const milestoneInserts = (offer.milestones as any[]).map((m: any) => ({
-    booking_id:   null, // will be updated once booking is linked
-    title:        m.title,
-    description:  m.description ?? null,
-    amount_cents: m.amount_cents,
-    due_date:     m.due_date ?? null,
-    status:       'pending',
-    offer_id:     offerId,
-  }))
+  // Resolve the booking linked to this conversation
+  const { data: conversation } = await supabase
+    .from('conversations')
+    .select('booking_id')
+    .eq('id', conversationId)
+    .single()
 
-  // Mark offer as accepted and link to the accepting user
+  const bookingId = conversation?.booking_id ?? null
+
+  // Fetch the booking's commission rate so we can split each milestone correctly
+  let commissionRate = 0.12 // default 12%
+  if (bookingId) {
+    const { data: booking } = await supabase
+      .from('bookings')
+      .select('commission_rate')
+      .eq('id', bookingId)
+      .single()
+    if (booking?.commission_rate != null) {
+      commissionRate = booking.commission_rate <= 1
+        ? booking.commission_rate
+        : booking.commission_rate / 100
+    }
+  }
+
+  // Mark offer as accepted
   await supabase
     .from('job_offers')
     .update({ status: 'accepted', updated_at: new Date().toISOString() })
     .eq('id', offerId)
+
+  // Insert booking_milestones only when a booking is already linked
+  if (bookingId) {
+    const milestoneInserts = (offer.milestones as any[]).map((m: any, i: number) => {
+      const amount             = m.amount_cents / 100
+      const platformCommission = parseFloat((amount * commissionRate).toFixed(2))
+      const providerAmount     = parseFloat((amount - platformCommission).toFixed(2))
+      return {
+        booking_id:          bookingId,
+        milestone_number:    i + 1,
+        title:               m.title,
+        description:         m.description ?? null,
+        amount,
+        provider_amount:     providerAmount,
+        platform_commission: platformCommission,
+        commission_rate:     commissionRate,
+        due_date:            m.due_date ?? null,
+        status:              'pending',
+      }
+    })
+
+    await supabase.from('booking_milestones').insert(milestoneInserts)
+  }
 
   // Post system message
   await postSystemMessage(
@@ -227,7 +263,7 @@ offers.post('/:conversationId/offers/:offerId/accept', async (c) => {
     { offer_id: offerId, title: offer.title, total_cents: offer.total_cents },
   )
 
-  return c.json({ accepted: true, offer_id: offerId })
+  return c.json({ accepted: true, offer_id: offerId, milestones_created: bookingId !== null })
 })
 
 // ─── POST /api/v1/conversations/:conversationId/offers/:offerId/decline ───────
