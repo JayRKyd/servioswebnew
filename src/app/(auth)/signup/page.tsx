@@ -52,10 +52,12 @@ function SignupForm() {
     const firstName = nameParts[0] ?? ''
     const lastName = nameParts.slice(1).join(' ') || ''
 
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        emailRedirectTo: `${siteUrl}/auth/callback`,
         data: {
           full_name: fullName,
           first_name: firstName,
