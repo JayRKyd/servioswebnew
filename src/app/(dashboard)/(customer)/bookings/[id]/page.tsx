@@ -24,9 +24,9 @@ function ReviewModal({ bookingId, revieweeId, onClose }: { bookingId: string; re
     await supabase.from('reviews').insert({
       booking_id: bookingId,
       reviewer_id: user?.id,
-      reviewee_id: revieweeId ?? null,
+      provider_id: revieweeId ?? null,
       rating,
-      review_text: comment || null,
+      comment: comment || null,
     })
     setDone(true)
     setSubmitting(false)
@@ -81,6 +81,7 @@ const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700',
   accepted: 'bg-blue-100 text-primary',
   in_progress: 'bg-purple-100 text-purple-700',
+  pending_customer_confirmation: 'bg-amber-100 text-amber-700',
   completed: 'bg-green-100 text-green-700',
   cancelled: 'bg-gray-100 text-gray-500',
   rejected: 'bg-red-100 text-red-700',
@@ -277,7 +278,7 @@ export default function CustomerBookingDetailPage() {
   if (loading) return <div className="flex h-64 items-center justify-center"><div className="text-gray-400">Loading…</div></div>
   if (!booking) return <div className="text-gray-400">Booking not found.</div>
 
-  const canConfirm = ['in_progress', 'accepted'].includes(booking.status)
+  const canConfirm = ['in_progress', 'accepted', 'pending_customer_confirmation'].includes(booking.status)
   const canCancel = ['pending', 'accepted'].includes(booking.status)
   const canReview = booking.status === 'completed'
   const canClaim = booking.status === 'completed' && (() => {
@@ -346,8 +347,8 @@ export default function CustomerBookingDetailPage() {
           <div className="border-t pt-4">
             {(() => {
               const ps = payment?.status
-              // Captured / released
-              if (ps === 'succeeded' || booking.status === 'completed') {
+              // Captured / released — require Stripe succeeded, not just booking status
+              if (ps === 'succeeded') {
                 const netCents = (booking.total_amount ?? 0) - (booking.platform_fee ?? 0)
                 return (
                   <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3 flex items-start gap-3">
@@ -356,7 +357,7 @@ export default function CustomerBookingDetailPage() {
                       <p className="text-[13px] font-semibold text-green-900">Payment released</p>
                       <p className="text-[12px] text-green-700 mt-0.5">
                         {formatCurrency(netCents / 100)} sent to provider
-                        {booking.platform_fee ? ` · ${formatCurrency(booking.platform_fee / 100)} platform fee (${booking.commission_rate ?? 12}%)` : ''}
+                        {booking.platform_fee ? ` · ${formatCurrency(booking.platform_fee / 100)} platform fee (${booking.commission_rate != null ? (booking.commission_rate <= 1 ? Math.round(booking.commission_rate * 100) : Math.round(booking.commission_rate)) : 12}%)` : ''}
                       </p>
                     </div>
                   </div>
@@ -396,6 +397,18 @@ export default function CustomerBookingDetailPage() {
                     <div>
                       <p className="text-[13px] font-semibold text-gray-700">Payment refunded</p>
                       <p className="text-[12px] text-gray-500 mt-0.5">{formatCurrency(booking.total_amount / 100)} has been returned.</p>
+                    </div>
+                  </div>
+                )
+              }
+              // Provider marked done — awaiting customer confirmation
+              if (booking.status === 'pending_customer_confirmation') {
+                return (
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 flex items-start gap-3">
+                    <span className="text-lg">✓</span>
+                    <div>
+                      <p className="text-[13px] font-semibold text-amber-900">Provider has marked the job complete</p>
+                      <p className="text-[12px] text-amber-700 mt-0.5">Please confirm below to release payment to your provider.</p>
                     </div>
                   </div>
                 )
@@ -465,7 +478,7 @@ export default function CustomerBookingDetailPage() {
             Leave a Review
           </button>
         )}
-        {['pending','accepted','in_progress'].includes(booking.status) && (
+        {['pending','accepted','in_progress','pending_customer_confirmation'].includes(booking.status) && (
           <button onClick={handleOpenMessage}
             className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
             💬 Message

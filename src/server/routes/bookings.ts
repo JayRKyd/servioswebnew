@@ -85,8 +85,9 @@ bookings.post('/', zValidator('json', createBookingSchema), async (c) => {
   const userId = c.get('userId')
   const body = c.req.valid('json')
 
-  const commissionRate = await calculateCommissionRate(body.landlordId, body.providerId, body.isEmergency || false)
-  const platformFee = (body.baseAmount * commissionRate) / 100
+  const commissionRatePct = await calculateCommissionRate(body.landlordId, body.providerId, body.isEmergency || false)
+  const commissionRate = commissionRatePct / 100  // store as decimal (0.12) to match client-written rows
+  const platformFee = body.baseAmount * commissionRate
   const totalAmount = body.baseAmount + (body.travelFee || 0) + platformFee
   const bookingNumber = `SRV-${new Date().getFullYear()}-${Date.now()}`
 

@@ -10,7 +10,7 @@ interface ProviderService {
 
 interface Review {
   rating: number
-  review_text: string | null
+  comment: string | null
   reviewer_name: string
 }
 
@@ -99,8 +99,8 @@ function CustomerProviderProfileInner() {
           .select('service:services(title, service_categories(name))')
           .eq('provider_id', pp.id).eq('is_active', true),
         supabase.from('reviews')
-          .select('rating, review_text')
-          .eq('reviewee_id', pp.id)
+          .select('rating, comment')
+          .eq('provider_id', pp.user_id)
           .order('created_at', { ascending: false })
           .limit(5),
       ])
@@ -108,7 +108,7 @@ function CustomerProviderProfileInner() {
       setProvider({
         ...pp,
         services: (svcs ?? []).map((s: any) => ({ service: { title: s.service?.title, category: s.service?.service_categories?.name ?? '' } })),
-        reviews: (revs ?? []).map((r: any) => ({ rating: r.rating, review_text: r.review_text, reviewer_name: 'Customer' })),
+        reviews: (revs ?? []).map((r: any) => ({ rating: r.rating, comment: r.comment, reviewer_name: 'Customer' })),
       })
       setLoading(false)
     }
@@ -219,7 +219,7 @@ function CustomerProviderProfileInner() {
                   <span className="text-sm font-medium text-gray-800">{rv.reviewer_name}</span>
                   <Stars rating={rv.rating} />
                 </div>
-                {rv.review_text && <p className="text-sm text-gray-500">{rv.review_text}</p>}
+                {rv.comment && <p className="text-sm text-gray-500">{rv.comment}</p>}
               </div>
             ))}
           </div>

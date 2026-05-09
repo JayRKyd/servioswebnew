@@ -51,8 +51,9 @@ payments.post('/intent', authMiddleware, zValidator('json', createIntentSchema),
     providerProfile?.stripe_account_status === 'active'
 
   if (stripeReady) {
+    // platform_fee is already stored in pence (minor units) — do not multiply by 100
     const applicationFeeCents = booking.platform_fee
-      ? Math.round(booking.platform_fee * 100)
+      ? Math.round(booking.platform_fee)
       : Math.round(amountCents * 0.12)
 
     const intent = await stripe.paymentIntents.create({

@@ -37,7 +37,8 @@ function ReviewsPageInner() {
     e.preventDefault()
     if (!user || !selectedBooking) return
     setSubmitting(true)
-    await supabase.from('reviews').insert({ booking_id: selectedBooking, reviewer_id: user.id, rating, comment })
+    const bookingProviderId = completedBookings.find(b => b.id === selectedBooking)?.provider_id ?? null
+    await supabase.from('reviews').insert({ booking_id: selectedBooking, reviewer_id: user.id, provider_id: bookingProviderId, rating, comment })
     setSuccess(true)
     setSubmitting(false)
     setComment('')

@@ -72,17 +72,47 @@ export default function SetupServicesPage() {
     if (services.length === 0) return
     setSaving(true)
     const { data: { user } } = await supabase.auth.getUser()
-    const { data: profile } = await supabase.from('provider_profiles').select('id').eq('user_id', user!.id).maybeSingle()
+    const { data: profile } = await supabase.from('provider_profiles').select('id, trade_category').eq('user_id', user!.id).maybeSingle()
     if (profile) {
-      await supabase.from('provider_services').upsert(
-        services.map((s) => ({
-          provider_id: profile.id,
-          service_id: s.templateId,
-          custom_price: s.priceType === 'quote' ? null : Number(s.price) || null,
-          is_active: true,
-        })).filter((s) => s.service_id !== null),
-        { onConflict: 'provider_id,service_id' }
-      )
+      // Resolve category ID so custom services belong to the right category
+      const { data: cat } = await supabase.from('service_categories').select('id').eq('slug', profile.trade_category).maybeSingle()
+
+      // Insert custom services into the services table first to get real IDs
+      const selectedEntries = Object.entries(selected)
+      const customResolvedIds: Record<string, string> = {}
+      for (const [key, svc] of selectedEntries) {
+        if (!svc.isCustom) continue
+        const { data: inserted } = await supabase
+          .from('services')
+          .insert({
+            title: svc.name,
+            category_id: cat?.id ?? null,
+            pricing_type: svc.priceType,
+            base_price: svc.priceType !== 'quote' ? Number(svc.price) || null : null,
+            is_active: true,
+          })
+          .select('id')
+          .single()
+        if (inserted?.id) customResolvedIds[key] = inserted.id
+      }
+
+      // Build upsert rows for both template and custom services
+      const rows = selectedEntries
+        .map(([key, svc]) => {
+          const serviceId = svc.isCustom ? customResolvedIds[key] : svc.templateId
+          if (!serviceId) return null
+          return {
+            provider_id: profile.id,
+            service_id: serviceId,
+            custom_price: svc.priceType === 'quote' ? null : Number(svc.price) || null,
+            is_active: true,
+          }
+        })
+        .filter((r): r is NonNullable<typeof r> => r !== null)
+
+      if (rows.length > 0) {
+        await supabase.from('provider_services').upsert(rows, { onConflict: 'provider_id,service_id' })
+      }
       await supabase.from('provider_profiles').update({ onboarding_step: 'documents' }).eq('id', profile.id)
     }
     router.push('/provider/setup/documents')

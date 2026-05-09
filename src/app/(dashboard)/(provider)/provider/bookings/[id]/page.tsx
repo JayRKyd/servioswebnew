@@ -9,6 +9,7 @@ const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700',
   accepted: 'bg-blue-100 text-primary',
   in_progress: 'bg-purple-100 text-purple-700',
+  pending_customer_confirmation: 'bg-amber-100 text-amber-700',
   completed: 'bg-green-100 text-green-700',
   cancelled: 'bg-gray-100 text-gray-500',
   rejected: 'bg-red-100 text-red-700',
@@ -55,7 +56,7 @@ export default function ProviderBookingDetailPage() {
         accepted: { title: 'Booking accepted!', body: `Your booking #${booking.booking_number} has been accepted by the provider.` },
         rejected: { title: 'Booking declined', body: `Your booking #${booking.booking_number} was declined. You can search for another provider.` },
         in_progress: { title: 'Job started', body: `Your provider has started work on booking #${booking.booking_number}.` },
-        completed: { title: 'Job marked complete', body: `Your provider marked booking #${booking.booking_number} complete. Please confirm to release payment.` },
+        pending_customer_confirmation: { title: 'Job complete — action needed', body: `Your provider has finished booking #${booking.booking_number}. Please confirm to release payment.` },
       }
       const notif = notifMap[status]
       if (notif) {
@@ -125,7 +126,7 @@ export default function ProviderBookingDetailPage() {
         </div>
         {booking.commission_rate && (
           <div className="flex items-center justify-between border-t pt-4">
-            <span className="text-sm text-gray-500">Commission ({Math.round(booking.commission_rate * 100)}%)</span>
+            <span className="text-sm text-gray-500">Commission ({booking.commission_rate <= 1 ? Math.round(booking.commission_rate * 100) : Math.round(booking.commission_rate)}%)</span>
             <span className="text-sm text-red-500">−{formatCurrency((booking.platform_fee ?? 0) / 100)}</span>
           </div>
         )}
@@ -142,6 +143,15 @@ export default function ProviderBookingDetailPage() {
             <div>
               <p className="text-sm font-semibold text-blue-900">Payment in escrow</p>
               <p className="text-xs text-blue-700 mt-0.5">Released to you once the customer confirms job completion.</p>
+            </div>
+          </div>
+        )}
+        {booking.status === 'pending_customer_confirmation' && booking.total_amount > 0 && (
+          <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 flex items-start gap-3">
+            <span>⏳</span>
+            <div>
+              <p className="text-sm font-semibold text-amber-900">Awaiting customer confirmation</p>
+              <p className="text-xs text-amber-700 mt-0.5">The customer has been notified. Payment releases once they confirm.</p>
             </div>
           </div>
         )}
@@ -178,15 +188,15 @@ export default function ProviderBookingDetailPage() {
               if (afterPhotoCount === 0) {
                 if (!confirm('No after photos uploaded yet. It\'s recommended to add after photos before marking complete. Continue anyway?')) return
               }
-              updateStatus('completed')
+              updateStatus('pending_customer_confirmation')
             }}
             disabled={acting}
             className="flex-1 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
           >
-            Mark Completed
+            Mark as Done
           </button>
         )}
-        {['pending','accepted','in_progress'].includes(booking.status) && (
+        {['pending','accepted','in_progress','pending_customer_confirmation'].includes(booking.status) && (
           <button onClick={handleOpenMessage} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
             💬 Message
           </button>
