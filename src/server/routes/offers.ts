@@ -23,9 +23,9 @@ async function postSystemMessage(
     .from('messages')
     .insert({
       conversation_id: conversationId,
-      sender_id: senderId,
-      content,
-      message_type: messageType,
+      sender_id:       senderId,
+      message_text:    content,
+      message_type:    messageType,
       metadata,
     })
     .select()

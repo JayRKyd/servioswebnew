@@ -77,11 +77,11 @@ export default function MessagesPage() {
       if (ids.length > 0) {
         const { data: msgs } = await supabase
           .from('messages')
-          .select('conversation_id, content, message_type')
+          .select('conversation_id, message_text, message_type')
           .in('conversation_id', ids)
           .eq('message_type', 'text')
           .order('created_at', { ascending: false })
-        msgs?.forEach((m: any) => { if (!lastMsgs[m.conversation_id]) lastMsgs[m.conversation_id] = m.content })
+        msgs?.forEach((m: any) => { if (!lastMsgs[m.conversation_id]) lastMsgs[m.conversation_id] = m.message_text })
       }
       setConversations(convs.map((c: any) => ({ ...c, lastMsg: lastMsgs[c.id] ?? null })))
       setLoading(false)

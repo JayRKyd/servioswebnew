@@ -12,6 +12,7 @@ interface Review {
   rating: number
   comment: string | null
   reviewer_name: string
+  reviewer_id: string | null
 }
 
 interface ProviderProfile {
@@ -27,6 +28,7 @@ interface ProviderProfile {
   total_reviews: number
   verification_status: string
   service_areas: string[] | null
+  profile_image_url: string | null
   services: ProviderService[]
   reviews: Review[]
 }
@@ -89,7 +91,7 @@ function CustomerProviderProfileInner() {
     async function load() {
       const { data: pp } = await supabase
         .from('provider_profiles')
-        .select('id, user_id, first_name, last_name, business_name, bio, trade_category, hourly_rate, rating_average, total_reviews, verification_status, service_areas')
+        .select('id, user_id, first_name, last_name, business_name, bio, trade_category, hourly_rate, rating_average, total_reviews, verification_status, service_areas, profile_image_url')
         .eq('user_id', id as string)
         .maybeSingle()
       if (!pp) { setLoading(false); return }
@@ -99,16 +101,34 @@ function CustomerProviderProfileInner() {
           .select('service:services(title, service_categories(name))')
           .eq('provider_id', pp.id).eq('is_active', true),
         supabase.from('reviews')
-          .select('rating, comment')
+          .select('rating, comment, reviewer_id')
           .eq('provider_id', pp.user_id)
           .order('created_at', { ascending: false })
           .limit(5),
       ])
 
+      // Resolve reviewer names from customer_profiles
+      const reviewerIds = Array.from(new Set((revs ?? []).map((r: any) => r.reviewer_id).filter(Boolean)))
+      let reviewerNameMap: Record<string, string> = {}
+      if (reviewerIds.length > 0) {
+        const { data: cps } = await supabase
+          .from('customer_profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', reviewerIds)
+        cps?.forEach((cp: any) => {
+          reviewerNameMap[cp.user_id] = `${cp.first_name} ${cp.last_name}`.trim() || 'Customer'
+        })
+      }
+
       setProvider({
         ...pp,
         services: (svcs ?? []).map((s: any) => ({ service: { title: s.service?.title, category: s.service?.service_categories?.name ?? '' } })),
-        reviews: (revs ?? []).map((r: any) => ({ rating: r.rating, comment: r.comment, reviewer_name: 'Customer' })),
+        reviews: (revs ?? []).map((r: any) => ({
+          rating:        r.rating,
+          comment:       r.comment,
+          reviewer_id:   r.reviewer_id,
+          reviewer_name: reviewerNameMap[r.reviewer_id] ?? 'Customer',
+        })),
       })
       setLoading(false)
     }
@@ -141,9 +161,17 @@ function CustomerProviderProfileInner() {
 
       {/* Header card */}
       <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100 flex gap-5 items-start">
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary text-2xl font-bold text-white">
-          {displayName.charAt(0).toUpperCase()}
-        </div>
+        {provider.profile_image_url ? (
+          <img
+            src={provider.profile_image_url}
+            alt={displayName}
+            className="h-16 w-16 shrink-0 rounded-full object-cover"
+          />
+        ) : (
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary text-2xl font-bold text-white">
+            {displayName.charAt(0).toUpperCase()}
+          </div>
+        )}
         <div className="flex-1 space-y-1.5">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold text-gray-900">{displayName}</h1>

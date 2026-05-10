@@ -2,6 +2,16 @@
 import { useEffect, useRef } from 'react'
 import type { ProviderHit } from '@/hooks/useProviderSearch'
 
+function haversineMetres(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6_371_000
+  const dLat = (lat2 - lat1) * (Math.PI / 180)
+  const dLng = (lng2 - lng1) * (Math.PI / 180)
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
 // mapbox-gl is loaded as a plain script tag from /public — zero bundler involvement.
 // This prevents Turbopack (and webpack) from ever seeing mapbox-gl in the module graph.
 
@@ -49,9 +59,13 @@ export function ProviderMap({
   onSelect: (id: string | null) => void
   onBoundsChange: (lat: number, lng: number, radiusMetres: number) => void
 }) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const mapRef       = useRef<any>(null)
-  const popupRef     = useRef<any>(null)
+  const containerRef       = useRef<HTMLDivElement>(null)
+  const mapRef             = useRef<any>(null)
+  const popupRef           = useRef<any>(null)
+  const onBoundsChangeRef  = useRef(onBoundsChange)
+
+  // Keep the ref current so the moveend closure always calls the latest prop
+  useEffect(() => { onBoundsChangeRef.current = onBoundsChange }, [onBoundsChange])
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
@@ -158,7 +172,7 @@ export function ProviderMap({
             .setHTML(
               `<div style="font-family:sans-serif;padding:4px 2px;min-width:140px">
                 <p style="font-weight:700;font-size:13px;margin:0 0 2px">${props.name}</p>
-                <p style="font-size:12px;color:#6b7280;margin:0">★ ${Number(props.rating).toFixed(1)} · USD ${props.price}/hr</p>
+                <p style="font-size:12px;color:#6b7280;margin:0">★ ${Number(props.rating).toFixed(1)} · £${props.price}/hr</p>
               </div>`
             )
             .addTo(map)
@@ -170,6 +184,14 @@ export function ProviderMap({
         map.on('mouseleave', 'provider-points', () => { map.getCanvas().style.cursor = '' })
         map.on('mouseenter', 'clusters', () => { map.getCanvas().style.cursor = 'pointer' })
         map.on('mouseleave', 'clusters', () => { map.getCanvas().style.cursor = '' })
+
+        // Fire search bounds whenever the user pans or zooms
+        map.on('moveend', () => {
+          const center = map.getCenter()
+          const ne     = map.getBounds().getNorthEast()
+          const radius = haversineMetres(center.lat, center.lng, ne.lat, ne.lng)
+          onBoundsChangeRef.current(center.lat, center.lng, Math.round(radius))
+        })
 
         syncProviders(map, providers)
       })

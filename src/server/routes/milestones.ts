@@ -170,7 +170,7 @@ milestones.post('/:bookingId/milestones/:milestoneId/release', async (c) => {
     await supabase.from('messages').insert({
       conversation_id: conversation.id,
       sender_id:       userId,
-      content:         `Released payment for "${milestone.title}" — $${amountDollars}`,
+      message_text:    `Released payment for "${milestone.title}" — £${amountDollars}`,
       message_type:    'payment_released',
       metadata: {
         milestone_id:  milestoneId,
