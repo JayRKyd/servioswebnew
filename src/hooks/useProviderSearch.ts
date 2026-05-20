@@ -16,6 +16,8 @@ export type ProviderHit = {
   rating_count: number
   categories: string[]
   avatar_url: string | null
+  is_verified?: boolean
+  jobs_completed?: number
   _geoloc?: { lat: number; lng: number }
   _rankingInfo?: { geoDistance?: number }
 }
@@ -118,11 +120,13 @@ export function useProviderSearch() {
     const rows = data ?? []
     setResults(rows.map((p: any) => ({
       ...p,
-      objectID:     p.user_id,
-      avatar_url:   p.profile_image_url,
-      rating_count: p.total_reviews,
-      areas:        [],
-      categories:   p.trade_category ? [p.trade_category] : [],
+      objectID:       p.user_id,
+      avatar_url:     p.profile_image_url,
+      rating_count:   p.total_reviews,
+      areas:          [],
+      categories:     p.trade_category ? [p.trade_category] : [],
+      is_verified:    p.verification_status === 'verified',
+      jobs_completed: p.total_reviews ?? 0,
     })))
     setTotal(rows.length)
   }

@@ -50,17 +50,21 @@ export function ProviderCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-semibold text-gray-900 truncate">{displayName}</p>
-            {/* Verified badge */}
-            <span className="inline-flex items-center gap-0.5 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-              ✓ Verified
-            </span>
+            {provider.is_verified !== false && (
+              <span className="inline-flex items-center gap-0.5 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                ✓ Verified
+              </span>
+            )}
           </div>
 
-          {/* Stars + review count */}
-          <div className="mt-0.5 flex items-center gap-1.5">
+          {/* Stars + review count + jobs done */}
+          <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
             <Stars rating={provider.rating_average} />
             <span className="text-xs font-medium text-gray-700">{provider.rating_average?.toFixed(1) ?? '—'}</span>
             <span className="text-xs text-gray-400">({provider.rating_count} reviews)</span>
+            {(provider.jobs_completed ?? 0) > 0 && (
+              <span className="text-xs text-gray-400">· {provider.jobs_completed} jobs done</span>
+            )}
           </div>
 
           {/* Service category tags */}

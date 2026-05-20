@@ -1,4 +1,4 @@
-                                                                                                                                                                                             'use client'
+'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -6,6 +6,7 @@ import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
 import { useSmartReplies } from '@/hooks/useSmartReplies'
 import { SmartReplySuggestions } from '@/components/shared/SmartReplySuggestions'
+import { formatCurrency, formatDate } from '@/lib/utils'
 
 // ─── System message card ───────────────────────────────────────────────────────
 
@@ -65,6 +66,7 @@ export default function ConversationPage() {
   const [sending, setSending]     = useState(false)
   const [conversation, setConversation] = useState<any>(null)
   const [otherParty, setOtherParty] = useState<{ name: string } | null>(null)
+  const [jobPanelOpen, setJobPanelOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const activeRole = (user as any)?.user_metadata?.active_role as string | undefined
@@ -76,7 +78,15 @@ export default function ConversationPage() {
 
     async function load() {
       const [{ data: conv }, { data: msgs }] = await Promise.all([
-        supabase.from('conversations').select('*, booking:bookings(id, booking_number, status)').eq('id', conversationId).single(),
+        supabase.from('conversations').select(`
+          *,
+          booking:bookings(
+            id, booking_number, status, scheduled_date,
+            base_amount, total_amount, platform_fee,
+            service:services(title),
+            milestones:booking_milestones(id, title, amount, status, milestone_number)
+          )
+        `).eq('id', conversationId).single(),
         supabase.from('messages').select('*').eq('conversation_id', conversationId).order('created_at', { ascending: true }),
       ])
       setConversation(conv)
@@ -191,6 +201,97 @@ export default function ConversationPage() {
           </Link>
         )}
       </div>
+
+      {/* ── Job details panel ─────────────────────────────────────────────── */}
+      {conversation?.booking && (
+        <div className="border-b border-gray-100 bg-white">
+          <button
+            onClick={() => setJobPanelOpen(o => !o)}
+            className="flex w-full items-center justify-between px-4 py-2.5 text-left text-xs hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-semibold text-gray-700">
+                {conversation.booking.service?.title ?? `Job #${conversation.booking.booking_number}`}
+              </span>
+              {conversation.booking.total_amount != null && (
+                <span className="text-gray-400">· {formatCurrency(conversation.booking.total_amount / 100)}</span>
+              )}
+              <span className={`rounded-full px-2 py-0.5 font-medium capitalize ${
+                conversation.booking.status === 'completed' ? 'bg-green-100 text-green-700' :
+                conversation.booking.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                conversation.booking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                'bg-gray-100 text-gray-500'
+              }`}>
+                {conversation.booking.status?.replace(/_/g, ' ')}
+              </span>
+            </div>
+            <span className="ml-2 shrink-0 text-gray-400">{jobPanelOpen ? '▲' : '▼'} Job details</span>
+          </button>
+
+          {jobPanelOpen && (
+            <div className="border-t border-gray-50 px-4 pb-4 pt-3 space-y-3 bg-gray-50">
+              {/* Amounts */}
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                {conversation.booking.base_amount != null && (
+                  <div className="rounded-lg bg-white px-3 py-2 shadow-sm ring-1 ring-gray-100">
+                    <p className="text-gray-400">Gross</p>
+                    <p className="font-semibold text-gray-800 mt-0.5">{formatCurrency(conversation.booking.base_amount / 100)}</p>
+                  </div>
+                )}
+                {conversation.booking.platform_fee != null && (
+                  <div className="rounded-lg bg-white px-3 py-2 shadow-sm ring-1 ring-gray-100">
+                    <p className="text-gray-400">Platform fee</p>
+                    <p className="font-semibold text-gray-800 mt-0.5">{formatCurrency(conversation.booking.platform_fee / 100)}</p>
+                  </div>
+                )}
+                {conversation.booking.base_amount != null && conversation.booking.platform_fee != null && (
+                  <div className="rounded-lg bg-white px-3 py-2 shadow-sm ring-1 ring-gray-100">
+                    <p className="text-gray-400">You receive</p>
+                    <p className="font-semibold text-green-700 mt-0.5">
+                      {formatCurrency((conversation.booking.base_amount - conversation.booking.platform_fee) / 100)}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Date */}
+              {conversation.booking.scheduled_date && (
+                <p className="text-xs text-gray-500">Scheduled: {formatDate(conversation.booking.scheduled_date)}</p>
+              )}
+
+              {/* Milestones */}
+              {conversation.booking.milestones?.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-600 mb-1.5">Milestones</p>
+                  <div className="space-y-1.5">
+                    {[...conversation.booking.milestones]
+                      .sort((a: any, b: any) => a.milestone_number - b.milestone_number)
+                      .map((m: any) => (
+                        <div key={m.id} className="flex items-center justify-between rounded-lg bg-white px-3 py-2 shadow-sm ring-1 ring-gray-100 text-xs">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                              m.status === 'released' ? 'bg-green-500' :
+                              m.status === 'pending' ? 'bg-yellow-400' : 'bg-gray-300'
+                            }`} />
+                            <span className="font-medium text-gray-800 truncate">{m.title}</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0 ml-2">
+                            <span className="text-gray-500">{formatCurrency(m.amount)}</span>
+                            <span className={`capitalize rounded-full px-2 py-0.5 font-medium ${
+                              m.status === 'released' ? 'bg-green-100 text-green-700' :
+                              m.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-gray-100 text-gray-500'
+                            }`}>{m.status}</span>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Message thread ────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto space-y-3 bg-gray-50 px-4 py-4">
