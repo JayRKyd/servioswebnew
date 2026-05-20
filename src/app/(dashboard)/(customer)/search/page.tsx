@@ -31,14 +31,28 @@ function SearchPageInner() {
   const [viewMode, setViewMode] = useState<ViewMode>('split')
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  // Pre-apply category filter if coming from /book wizard
+  // Pre-apply filters if coming from /book wizard
   const categoryParam = searchParams.get('category')
   const context       = searchParams.get('context') ?? ''
+  const areaParam     = searchParams.get('area') ?? ''
+  const latParam      = searchParams.get('lat')
+  const lngParam      = searchParams.get('lng')
 
   useEffect(() => {
     if (categoryParam) updateFilter('category', categoryParam)
+    if (areaParam)     updateFilter('area', areaParam)
+    if (latParam && lngParam) {
+      const lat = parseFloat(latParam)
+      const lng = parseFloat(lngParam)
+      if (!isNaN(lat) && !isNaN(lng)) {
+        setMapBounds(lat, lng, 25_000)
+        updateFilter('aroundLat', lat)
+        updateFilter('aroundLng', lng)
+        updateFilter('sortBy', 'distance')
+      }
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoryParam])
+  }, [categoryParam, areaParam, latParam, lngParam])
 
   // When location becomes available, apply it to search bounds
   useEffect(() => {

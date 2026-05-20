@@ -1,8 +1,8 @@
 'use client'
 import type { SearchFilters } from '@/hooks/useProviderSearch'
+import { PlacesAutocomplete } from './PlacesAutocomplete'
 
 const CATEGORIES = ['', 'Plumbing', 'Electrical', 'Cleaning', 'Landscaping', 'HVAC', 'Painting', 'Carpentry', 'Security', 'Roofing', 'Pest Control']
-const AREAS = ['', 'Central London', 'North London', 'South London', 'East London', 'West London']
 const SORT_OPTIONS = [
   { value: 'rating',     label: 'Top Rated' },
   { value: 'price_asc',  label: 'Price: Low to High' },
@@ -60,18 +60,25 @@ export function ProviderFilters({
         </div>
       </div>
 
-      {/* Area */}
+      {/* Area / postcode */}
       <div className="space-y-2">
-        <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">Area</label>
-        <select
+        <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">Area or postcode</label>
+        <PlacesAutocomplete
           value={filters.area}
-          onChange={(e) => onChange('area', e.target.value)}
-          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-        >
-          {AREAS.map((i) => (
-            <option key={i || 'all'} value={i}>{i || 'All Areas'}</option>
-          ))}
-        </select>
+          placeholder="e.g. SW1A 1AA or Manchester"
+          onPlace={({ label, lat, lng }) => {
+            onChange('area', label)
+            onChange('aroundLat', lat)
+            onChange('aroundLng', lng)
+            onChange('aroundRadius', 25_000)
+          }}
+          onClear={() => {
+            onChange('area', '')
+            onChange('aroundLat', undefined)
+            onChange('aroundLng', undefined)
+            onChange('aroundRadius', undefined)
+          }}
+        />
       </div>
 
       {/* Min Rating */}
@@ -130,6 +137,9 @@ export function ProviderFilters({
           onClick={() => {
             onChange('category', '')
             onChange('area', '')
+            onChange('aroundLat', undefined)
+            onChange('aroundLng', undefined)
+            onChange('aroundRadius', undefined)
             onChange('minRating', 0)
             onChange('maxPrice', 1000)
           }}

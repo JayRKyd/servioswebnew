@@ -26,7 +26,7 @@ const steps = [
 ]
 
 const benefits = [
-  { text: 'Keep 100% of what you charge', icon: PoundSterling },
+  { text: 'Low fees, more in your pocket', icon: PoundSterling },
   { text: 'Set your own hours and radius', icon: Clock },
   { text: 'Verified profile builds trust', icon: Shield },
   { text: 'Instant notifications for new jobs', icon: Zap },
@@ -44,7 +44,7 @@ const categories = [
 const testimonials = [
   { name: 'Daniel Roberts', trade: 'Plumber', location: 'Manchester', text: "Within my first month I had 14 booked jobs. The leads are genuine and customers are serious — best platform I've used by a mile.", rating: 5, earnings: '£3,200', period: '/month avg', img: 'https://i.pravatar.cc/80?img=12' },
   { name: 'Amara Koroma', trade: 'Cleaner', location: 'London', text: 'I went from 2 regular clients to 15 in three months. Being verified makes a huge difference — customers trust you immediately.', rating: 5, earnings: '£2,800', period: '/month avg', img: 'https://i.pravatar.cc/80?img=45' },
-  { name: 'Tom Shelby', trade: 'Electrician', location: 'Birmingham', text: "No one's taking a 20% cut. I set my own prices, pick my own jobs, and I'm genuinely earning more while working less.", rating: 5, earnings: '£4,500', period: '/month avg', img: 'https://i.pravatar.cc/80?img=53' },
+  { name: 'Tom Shelby', trade: 'Electrician', location: 'Birmingham', text: "The fees are fair and transparent. I set my own prices, pick my own jobs, and I'm genuinely earning more while working less.", rating: 5, earnings: '£4,500', period: '/month avg', img: 'https://i.pravatar.cc/80?img=53' },
 ]
 
 const faqs = [
@@ -268,7 +268,7 @@ export default function JoinProviderPage() {
                 <div className="flex items-start gap-2.5">
                   <CheckCircle2 size={18} className="text-primary shrink-0 mt-0.5" />
                   <p className="text-[13.5px] text-muted leading-[1.6]">
-                    You set your own rates. No commission taken — Servios charges a small subscription fee instead. <strong className="text-dark font-medium">You keep 100% of what you charge.</strong>
+                    You set your own rates. Servios charges a small platform fee per completed job — so our interests are aligned with yours. <strong className="text-dark font-medium">Transparent pricing, no surprises.</strong>
                   </p>
                 </div>
               </div>

@@ -15,6 +15,7 @@ const PUBLIC_ROUTES = [
   '/join-provider',
   '/forgot-password',
   '/verify-email',
+  '/auth/callback',
   '/coming-soon',
   '/api/v1',
   '/api/webhooks/stripe',

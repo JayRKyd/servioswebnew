@@ -159,6 +159,9 @@ export default function CustomerBookingDetailPage() {
   const [payError, setPayError] = useState<string | null>(null)
   const [showReview, setShowReview] = useState(false)
   const [showClaim, setShowClaim] = useState(false)
+  const [milestones, setMilestones] = useState<any[]>([])
+  const [releasing, setReleasing] = useState<string | null>(null)
+  const [releaseError, setReleaseError] = useState<string | null>(null)
 
   useEffect(() => {
     Promise.all([
@@ -171,12 +174,33 @@ export default function CustomerBookingDetailPage() {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle(),
-    ]).then(([{ data: b }, { data: p }]) => {
+      supabase.from('booking_milestones')
+        .select('*')
+        .eq('booking_id', id)
+        .order('milestone_number'),
+    ]).then(([{ data: b }, { data: p }, { data: ms }]) => {
       setBooking(b)
       setPayment(p)
+      setMilestones(ms ?? [])
       setLoading(false)
     })
   }, [id])
+
+  async function handleRelease(milestoneId: string) {
+    if (!confirm('Release payment for this milestone to the provider?')) return
+    setReleasing(milestoneId)
+    setReleaseError(null)
+    const { error } = await apiClient(`/api/v1/bookings/${id}/milestones/${milestoneId}/release`, {
+      method: 'POST',
+    })
+    if (error) {
+      setReleaseError(error)
+    } else {
+      const { data: ms } = await supabase.from('booking_milestones').select('*').eq('booking_id', id).order('milestone_number')
+      setMilestones(ms ?? [])
+    }
+    setReleasing(null)
+  }
 
   async function handlePay() {
     if (!booking) return
@@ -448,6 +472,52 @@ export default function CustomerBookingDetailPage() {
         bookingStatus={booking.status}
         isProvider={false}
       />
+
+      {/* Milestones */}
+      {milestones.length > 0 && (
+        <div className="rounded-xl bg-white shadow-sm ring-1 ring-gray-100 overflow-hidden">
+          <div className="border-b border-gray-100 px-5 py-3">
+            <h2 className="text-sm font-semibold text-gray-700">Milestones</h2>
+          </div>
+          {releaseError && (
+            <div className="mx-5 mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 ring-1 ring-red-200">{releaseError}</div>
+          )}
+          <div className="divide-y divide-gray-50">
+            {milestones.map((m: any) => (
+              <div key={m.id} className="flex items-start justify-between gap-4 px-5 py-4">
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-primary">
+                    {m.milestone_number}
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{m.title}</p>
+                    {m.description && <p className="mt-0.5 text-xs text-gray-500">{m.description}</p>}
+                    {m.due_date && <p className="mt-0.5 text-xs text-gray-400">Due {m.due_date}</p>}
+                    <span className={
+                      'mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ' +
+                      (m.status === 'released' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700')
+                    }>
+                      {m.status}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <p className="text-sm font-bold text-gray-900">£{Number(m.amount).toFixed(2)}</p>
+                  {m.status === 'pending' && payment?.status === 'authorized' && (
+                    <button
+                      onClick={() => handleRelease(m.id)}
+                      disabled={releasing === m.id}
+                      className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+                    >
+                      {releasing === m.id ? 'Releasing…' : 'Release'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {payError && (
         <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{payError}</div>

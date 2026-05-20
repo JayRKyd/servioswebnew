@@ -70,7 +70,7 @@ function SignupForm() {
     })
 
     if (error) { setError(error.message); setIsLoading(false); return }
-    router.push('/verify-email')
+    router.push(`/verify-email?email=${encodeURIComponent(email)}`)
   }
 
   return (

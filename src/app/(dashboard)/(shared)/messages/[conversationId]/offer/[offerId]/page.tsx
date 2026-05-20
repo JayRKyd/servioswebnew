@@ -115,7 +115,7 @@ export default function OfferViewPage() {
                   {m.due_date && <p className="mt-0.5 text-xs text-gray-400">Due {m.due_date}</p>}
                 </div>
               </div>
-              <p className="shrink-0 text-sm font-bold text-gray-900">${(m.amount_cents / 100).toFixed(2)}</p>
+              <p className="shrink-0 text-sm font-bold text-gray-900">£{(m.amount_cents / 100).toFixed(2)}</p>
             </div>
           ))}
         </div>
@@ -123,7 +123,7 @@ export default function OfferViewPage() {
         {/* Total */}
         <div className="flex items-center justify-between bg-gray-50 px-5 py-4 border-t border-gray-100">
           <span className="text-sm font-semibold text-gray-700">Total</span>
-          <span className="text-lg font-bold text-gray-900">${(totalCents / 100).toFixed(2)}</span>
+          <span className="text-lg font-bold text-gray-900">£{(totalCents / 100).toFixed(2)}</span>
         </div>
       </div>
 

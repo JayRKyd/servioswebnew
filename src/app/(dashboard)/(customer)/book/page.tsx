@@ -6,6 +6,8 @@ import {
   CATEGORY_META, SERVICE_QUESTIONS, LOCATION_STEP,
 } from '@/lib/service-questions'
 import type { QuestionStep, QuestionOption } from '@/lib/service-questions'
+import { PlacesAutocomplete } from '@/components/search/PlacesAutocomplete'
+import type { PlaceResult } from '@/components/search/PlacesAutocomplete'
 
 const CATEGORY_ICONS: Record<string, React.ElementType> = {
   plumber:      Droplets,
@@ -62,15 +64,10 @@ function LocationSearch({
 }: {
   stepIndex: number
   totalSteps: number
-  onSelect: (value: string) => void
+  onSelect: (place: PlaceResult) => void
   onBack: () => void
 }) {
-  const [query, setQuery] = useState('')
-
-  const allOptions = LOCATION_STEP.options
-  const filtered = query.trim()
-    ? allOptions.filter(o => o.label.toLowerCase().includes(query.toLowerCase()))
-    : allOptions
+  const [selectedPlace, setSelectedPlace] = useState<PlaceResult | null>(null)
 
   const progress = ((stepIndex + 1) / totalSteps) * 100
 
@@ -96,45 +93,19 @@ function LocationSearch({
         <p className="mt-1 text-[13.5px] text-muted">{LOCATION_STEP.hint}</p>
       </div>
 
-      <div className="relative">
-        <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-gray-400">
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-          </svg>
-        </span>
-        <input
-          autoFocus
-          type="text"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder="Search city…"
-          className="w-full rounded-xl border border-border bg-[#fafbfa] py-3.5 pl-10 pr-4 text-[14px] text-dark placeholder-gray-400 outline-none focus:bg-white focus:border-primary/30 focus:ring-2 focus:ring-primary/10 transition-all"
-        />
-      </div>
+      <PlacesAutocomplete
+        value={selectedPlace?.label ?? ''}
+        placeholder="Enter a postcode or town, e.g. SW1A 1AA"
+        onPlace={(place) => {
+          setSelectedPlace(place)
+          onSelect(place)
+        }}
+        onClear={() => setSelectedPlace(null)}
+        className="rounded-xl border-border bg-[#fafbfa] py-3.5 px-4 text-[14px] text-dark placeholder-gray-400 focus:bg-white focus:border-primary/30 focus:ring-2 focus:ring-primary/10"
+      />
 
-      {filtered.length > 0 ? (
-        <div className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
-          {filtered.map((opt, i) => (
-            <button
-              key={opt.value}
-              onMouseDown={e => { e.preventDefault(); onSelect(opt.value) }}
-              className={
-                'flex w-full items-center gap-3 px-4 py-3.5 text-left text-[13.5px] transition hover:bg-primary/[0.04] ' +
-                (i < filtered.length - 1 ? 'border-b border-border' : '')
-              }
-            >
-              <span className="text-primary">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 21c-4.418 0-8-5.373-8-9a8 8 0 1 1 16 0c0 3.627-3.582 9-8 9z" />
-                  <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
-                </svg>
-              </span>
-              <span className="font-medium text-dark">{opt.label}</span>
-            </button>
-          ))}
-        </div>
-      ) : (
-        <p className="text-center text-[13px] text-muted">No locations found</p>
+      {!selectedPlace && (
+        <p className="text-center text-[13px] text-muted">Start typing your postcode or town to find nearby providers.</p>
       )}
     </div>
   )
@@ -357,7 +328,11 @@ function BookPageInner() {
   const isLocationStep = stepIndex === steps.length
   const step = steps[stepIndex]
 
-  function buildContextAndNavigate(finalSingles: Record<string, string>, finalMultis: Record<string, string[]>, island: string) {
+  function buildContextAndNavigate(
+    finalSingles: Record<string, string>,
+    finalMultis: Record<string, string[]>,
+    place: PlaceResult,
+  ) {
     const meta = CATEGORY_META[category]
     const contextParts: string[] = []
     for (const [id, val] of Object.entries(finalSingles)) contextParts.push(`${id}:${val}`)
@@ -366,7 +341,9 @@ function BookPageInner() {
     }
     const params = new URLSearchParams()
     if (meta?.label) params.set('category', meta.label)
-    if (island) params.set('island', island)
+    if (place.label) params.set('area', place.label)
+    if (place.lat) params.set('lat', String(place.lat))
+    if (place.lng) params.set('lng', String(place.lng))
     if (contextParts.length > 0) params.set('context', contextParts.join(','))
     router.push(`/search?${params.toString()}`)
   }
@@ -419,8 +396,8 @@ function BookPageInner() {
     setStepIndex(i => i + 1)
   }
 
-  function handleLocationSelect(island: string) {
-    buildContextAndNavigate(singles, multis, island)
+  function handleLocationSelect(place: PlaceResult) {
+    buildContextAndNavigate(singles, multis, place)
   }
 
   function handleBack() {

@@ -48,7 +48,7 @@ export default function ProviderServicesPage() {
               <div key={o.id} className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
                 <div>
                   <p className="font-semibold text-gray-900">{o.services?.title}</p>
-                  <p className="text-xs text-gray-400">{o.services?.service_categories?.name} · USD {o.custom_price ?? '—'}/{o.price_type}</p>
+                  <p className="text-xs text-gray-400">{o.services?.service_categories?.name} · £{o.custom_price ?? '—'}/{o.price_type}</p>
                   {o.duration_minutes && <p className="text-xs text-gray-400">{o.duration_minutes} min</p>}
                 </div>
                 <button onClick={() => toggle(o.id, o.is_active)}

@@ -40,7 +40,7 @@ function SystemMessageCard({ msg, conversationId }: { msg: any; conversationId: 
       </p>
       {(md.total_cents || md.amount_cents) && (
         <p className="mt-0.5 text-xs text-gray-500">
-          ${((md.total_cents ?? md.amount_cents) / 100).toFixed(2)}
+          £{((md.total_cents ?? md.amount_cents) / 100).toFixed(2)}
         </p>
       )}
       {href && (

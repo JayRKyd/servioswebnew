@@ -56,7 +56,7 @@ milestones.post('/:bookingId/milestones', zValidator('json', createMilestoneSche
 
   const { data: booking } = await supabase
     .from('bookings')
-    .select('payer_id, landlord_id, status')
+    .select('payer_id, landlord_id, status, commission_rate')
     .eq('id', bookingId)
     .single()
 
@@ -68,13 +68,28 @@ milestones.post('/:bookingId/milestones', zValidator('json', createMilestoneSche
     throw new HTTPException(400, { message: 'Milestones can only be added to accepted or in-progress bookings' })
   }
 
+  // Resolve milestone_number (1-indexed, sequential)
+  const { count } = await supabase
+    .from('booking_milestones')
+    .select('id', { count: 'exact', head: true })
+    .eq('booking_id', bookingId)
+
+  const milestoneNumber = (count ?? 0) + 1
+  const amount = body.amountCents / 100
+  const commissionRate = booking.commission_rate ?? 0.12
+  const platformCommission = amount * commissionRate
+  const providerAmount = amount - platformCommission
+
   const { data, error } = await supabase
     .from('booking_milestones')
     .insert({
       booking_id: bookingId,
       title: body.title,
       description: body.description ?? null,
-      amount_cents: body.amountCents,
+      amount,
+      provider_amount: providerAmount,
+      platform_commission: platformCommission,
+      milestone_number: milestoneNumber,
       due_date: body.dueDate ?? null,
       status: 'pending',
     })
@@ -142,8 +157,8 @@ milestones.post('/:bookingId/milestones/:milestoneId/release', async (c) => {
 
   // Create Stripe Transfer from platform to provider
   const transfer = await stripe.transfers.create({
-    amount: milestone.amount_cents,
-    currency: 'bsd',
+    amount: Math.round(milestone.amount * 100),
+    currency: 'gbp',
     destination: providerProfile.stripe_account_id,
     source_transaction: payment.stripe_charge_id,
     metadata: { bookingId, milestoneId, milestoneTitle: milestone.title },
@@ -166,17 +181,17 @@ milestones.post('/:bookingId/milestones/:milestoneId/release', async (c) => {
     .single()
 
   if (conversation?.id) {
-    const amountDollars = (milestone.amount_cents / 100).toFixed(2)
+    const amountFormatted = Number(milestone.amount).toFixed(2)
     await supabase.from('messages').insert({
       conversation_id: conversation.id,
       sender_id:       userId,
-      message_text:    `Released payment for "${milestone.title}" — £${amountDollars}`,
+      message_text:    `Released payment for "${milestone.title}" — £${amountFormatted}`,
       message_type:    'payment_released',
       metadata: {
         milestone_id:  milestoneId,
         booking_id:    bookingId,
         title:         milestone.title,
-        amount_cents:  milestone.amount_cents,
+        amount:        milestone.amount,
         transfer_id:   transfer.id,
       },
     })
