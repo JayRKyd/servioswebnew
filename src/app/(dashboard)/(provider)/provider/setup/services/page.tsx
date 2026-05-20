@@ -32,10 +32,10 @@ export default function SetupServicesPage() {
       if (!profile?.trade_category) { router.replace('/provider/setup/trade'); return }
       const { data: cat } = await supabase.from('service_categories').select('id').eq('slug', profile.trade_category).maybeSingle()
       if (cat) {
-        const { data: svcs } = await supabase.from('services').select('id, title, description, base_price, pricing_type').eq('category_id', cat.id).eq('is_active', true).order('title')
+        const { data: svcs } = await supabase.from('services').select('id, title, description, base_price, price_type').eq('category_id', cat.id).eq('is_active', true).order('title')
         setTemplates((svcs ?? []).map((s: any) => ({
           id: s.id, name: s.title, description: s.description,
-          price_min: s.base_price, price_max: null, price_type: s.pricing_type ?? 'fixed',
+          price_min: s.base_price, price_max: null, price_type: s.price_type ?? 'fixed',
         })))
       }
       setLoading(false)
@@ -86,9 +86,11 @@ export default function SetupServicesPage() {
           .from('services')
           .insert({
             title: svc.name,
+            description: svc.description || svc.name,
             category_id: cat?.id ?? null,
-            pricing_type: svc.priceType,
+            price_type: svc.priceType,
             base_price: svc.priceType !== 'quote' ? Number(svc.price) || null : null,
+            currency: 'gbp',
             is_active: true,
           })
           .select('id')
