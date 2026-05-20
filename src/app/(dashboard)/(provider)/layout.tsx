@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
 import { OnboardingContext } from '@/contexts/OnboardingContext'
@@ -10,11 +11,15 @@ let _onboardingCache: { userId: string; ctx: OnboardingCtx } | null = null
 
 export default function ProviderLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading: authLoading } = useAuth()
+  const router = useRouter()
+  const pathname = usePathname()
 
   const cachedCtx = user && _onboardingCache?.userId === user.id ? _onboardingCache.ctx : null
 
   const [ctx, setCtx] = useState<OnboardingCtx>(cachedCtx ?? { complete: true, step: 'complete' })
   const [checked, setChecked] = useState(!!cachedCtx)
+
+  const isSetupRoute = pathname?.startsWith('/provider/setup')
 
   useEffect(() => {
     if (authLoading) return
@@ -22,8 +27,12 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
 
     // Cache hit
     if (_onboardingCache?.userId === user.id) {
-      setCtx(_onboardingCache.ctx)
+      const cached = _onboardingCache.ctx
+      setCtx(cached)
       setChecked(true)
+      if (!cached.complete && !isSetupRoute) {
+        router.replace(`/provider/setup/${cached.step}`)
+      }
       return
     }
 
@@ -34,10 +43,14 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
       .maybeSingle()
       .then(({ data: profile }) => {
         const complete = profile?.onboarding_complete === true || profile?.onboarding_step === 'complete'
-        const newCtx: OnboardingCtx = { complete, step: profile?.onboarding_step ?? 'trade' }
+        const step = profile?.onboarding_step ?? 'trade'
+        const newCtx: OnboardingCtx = { complete, step }
         _onboardingCache = { userId: user.id, ctx: newCtx }
         setCtx(newCtx)
         setChecked(true)
+        if (!complete && !isSetupRoute) {
+          router.replace(`/provider/setup/${step}`)
+        }
       })
       .catch(() => setChecked(true))
   }, [user?.id, authLoading])

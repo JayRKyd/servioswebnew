@@ -9,6 +9,7 @@ function VerifyEmailContent() {
   const email = searchParams.get('email') ?? ''
 
   return (
+    <div className="min-h-screen bg-[#fafbfa] flex flex-col items-center justify-center px-5 py-16">
     <div className="w-full max-w-sm space-y-6 text-center">
       {/* Icon */}
       <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
@@ -51,6 +52,7 @@ function VerifyEmailContent() {
       >
         ← Back to sign in
       </Link>
+    </div>
     </div>
   )
 }
