@@ -3,6 +3,24 @@ import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
+import { SERVICE_QUESTIONS } from '@/lib/service-questions'
+
+function decodeContext(raw: string): string {
+  if (!raw) return ''
+  const allQuestions = Object.values(SERVICE_QUESTIONS).flat()
+  const lines: string[] = []
+  for (const part of raw.split(',')) {
+    const colonIdx = part.indexOf(':')
+    if (colonIdx === -1) continue
+    const qId = part.slice(0, colonIdx)
+    const valRaw = part.slice(colonIdx + 1)
+    const question = allQuestions.find(q => q.id === qId)
+    if (!question) continue
+    const labels = valRaw.split('|').map(v => question.options.find(o => o.value === v)?.label ?? v)
+    lines.push(`${question.question}: ${labels.join(', ')}`)
+  }
+  return lines.join('\n')
+}
 
 export default function NewBookingPage() {
   return <Suspense fallback={<div className="flex h-64 items-center justify-center text-gray-400">Loading…</div>}><NewBookingForm /></Suspense>
@@ -13,12 +31,14 @@ function NewBookingForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [services, setServices] = useState<any[]>([])
+  const contextRaw = searchParams.get('context') ?? ''
+  const prefilled = decodeContext(contextRaw)
   const [form, setForm] = useState({
     service_id: searchParams.get('service') ?? '',
     provider_id: searchParams.get('provider') ?? '',
     scheduled_date: '',
     scheduled_time_start: '',
-    customer_notes: '',
+    customer_notes: prefilled,
     is_emergency: false,
   })
   const [submitting, setSubmitting] = useState(false)
@@ -151,8 +171,15 @@ function NewBookingForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
-          <textarea rows={3} value={form.customer_notes} onChange={e => set('customer_notes', e.target.value)}
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Notes
+            {prefilled ? (
+              <span className="ml-2 text-xs font-normal text-primary">Pre-filled from your search — edit or add more detail.</span>
+            ) : (
+              <span className="ml-1 text-xs font-normal text-gray-400">(optional)</span>
+            )}
+          </label>
+          <textarea rows={prefilled ? 5 : 3} value={form.customer_notes} onChange={e => set('customer_notes', e.target.value)}
             placeholder="Any special instructions…"
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
         </div>
