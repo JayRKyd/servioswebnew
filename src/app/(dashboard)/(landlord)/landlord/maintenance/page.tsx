@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/auth'
-import { useAuth } from '@/hooks/useAuth'
+import { useProfileIds } from '@/hooks/useProfileIds'
 import { formatDate } from '@/lib/utils'
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -41,18 +41,18 @@ function StatusBadge({ status }: { status: string }) {
 const FILTERS = ['all', 'pending', 'approved', 'scheduled', 'in_progress', 'completed']
 
 export default function LandlordMaintenancePage() {
-  const { user } = useAuth()
+  const { landlordId } = useProfileIds()
   const [requests, setRequests] = useState<any[]>([])
   const [filter, setFilter] = useState('all')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!user) return
+    if (!landlordId) return
     setLoading(true)
-    let q = supabase.from('maintenance_requests').select('*, properties(name)').eq('landlord_id', user.id).order('created_at', { ascending: false })
+    let q = supabase.from('maintenance_requests').select('*, properties(name)').eq('landlord_id', landlordId).order('created_at', { ascending: false })
     if (filter !== 'all') q = q.eq('status', filter)
     q.then(({ data }) => { setRequests(data ?? []); setLoading(false) })
-  }, [user?.id, filter])
+  }, [landlordId, filter])
 
   return (
     <div className="space-y-6">

@@ -2,12 +2,12 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/auth'
-import { useAuth } from '@/hooks/useAuth'
+import { useProfileIds } from '@/hooks/useProfileIds'
 
 const PRIORITIES = ['low', 'medium', 'high', 'emergency']
 
 export default function ReportIssuePage() {
-  const { user } = useAuth()
+  const { tenantId } = useProfileIds()
   const router = useRouter()
   const [tenancy, setTenancy] = useState<any>(null)
   const [form, setForm] = useState({ title: '', description: '', priority: 'medium' })
@@ -15,20 +15,30 @@ export default function ReportIssuePage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!user) return
-    supabase.from('tenants').select('property_id, landlord_id').eq('user_id', user.id).eq('is_active', true).single()
-      .then(({ data }) => setTenancy(data))
-  }, [user?.id])
+    if (!tenantId) return
+    // Fetch tenancy row using the tenant_profiles.id to get property and landlord context
+    supabase.from('tenant_profiles').select('user_id').eq('id', tenantId).single()
+      .then(async ({ data: tp }) => {
+        if (!tp) return
+        const { data } = await supabase
+          .from('tenants')
+          .select('property_id, landlord_id')
+          .eq('user_id', tp.user_id)
+          .eq('is_active', true)
+          .single()
+        setTenancy(data)
+      })
+  }, [tenantId])
 
   function set(key: string, value: string) { setForm(f => ({ ...f, [key]: value })) }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!user || !tenancy) return
+    if (!tenantId || !tenancy) return
     setSaving(true)
     setError(null)
     const { error } = await supabase.from('maintenance_requests').insert({
-      tenant_id: user.id,
+      tenant_id: tenantId,
       property_id: tenancy.property_id,
       landlord_id: tenancy.landlord_id,
       title: form.title,
@@ -63,9 +73,9 @@ export default function ReportIssuePage() {
             ))}
           </div>
         </div>
-        {!tenancy && <p className="text-sm text-yellow-600">No active tenancy found. You must be a registered tenant to submit requests.</p>}
+        {!tenancy && tenantId && <p className="text-sm text-yellow-600">No active tenancy found. You must be a registered tenant to submit requests.</p>}
         {error && <p className="text-sm text-red-600">{error}</p>}
-        <button type="submit" disabled={saving || !tenancy}
+        <button type="submit" disabled={saving || !tenancy || !tenantId}
           className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50">
           {saving ? 'Submitting…' : 'Submit Request'}
         </button>
