@@ -42,9 +42,18 @@ function LoginForm() {
     e.preventDefault()
     setError(null)
     setIsLoading(true)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) { setError(error.message); setIsLoading(false); return }
-    router.push(redirectTo)
+    const role = data.user?.user_metadata?.active_role ?? 'customer'
+    const roleHome: Record<string, string> = {
+      provider: '/provider',
+      landlord: '/landlord',
+      tenant: '/tenant',
+      admin: '/admin',
+      customer: '/dashboard',
+    }
+    const destination = redirectTo !== '/dashboard' ? redirectTo : (roleHome[role] ?? '/dashboard')
+    router.push(destination)
     router.refresh()
   }
 
