@@ -50,6 +50,15 @@ export default function ProviderEarningsPage() {
         ))}
       </div>
 
+      <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800 flex flex-wrap gap-x-4 gap-y-1 items-center">
+        <span className="font-semibold">Commission rates:</span>
+        <span>Standard — <strong>12%</strong></span>
+        <span className="text-blue-600">·</span>
+        <span>Invited provider — <strong>10%</strong></span>
+        <span className="text-blue-600">·</span>
+        <span>Emergency booking — <strong>15%</strong></span>
+      </div>
+
       {totalCommission > 0 && (
         <div className="rounded-lg bg-gray-50 border border-gray-200 px-4 py-3 text-sm text-gray-600">
           Total platform commission deducted: <span className="font-semibold text-gray-900">{formatCurrency(totalCommission / 100)}</span>

@@ -174,6 +174,28 @@ export default function ProviderBookingDetailPage() {
         )}
       </div>
 
+      {/* Commission transparency banner — shown only when action is needed */}
+      {booking.status === 'pending' && (() => {
+        const gross = booking.base_amount ?? booking.total_amount ?? 0
+        const rate = booking.commission_rate ?? 0.12
+        const rateLabel = booking.is_emergency
+          ? '15% (emergency)'
+          : rate <= 0.10
+          ? '10% — invited provider'
+          : '12% — standard'
+        const commission = Math.round(gross * (booking.is_emergency ? 0.15 : rate))
+        const net = gross - commission
+        return (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 space-y-1">
+            <p className="text-sm font-semibold text-amber-900">Review before accepting</p>
+            <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-amber-800">
+              <span>Commission: <strong>{rateLabel}</strong></span>
+              <span>You&apos;ll receive: <strong>{formatCurrency(net / 100)}</strong></span>
+            </div>
+          </div>
+        )
+      })()}
+
       <div className="flex flex-wrap gap-3">
         {booking.status === 'pending' && <>
           <button onClick={() => updateStatus('accepted')} disabled={acting} className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50">Accept</button>

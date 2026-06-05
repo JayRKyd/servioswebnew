@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { ProviderHit } from '@/hooks/useProviderSearch'
+import { BADGE_LABELS } from '@/lib/document-requirements'
 
 function Stars({ rating }: { rating: number }) {
   const full = Math.round(rating)
@@ -56,6 +57,15 @@ export function ProviderCard({
               </span>
             )}
           </div>
+          {(provider.verified_badges ?? []).length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-0.5">
+              {(provider.verified_badges ?? []).slice(0, 3).map(badge => (
+                <span key={badge} className="rounded-full border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+                  ✓ {BADGE_LABELS[badge] ?? badge}
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Stars + review count + jobs done */}
           <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">

@@ -18,6 +18,7 @@ export type ProviderHit = {
   avatar_url: string | null
   is_verified?: boolean
   jobs_completed?: number
+  verified_badges?: string[]
   _geoloc?: { lat: number; lng: number }
   _rankingInfo?: { geoDistance?: number }
 }

@@ -25,10 +25,19 @@ export default function ProviderProfilePage() {
       </div>
 
       <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100 space-y-5">
-        <div>
-          <p className="text-lg font-bold text-gray-900">{profile.business_name}</p>
-          <p className="text-sm text-gray-500">{profile.first_name} {profile.last_name}</p>
-          {profile.is_verified && <span className="mt-1 inline-block rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">Verified</span>}
+        <div className="flex items-center gap-4">
+          {profile.profile_image_url ? (
+            <img src={profile.profile_image_url} alt={profile.business_name} className="h-16 w-16 rounded-full object-cover shrink-0" />
+          ) : (
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary text-2xl font-bold text-white">
+              {(profile.business_name ?? profile.first_name ?? '?').charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div>
+            <p className="text-lg font-bold text-gray-900">{profile.business_name}</p>
+            <p className="text-sm text-gray-500">{profile.first_name} {profile.last_name}</p>
+            {profile.is_verified && <span className="mt-1 inline-block rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">✓ Verified</span>}
+          </div>
         </div>
         {profile.bio && <div className="border-t pt-4"><p className="text-sm text-gray-500 mb-1">Bio</p><p className="text-sm text-gray-700">{profile.bio}</p></div>}
         <div className="grid grid-cols-2 gap-4 border-t pt-4">

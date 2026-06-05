@@ -3,6 +3,7 @@ import { Suspense, useEffect, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/auth'
+import { BADGE_LABELS } from '@/lib/document-requirements'
 
 interface ProviderService {
   service: { title: string; category: string }
@@ -54,6 +55,9 @@ function CustomerProviderProfileInner() {
   const [provider, setProvider] = useState<ProviderProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [messaging, setMessaging] = useState(false)
+  const [galleryPhotos, setGalleryPhotos] = useState<{ signed_url: string; caption: string | null; type: string }[]>([])
+  const [verifiedBadges, setVerifiedBadges] = useState<string[]>([])
+  const [lightbox, setLightbox] = useState<string | null>(null)
 
   async function handleMessage() {
     setMessaging(true)
@@ -130,6 +134,40 @@ function CustomerProviderProfileInner() {
           reviewer_name: reviewerNameMap[r.reviewer_id] ?? 'Customer',
         })),
       })
+
+      // Load approved gallery photos
+      const { data: bookingIds } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('provider_id', pp.id)
+      const bids = (bookingIds ?? []).map((b: any) => b.id)
+      if (bids.length > 0) {
+        const { data: photos } = await supabase
+          .from('booking_photos')
+          .select('storage_path, caption, type')
+          .eq('moderation_status', 'approved')
+          .in('booking_id', bids)
+          .order('created_at', { ascending: false })
+          .limit(12)
+        if (photos && photos.length > 0) {
+          const withUrls = await Promise.all(photos.map(async (p: any) => {
+            const { data: signed } = await supabase.storage
+              .from('booking-photos')
+              .createSignedUrl(p.storage_path, 3600)
+            return { ...p, signed_url: signed?.signedUrl ?? '' }
+          }))
+          setGalleryPhotos(withUrls.filter(p => p.signed_url))
+        }
+      }
+
+      // Load approved document badges
+      const { data: docs } = await supabase
+        .from('provider_documents')
+        .select('document_type')
+        .eq('provider_id', id as string)
+        .eq('status', 'approved')
+      setVerifiedBadges(Array.from(new Set((docs ?? []).map((d: any) => d.document_type))))
+
       setLoading(false)
     }
     load()
@@ -179,6 +217,15 @@ function CustomerProviderProfileInner() {
               <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">✓ Verified</span>
             )}
           </div>
+          {verifiedBadges.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pt-0.5">
+              {verifiedBadges.slice(0, 4).map(badge => (
+                <span key={badge} className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                  ✓ {BADGE_LABELS[badge] ?? badge}
+                </span>
+              ))}
+            </div>
+          )}
           {provider.trade_category && (
             <p className="text-sm text-gray-500 capitalize">{provider.trade_category.replace(/_/g, ' ')}</p>
           )}
@@ -232,6 +279,49 @@ function CustomerProviderProfileInner() {
                 <span className="text-xs text-gray-400 capitalize">{sv.service.category}</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Work Gallery */}
+      {galleryPhotos.length > 0 && (
+        <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
+          <h2 className="mb-3 text-sm font-semibold text-gray-900">Work Gallery</h2>
+          <div className="grid grid-cols-3 gap-2">
+            {galleryPhotos.map((photo, i) => (
+              <div
+                key={i}
+                className="group relative aspect-square cursor-pointer overflow-hidden rounded-lg bg-gray-100"
+                onClick={() => setLightbox(photo.signed_url)}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={photo.signed_url}
+                  alt={photo.caption ?? `Work photo ${i + 1}`}
+                  className="h-full w-full object-cover transition group-hover:opacity-90"
+                />
+                {photo.type === 'after' && (
+                  <span className="absolute bottom-1 right-1 rounded bg-green-600/80 px-1 py-0.5 text-[10px] font-medium text-white">After</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setLightbox(null)}
+        >
+          <div className="relative max-h-full max-w-3xl" onClick={e => e.stopPropagation()}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={lightbox} alt="Work photo" className="max-h-[80vh] max-w-full rounded-lg object-contain" />
+            <button
+              onClick={() => setLightbox(null)}
+              className="absolute -right-3 -top-3 flex h-7 w-7 items-center justify-center rounded-full bg-white text-gray-700 shadow-lg text-xs font-bold"
+            >
+              ✕
+            </button>
           </div>
         </div>
       )}
