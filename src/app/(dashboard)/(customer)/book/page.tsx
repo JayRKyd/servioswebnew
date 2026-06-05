@@ -265,11 +265,12 @@ function CheckboxRow({
 // ─── Question wizard step ─────────────────────────────────────────────────
 
 function WizardStep({
-  category, step, stepIndex, totalSteps,
+  category, categoryLabel, step, stepIndex, totalSteps,
   singleAnswer, multiAnswers, otherTexts,
   onSingleSelect, onMultiToggle, onOtherChange, onContinue, onBack,
 }: {
   category: string
+  categoryLabel: string
   step: QuestionStep
   stepIndex: number
   totalSteps: number
@@ -282,8 +283,7 @@ function WizardStep({
   onContinue: () => void
   onBack: () => void
 }) {
-  const meta = CATEGORY_META[category]
-  const Icon = Wrench
+  const displayLabel = categoryLabel || CATEGORY_META[category]?.label || category
   const isMulti = step.type === 'multi'
   const progress = ((stepIndex + 1) / totalSteps) * 100
   const canContinue = isMulti ? multiAnswers.length > 0 : singleAnswer !== ''
@@ -297,8 +297,8 @@ function WizardStep({
         <div className="space-y-2">
           <div className="flex justify-between text-[11.5px]">
             <span className="flex items-center gap-1.5 font-semibold text-primary uppercase tracking-wide">
-              <Icon size={12} />
-              {meta?.label}
+              <Wrench size={12} />
+              {displayLabel}
             </span>
             <span className="text-muted">Step {stepIndex + 1} of {totalSteps}</span>
           </div>
@@ -502,6 +502,7 @@ function BookPageInner() {
     <div className="py-8 px-4">
       <WizardStep
         category={category}
+        categoryLabel={categoryLabel}
         step={step}
         stepIndex={stepIndex}
         totalSteps={totalSteps}
