@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
+import { useProfileIds } from '@/hooks/useProfileIds'
 import { formatDate, formatCurrency } from '@/lib/utils'
 
 const STATUS_COLORS: Record<string, string> = {
@@ -27,9 +28,11 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function ProviderDashboard() {
   const { user } = useAuth()
+  const { providerId } = useProfileIds()
   const [bookings, setBookings] = useState<any[]>([])
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [invitation, setInvitation] = useState<{ landlord_name: string } | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -41,6 +44,29 @@ export default function ProviderDashboard() {
           .then(({ data: b }) => { setBookings(b ?? []); setLoading(false) })
       })
   }, [user?.id])
+
+  useEffect(() => {
+    if (!providerId) return
+    supabase
+      .from('provider_invitations')
+      .select('id, invited_by_landlord_id, invitation_message')
+      .eq('provider_id', providerId)
+      .eq('status', 'accepted')
+      .limit(1)
+      .maybeSingle()
+      .then(async ({ data: inv }) => {
+        if (!inv) return
+        const { data: lp } = await supabase
+          .from('landlord_profiles')
+          .select('first_name, last_name, company_name')
+          .eq('id', inv.invited_by_landlord_id)
+          .maybeSingle()
+        if (lp) {
+          const name = (lp as any).company_name || `${(lp as any).first_name ?? ''} ${(lp as any).last_name ?? ''}`.trim() || 'a landlord'
+          setInvitation({ landlord_name: name })
+        }
+      })
+  }, [providerId])
 
   const pending = bookings.filter(b => b.status === 'pending').length
   const upcoming = bookings.filter(b => ['accepted', 'in_progress'].includes(b.status)).length
@@ -61,6 +87,16 @@ export default function ProviderDashboard() {
           </div>
         ))}
       </div>
+
+      {invitation && (
+        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 flex items-start gap-3">
+          <span className="text-xl shrink-0">🤝</span>
+          <div>
+            <p className="text-sm font-semibold text-green-900">You were invited by {invitation.landlord_name}</p>
+            <p className="text-sm text-green-700 mt-0.5">You earn a reduced <strong>10% commission rate</strong> on jobs booked through them.</p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {([['Requests', '/provider/bookings'], ['Calendar', '/provider/calendar'], ['Earnings', '/provider/earnings'], ['Messages', '/messages']] as const).map(([label, href]) => (

@@ -98,6 +98,100 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
+function DisputeModal({ bookingId, providerUserId, onClose }: { bookingId: string; providerUserId?: string | null; onClose: () => void }) {
+  const [form, setForm] = useState({ type: '', reason: '', outcome: '', amount: '' })
+  const [submitting, setSubmitting] = useState(false)
+  const [done, setDone] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function submit() {
+    if (!form.type || !form.reason || !form.outcome) { setError('Please fill in all required fields.'); return }
+    setSubmitting(true); setError(null)
+    const { data: { user } } = await supabase.auth.getUser()
+    const { error: err } = await supabase.from('disputes').insert({
+      booking_id: bookingId,
+      filed_by: user?.id ?? null,
+      filed_against: providerUserId ?? null,
+      dispute_type: form.type,
+      dispute_reason: form.reason,
+      desired_outcome: form.outcome,
+      desired_amount: form.amount ? parseFloat(form.amount) * 100 : null,
+      status: 'pending',
+      priority: 'normal',
+      filed_at: new Date().toISOString(),
+    })
+    if (err) { setError(err.message) } else { setDone(true) }
+    setSubmitting(false)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl space-y-4">
+        {done ? (
+          <>
+            <div className="text-center text-4xl">📋</div>
+            <h2 className="text-center text-lg font-bold text-gray-900">Dispute submitted</h2>
+            <p className="text-center text-sm text-gray-500">Our team will review your dispute and follow up within 3–5 business days. You may be asked for further evidence.</p>
+            <button onClick={onClose} className="w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary-dark">Close</button>
+          </>
+        ) : (
+          <>
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">Raise a Dispute</h2>
+              <p className="text-sm text-gray-500 mt-1">Disputes are reviewed by the Servios team and handled fairly for both parties.</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Issue type <span className="text-red-500">*</span></label>
+              <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                <option value="">Select…</option>
+                <option value="quality">Poor quality of work</option>
+                <option value="no_show">Provider did not show up</option>
+                <option value="overcharge">Overcharged vs. agreed price</option>
+                <option value="incomplete">Work left incomplete</option>
+                <option value="damage">Property damage caused</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Describe the issue <span className="text-red-500">*</span></label>
+              <textarea rows={4} value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
+                placeholder="Be specific — what was agreed, what happened, and what went wrong?"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">What outcome do you want? <span className="text-red-500">*</span></label>
+              <select value={form.outcome} onChange={e => setForm(f => ({ ...f, outcome: e.target.value }))}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                <option value="">Select…</option>
+                <option value="refund">Full refund</option>
+                <option value="partial">Partial refund</option>
+                <option value="redo">Provider to redo the work</option>
+              </select>
+            </div>
+            {(form.outcome === 'partial') && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Refund amount (£)</label>
+                <input type="number" min="0" step="0.01" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+                  placeholder="0.00"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+              </div>
+            )}
+            {error && <p className="text-xs text-red-600">{error}</p>}
+            <div className="flex gap-2">
+              <button onClick={onClose} className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+              <button onClick={submit} disabled={submitting}
+                className="flex-1 rounded-lg bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50">
+                {submitting ? 'Submitting…' : 'Submit dispute'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function ClaimModal({ bookingId, onClose }: { bookingId: string; onClose: () => void }) {
   const [description, setDescription] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -159,6 +253,7 @@ export default function CustomerBookingDetailPage() {
   const [payError, setPayError] = useState<string | null>(null)
   const [showReview, setShowReview] = useState(false)
   const [showClaim, setShowClaim] = useState(false)
+  const [showDispute, setShowDispute] = useState(false)
   const [milestones, setMilestones] = useState<any[]>([])
   const [releasing, setReleasing] = useState<string | null>(null)
   const [releaseError, setReleaseError] = useState<string | null>(null)
@@ -324,6 +419,13 @@ export default function CustomerBookingDetailPage() {
         <ClaimModal
           bookingId={id as string}
           onClose={() => setShowClaim(false)}
+        />
+      )}
+      {showDispute && (
+        <DisputeModal
+          bookingId={id as string}
+          providerUserId={booking?.provider_profile?.user_id ?? null}
+          onClose={() => setShowDispute(false)}
         />
       )}
 
@@ -556,10 +658,16 @@ export default function CustomerBookingDetailPage() {
         )}
       </div>
       {canClaim && (
-        <button onClick={() => setShowClaim(true)}
-          className="w-full rounded-lg border border-orange-300 px-4 py-2 text-sm font-medium text-orange-700 hover:bg-orange-50">
-          🛡 File a Workmanship Claim
-        </button>
+        <div className="flex flex-col gap-2">
+          <button onClick={() => setShowClaim(true)}
+            className="w-full rounded-lg border border-orange-300 px-4 py-2 text-sm font-medium text-orange-700 hover:bg-orange-50">
+            🛡 File a Workmanship Claim
+          </button>
+          <button onClick={() => setShowDispute(true)}
+            className="w-full rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
+            ⚠ Raise a Dispute
+          </button>
+        </div>
       )}
     </div>
   )

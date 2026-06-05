@@ -4,6 +4,35 @@ import { supabase } from '@/lib/auth'
 import { useProfileIds } from '@/hooks/useProfileIds'
 import { formatDate, formatCurrency } from '@/lib/utils'
 
+function downloadEarningsCSV(bookings: any[]) {
+  const header = ['Booking Number', 'Service', 'Date', 'Gross (£)', 'Commission (£)', 'Net (£)', 'Rate']
+  const rows = bookings.map(b => {
+    const gross = b.base_amount ?? b.total_amount ?? 0
+    const commission = b.platform_fee ?? Math.round(gross * (b.commission_rate ?? 0.12))
+    const net = gross - commission
+    const rate = b.commission_rate ? `${Math.round(b.commission_rate * 100)}%` : '12%'
+    return [
+      b.booking_number ?? '',
+      (b.service?.title ?? '').replace(/,/g, ' '),
+      b.scheduled_date ?? '',
+      (gross / 100).toFixed(2),
+      (commission / 100).toFixed(2),
+      (net / 100).toFixed(2),
+      rate,
+    ]
+  })
+  const csv = [header, ...rows].map(r => r.join(',')).join('\r\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const now = new Date()
+  const filename = `servios-earnings-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}.csv`
+  const a = Object.assign(document.createElement('a'), { href: url, download: filename })
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
 export default function ProviderEarningsPage() {
   const { providerId } = useProfileIds()
   const [bookings, setBookings] = useState<any[]>([])
@@ -35,7 +64,20 @@ export default function ProviderEarningsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Earnings</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Earnings</h1>
+        {bookings.length > 0 && (
+          <button
+            onClick={() => downloadEarningsCSV(bookings)}
+            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Download Statement
+          </button>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {([

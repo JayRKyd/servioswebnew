@@ -22,36 +22,65 @@ const DEFAULT: WeekSchedule = Object.fromEntries(
 export default function AvailabilityPage() {
   const [schedule, setSchedule] = useState<WeekSchedule>(DEFAULT)
   const [emergency, setEmergency] = useState(false)
+  const [awayMode, setAwayMode] = useState(false)
+  const [awayLoading, setAwayLoading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data } = await supabase
-        .from('provider_availability')
-        .select('*')
-        .eq('provider_id', user.id)
-        .single()
+      setUserId(user.id)
 
-      if (data) {
+      const [{ data: avail }, { data: profile }] = await Promise.all([
+        supabase
+          .from('provider_availability')
+          .select('*')
+          .eq('provider_id', user.id)
+          .single(),
+        supabase
+          .from('provider_profiles')
+          .select('availability_status')
+          .eq('user_id', user.id)
+          .maybeSingle(),
+      ])
+
+      if (avail) {
         const loaded: WeekSchedule = {}
         for (const key of DAY_KEYS) {
           loaded[key] = {
-            enabled: data[`${key}_enabled`] ?? DEFAULT[key].enabled,
-            start: data[`${key}_start`] ?? '09:00',
-            end: data[`${key}_end`] ?? '17:00',
+            enabled: avail[`${key}_enabled`] ?? DEFAULT[key].enabled,
+            start: avail[`${key}_start`] ?? '09:00',
+            end: avail[`${key}_end`] ?? '17:00',
           }
         }
         setSchedule(loaded)
-        setEmergency(data.emergency_available ?? false)
+        setEmergency(avail.emergency_available ?? false)
       }
+
+      if (profile) {
+        setAwayMode(profile.availability_status === 'away')
+      }
+
       setLoading(false)
     }
     load()
   }, [])
+
+  async function toggleAwayMode() {
+    if (!userId) return
+    setAwayLoading(true)
+    const newStatus = awayMode ? 'active' : 'away'
+    await supabase
+      .from('provider_profiles')
+      .update({ availability_status: newStatus })
+      .eq('user_id', userId)
+    setAwayMode(v => !v)
+    setAwayLoading(false)
+  }
 
   function toggle(key: string) {
     setSchedule(p => ({ ...p, [key]: { ...p[key], enabled: !p[key].enabled } }))
@@ -108,6 +137,31 @@ export default function AvailabilityPage() {
           {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Changes'}
         </button>
       </div>
+
+      {/* Away mode */}
+      <div className={`rounded-2xl border p-4 flex items-center justify-between transition-colors ${awayMode ? 'bg-slate-800 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
+        <div>
+          <p className={`font-semibold ${awayMode ? 'text-white' : 'text-gray-900'}`}>Away Mode</p>
+          <p className={`text-sm mt-0.5 ${awayMode ? 'text-slate-300' : 'text-gray-500'}`}>
+            {awayMode
+              ? 'You are away. New bookings are paused. Existing jobs are unaffected.'
+              : 'Pause new bookings while you\'re away. Existing jobs are unaffected.'}
+          </p>
+        </div>
+        <button
+          onClick={toggleAwayMode}
+          disabled={awayLoading}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${awayMode ? 'bg-slate-500' : 'bg-gray-300'}`}
+        >
+          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${awayMode ? 'translate-x-6' : 'translate-x-1'}`} />
+        </button>
+      </div>
+
+      {awayMode && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Your profile is hidden from new searches while Away Mode is on. Turn it off to start accepting bookings again.
+        </div>
+      )}
 
       {/* Emergency toggle */}
       <div className="rounded-2xl bg-orange-50 border border-orange-200 p-4 flex items-center justify-between">

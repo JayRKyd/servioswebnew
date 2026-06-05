@@ -10,6 +10,7 @@ export default function SettingsPage() {
   const items = [
     { label: 'Profile', description: 'Update your name and contact info', href: '/settings/profile' },
     { label: 'Manage Roles', description: 'Add or switch between your roles', href: '/settings/roles' },
+    { label: 'Notifications', description: 'Email, push, and SMS preferences', href: '/settings/notifications' },
     { label: 'Security', description: 'Change your password', href: '/settings/security' },
     { label: 'Billing', description: 'Payment methods and history', href: '/settings/billing' },
     { label: 'Help', description: 'FAQs and support', href: '/help' },
