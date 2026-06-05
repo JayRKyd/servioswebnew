@@ -13,7 +13,7 @@ export default function ProviderVerificationPage() {
     const { data: providerData } = await supabase
       .from('provider_profiles')
       .select('*')
-      .eq('verification_status', 'pending')
+      .eq('is_verified', false)
       .eq('is_active', true)
       .order('created_at', { ascending: true })
 
