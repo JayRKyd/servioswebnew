@@ -25,7 +25,7 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
-const FILTERS = ['all', 'pending', 'accepted', 'in_progress', 'completed', 'rejected']
+const FILTERS = ['all', 'pending', 'accepted', 'in_progress', 'completed', 'rejected', 'cancelled']
 
 export default function ProviderBookingsPage() {
   const { providerId, loading: idsLoading } = useProfileIds()

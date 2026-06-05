@@ -26,6 +26,20 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
+function docWarning(profile: any): { label: string; daysLeft: number | null } | null {
+  const checks = [
+    { label: 'Liability Insurance', date: profile?.insurance_expiry_date, verified: profile?.insurance_verified },
+    { label: 'Business Licence', date: profile?.business_license_expiry_date, verified: profile?.business_license_verified },
+  ]
+  for (const c of checks) {
+    if (!c.verified) continue
+    if (!c.date) continue
+    const daysLeft = Math.ceil((new Date(c.date).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    if (daysLeft <= 30) return { label: c.label, daysLeft }
+  }
+  return null
+}
+
 export default function ProviderDashboard() {
   const { user } = useAuth()
   const { providerId } = useProfileIds()
@@ -33,6 +47,8 @@ export default function ProviderDashboard() {
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [invitation, setInvitation] = useState<{ landlord_name: string } | null>(null)
+  const [dismissedStripe, setDismissedStripe] = useState(false)
+  const [dismissedDoc, setDismissedDoc] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -87,6 +103,70 @@ export default function ProviderDashboard() {
           </div>
         ))}
       </div>
+
+      {/* Stripe Connect banner */}
+      {profile && !dismissedStripe && (!profile.stripe_account_id || profile.stripe_account_status !== 'active') && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 shrink-0 text-red-500">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-red-900">Connect Stripe to receive payouts</p>
+              <p className="text-sm text-red-700 mt-0.5">You won't be paid for completed jobs until your Stripe account is connected.</p>
+              <Link href="/provider/payouts" className="mt-2 inline-block text-sm font-medium text-red-800 underline hover:text-red-900">
+                Connect Stripe →
+              </Link>
+            </div>
+          </div>
+          <button onClick={() => setDismissedStripe(true)} className="shrink-0 text-red-400 hover:text-red-600" aria-label="Dismiss">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      {/* Document expiry banner */}
+      {profile && !dismissedDoc && (() => {
+        const warning = docWarning(profile)
+        if (!warning) return null
+        const expired = warning.daysLeft !== null && warning.daysLeft < 0
+        const daysText = expired
+          ? 'has expired'
+          : warning.daysLeft === 0
+          ? 'expires today'
+          : `expires in ${warning.daysLeft} day${warning.daysLeft !== 1 ? 's' : ''}`
+        return (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 shrink-0 text-amber-500">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-amber-900">
+                  {warning.label} {daysText} — action needed
+                </p>
+                <p className="text-sm text-amber-700 mt-0.5">
+                  {expired ? 'Expired documents may suspend your ability to accept new bookings.' : 'Update your document before it expires to avoid interruption.'}
+                </p>
+                <Link href="/provider/documents" className="mt-2 inline-block text-sm font-medium text-amber-800 underline hover:text-amber-900">
+                  Update documents →
+                </Link>
+              </div>
+            </div>
+            <button onClick={() => setDismissedDoc(true)} className="shrink-0 text-amber-400 hover:text-amber-600" aria-label="Dismiss">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )
+      })()}
 
       {invitation && (
         <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 flex items-start gap-3">

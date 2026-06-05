@@ -30,7 +30,7 @@ export default function ProviderQuotesPage() {
   const { user } = useAuth()
   const [quotes, setQuotes] = useState<QuoteRequest[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<'all' | 'open' | 'responded' | 'won'>('all')
+  const [filter, setFilter] = useState<'all' | 'open' | 'responded' | 'won' | 'lost' | 'expired'>('all')
 
   useEffect(() => {
     if (!user) return
@@ -81,6 +81,10 @@ export default function ProviderQuotesPage() {
         result = result.filter((q: QuoteRequest) => q._myResponseStatus != null)
       } else if (filter === 'won') {
         result = result.filter((q: QuoteRequest) => q._myResponseStatus === 'accepted')
+      } else if (filter === 'lost') {
+        result = result.filter((q: QuoteRequest) => q._myResponseStatus != null && q._myResponseStatus !== 'accepted' && q.status === 'closed')
+      } else if (filter === 'expired') {
+        result = result.filter((q: QuoteRequest) => q.status === 'expired')
       }
 
       setQuotes(result)
@@ -90,10 +94,12 @@ export default function ProviderQuotesPage() {
   }, [user?.id, filter])
 
   const TABS = [
-    { key: 'all', label: 'All' },
-    { key: 'open', label: 'Awaiting Response' },
+    { key: 'all',       label: 'All' },
+    { key: 'open',      label: 'Awaiting Response' },
     { key: 'responded', label: 'Responded' },
-    { key: 'won', label: 'Won' },
+    { key: 'won',       label: 'Won' },
+    { key: 'lost',      label: 'Lost' },
+    { key: 'expired',   label: 'Expired' },
   ] as const
 
   return (
