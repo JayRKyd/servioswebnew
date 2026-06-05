@@ -49,7 +49,10 @@ export default function ProviderReviewsPage() {
   const [flagSaving, setFlagSaving] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!providerId) return
+    if (!providerId) {
+      setLoading(false)
+      return
+    }
 
     async function load() {
       const [{ data: rev }, { data: prof }] = await Promise.all([

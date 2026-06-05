@@ -43,6 +43,7 @@ export default function ProviderDisputesPage() {
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [responseText, setResponseText] = useState<Record<string, string>>({})
+  const [editingResponse, setEditingResponse] = useState<string | null>(null)
   const [saving, setSaving] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
 
@@ -67,13 +68,16 @@ export default function ProviderDisputesPage() {
     const text = responseText[disputeId]?.trim()
     if (!text) return
     setSaving(disputeId)
-    await supabase
+    const { error } = await supabase
       .from('disputes')
       .update({ evidence_description: text })
       .eq('id', disputeId)
-    setDisputes(prev => prev.map(d => d.id === disputeId ? { ...d, evidence_description: text } : d))
-    setSaved(disputeId)
-    setTimeout(() => setSaved(null), 3000)
+    if (!error) {
+      setDisputes(prev => prev.map(d => d.id === disputeId ? { ...d, evidence_description: text } : d))
+      setEditingResponse(null)
+      setSaved(disputeId)
+      setTimeout(() => setSaved(null), 3000)
+    }
     setSaving(null)
   }
 
@@ -124,7 +128,7 @@ export default function ProviderDisputesPage() {
                       <p className="text-xs text-gray-600 capitalize">
                         Type: {dispute.dispute_type?.replace(/_/g, ' ')}
                         {dispute.desired_outcome && ` · Customer wants: ${OUTCOME_LABELS[dispute.desired_outcome] ?? dispute.desired_outcome}`}
-                        {dispute.desired_amount && ` (£${Number(dispute.desired_amount).toFixed(2)})`}
+                        {dispute.desired_amount && ` (£${(Number(dispute.desired_amount) / 100).toFixed(2)})`}
                       </p>
                     </div>
                     <span className="shrink-0 text-gray-400 text-sm">{isOpen ? '▲' : '▼'}</span>
@@ -147,7 +151,7 @@ export default function ProviderDisputesPage() {
                         <p className="text-xs font-semibold uppercase text-green-700 mb-1">Resolution</p>
                         <p className="text-sm text-green-900 capitalize">{OUTCOME_LABELS[dispute.resolution_type] ?? dispute.resolution_type}</p>
                         {dispute.resolution_amount && (
-                          <p className="text-sm text-green-700">Amount: £{Number(dispute.resolution_amount).toFixed(2)}</p>
+                          <p className="text-sm text-green-700">Amount: £{(Number(dispute.resolution_amount) / 100).toFixed(2)}</p>
                         )}
                         {dispute.resolution_notes && (
                           <p className="text-sm text-green-700 mt-1">{dispute.resolution_notes}</p>
@@ -156,7 +160,7 @@ export default function ProviderDisputesPage() {
                     )}
 
                     {/* Provider's response */}
-                    {dispute.evidence_description ? (
+                    {dispute.evidence_description && editingResponse !== dispute.id ? (
                       <div>
                         <p className="text-xs font-semibold uppercase text-gray-400 mb-1">Your response</p>
                         <div className="rounded-lg border-l-4 border-primary/40 bg-primary/[0.04] px-4 py-3">
@@ -166,6 +170,7 @@ export default function ProviderDisputesPage() {
                           <button
                             onClick={() => {
                               setResponseText(prev => ({ ...prev, [dispute.id]: dispute.evidence_description! }))
+                              setEditingResponse(dispute.id)
                             }}
                             className="mt-2 text-xs font-medium text-primary hover:underline"
                           >
@@ -173,12 +178,14 @@ export default function ProviderDisputesPage() {
                           </button>
                         )}
                       </div>
-                    ) : dispute.status !== 'resolved' && dispute.status !== 'closed' ? (
+                    ) : (dispute.status !== 'resolved' && dispute.status !== 'closed') ? (
                       <div className="space-y-2">
                         <p className="text-xs font-semibold uppercase text-gray-400">Your response</p>
-                        <p className="text-xs text-gray-500">
-                          Provide your account of events. Be factual and professional — this will be reviewed by the Servios team.
-                        </p>
+                        {!dispute.evidence_description && (
+                          <p className="text-xs text-gray-500">
+                            Provide your account of events. Be factual and professional — this will be reviewed by the Servios team.
+                          </p>
+                        )}
                         <textarea
                           rows={4}
                           value={responseText[dispute.id] ?? ''}
@@ -187,12 +194,20 @@ export default function ProviderDisputesPage() {
                           className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                         />
                         <div className="flex items-center gap-3">
+                          {editingResponse === dispute.id && (
+                            <button
+                              onClick={() => setEditingResponse(null)}
+                              className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                            >
+                              Cancel
+                            </button>
+                          )}
                           <button
                             onClick={() => submitResponse(dispute.id)}
                             disabled={!responseText[dispute.id]?.trim() || saving === dispute.id}
                             className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50"
                           >
-                            {saving === dispute.id ? 'Submitting…' : 'Submit response'}
+                            {saving === dispute.id ? 'Submitting…' : editingResponse === dispute.id ? 'Update response' : 'Submit response'}
                           </button>
                           {saved === dispute.id && (
                             <span className="text-sm text-green-600">Response saved</span>

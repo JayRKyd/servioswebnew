@@ -21,14 +21,14 @@ function ReviewModal({ bookingId, revieweeId, onClose }: { bookingId: string; re
     if (rating === 0) return
     setSubmitting(true)
     const { data: { user } } = await supabase.auth.getUser()
-    await supabase.from('reviews').insert({
+    const { error } = await supabase.from('reviews').insert({
       booking_id: bookingId,
       reviewer_id: user?.id,
-      provider_id: revieweeId ?? null,
+      reviewee_id: revieweeId ?? null,
       rating,
-      comment: comment || null,
+      review_text: comment || null,
     })
-    setDone(true)
+    if (!error) setDone(true)
     setSubmitting(false)
   }
 
@@ -373,14 +373,15 @@ export default function CustomerBookingDetailPage() {
     if (!booking) return
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const customerId = booking.customer_profile?.id
-    const providerId = booking.provider_profile?.id
-    if (!customerId || !providerId) return
+    // conversations FKs reference users.id, not profile IDs
+    const customerUserId = booking.customer_profile?.user_id
+    const providerUserId = booking.provider_profile?.user_id
+    if (!customerUserId || !providerUserId) return
     // Find or create conversation linked to this booking
     const { data: existing } = await supabase.from('conversations').select('id').eq('booking_id', id).maybeSingle()
     if (existing) { router.push(`/messages/${existing.id}`); return }
     const { data: conv } = await supabase.from('conversations').insert({
-      booking_id: id, customer_id: customerId, provider_id: providerId, conversation_type: 'booking', status: 'active',
+      booking_id: id, customer_id: customerUserId, provider_id: providerUserId, conversation_type: 'booking', status: 'active',
     }).select('id').single()
     if (conv) router.push(`/messages/${conv.id}`)
   }

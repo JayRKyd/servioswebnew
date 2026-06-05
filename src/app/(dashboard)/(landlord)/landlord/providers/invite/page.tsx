@@ -38,7 +38,7 @@ export default function InviteProviderPage() {
   const [loadingList, setLoadingList] = useState(true)
 
   useEffect(() => {
-    if (!landlordId) return
+    if (!landlordId) { setLoadingList(false); return }
     supabase
       .from('provider_invitations')
       .select('*')

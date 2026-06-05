@@ -39,7 +39,7 @@ export default function ProviderEarningsPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!providerId) return
+    if (!providerId) { setLoading(false); return }
     supabase.from('bookings')
       .select('*, service:services(title)')
       .eq('provider_id', providerId).eq('status', 'completed')
