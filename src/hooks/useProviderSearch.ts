@@ -25,6 +25,7 @@ export type ProviderHit = {
 
 export type SearchFilters = {
   category: string
+  group?: string
   minRating: number
   maxPrice: number
   area: string

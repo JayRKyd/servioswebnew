@@ -10,6 +10,17 @@ const UK_AREAS = [
   'Newcastle', 'Bradford', 'Coventry', 'Southampton', 'Portsmouth', 'Reading',
 ]
 
+const GROUP_LABELS: Record<string, string> = {
+  trades_repairs: 'Trades & Repairs',
+  property_professionals: 'Property Professionals',
+  cleaning: 'Cleaning Services',
+  automotive: 'Automotive & Mobile Vehicle Services',
+  specialist: 'Specialist Restoration & Craft',
+}
+const GROUP_ORDER = ['trades_repairs', 'property_professionals', 'cleaning', 'automotive', 'specialist']
+
+interface Trade { slug: string; name: string; group_slug: string }
+
 export default function EditProviderProfilePage() {
   const { user } = useAuth()
   const router = useRouter()
@@ -26,12 +37,33 @@ export default function EditProviderProfilePage() {
   const [locating, setLocating] = useState(false)
   const [locationSet, setLocationSet] = useState(false)
   const [baseLocation, setBaseLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [tradesByGroup, setTradesByGroup] = useState<Record<string, Trade[]>>({})
+  const [selectedTrades, setSelectedTrades] = useState<string[]>([])
+  const [showAllGroups, setShowAllGroups] = useState<Record<string, boolean>>({})
+
+  // Load trades from DB
+  useEffect(() => {
+    supabase
+      .from('service_categories')
+      .select('slug, name, group_slug')
+      .eq('is_active', true)
+      .not('group_slug', 'is', null)
+      .order('display_order')
+      .then(({ data }) => {
+        const grouped: Record<string, Trade[]> = {}
+        ;(data ?? []).forEach((c: any) => {
+          if (!grouped[c.group_slug]) grouped[c.group_slug] = []
+          grouped[c.group_slug].push(c)
+        })
+        setTradesByGroup(grouped)
+      })
+  }, [])
 
   useEffect(() => {
     if (!user) return
     supabase
       .from('provider_profiles')
-      .select('first_name, last_name, business_name, bio, hourly_rate, service_areas, base_location, profile_image_url')
+      .select('first_name, last_name, business_name, bio, hourly_rate, service_areas, base_location, profile_image_url, trade_categories, trade_category')
       .eq('user_id', user.id)
       .maybeSingle()
       .then(({ data }) => {
@@ -46,9 +78,17 @@ export default function EditProviderProfilePage() {
           })
           if (data.base_location?.lat) { setBaseLocation(data.base_location); setLocationSet(true) }
           if (data.profile_image_url) setAvatarUrl(data.profile_image_url)
+          if (data.trade_categories?.length) setSelectedTrades(data.trade_categories)
+          else if (data.trade_category) setSelectedTrades([data.trade_category])
         }
       })
   }, [user?.id])
+
+  function toggleTrade(slug: string) {
+    setSelectedTrades(prev =>
+      prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug]
+    )
+  }
 
   function set(key: string, value: any) { setForm(f => ({ ...f, [key]: value })) }
 
@@ -120,6 +160,8 @@ export default function EditProviderProfilePage() {
       bio: form.bio,
       hourly_rate: form.hourly_rate ? parseFloat(form.hourly_rate) : null,
       service_areas: form.service_areas,
+      trade_categories: selectedTrades,
+      trade_category: selectedTrades[0] ?? null,
     }
     if (baseLocation) payload.base_location = baseLocation
     const { error } = await supabase.from('provider_profiles').update(payload).eq('user_id', user.id)
@@ -211,6 +253,61 @@ export default function EditProviderProfilePage() {
             onChange={e => set('hourly_rate', e.target.value)}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />
+        </div>
+
+        {/* ── Your Trades ──────────────────────────────────────────────── */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Your Trades</label>
+          {selectedTrades.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {selectedTrades.map(slug => {
+                const label = Object.values(tradesByGroup).flat().find(t => t.slug === slug)?.name ?? slug
+                return (
+                  <span key={slug} className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-0.5 text-xs font-medium text-white">
+                    {label}
+                    <button type="button" onClick={() => toggleTrade(slug)} className="ml-0.5 opacity-70 hover:opacity-100">✕</button>
+                  </span>
+                )
+              })}
+            </div>
+          )}
+          <div className="space-y-4">
+            {GROUP_ORDER.filter(g => tradesByGroup[g]?.length).map(group => {
+              const trades = tradesByGroup[group]
+              const showing = showAllGroups[group] ? trades : trades.slice(0, 8)
+              return (
+                <div key={group}>
+                  <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">{GROUP_LABELS[group]}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {showing.map(trade => {
+                      const isSel = selectedTrades.includes(trade.slug)
+                      return (
+                        <button
+                          key={trade.slug}
+                          type="button"
+                          onClick={() => toggleTrade(trade.slug)}
+                          className={
+                            'rounded-full border px-2.5 py-1 text-xs font-medium transition ' +
+                            (isSel
+                              ? 'border-primary bg-primary text-white'
+                              : 'border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:bg-blue-50')
+                          }
+                        >
+                          {isSel ? '✓ ' : ''}{trade.name}
+                        </button>
+                      )
+                    })}
+                    {trades.length > 8 && (
+                      <button type="button" onClick={() => setShowAllGroups(p => ({ ...p, [group]: !p[group] }))}
+                        className="rounded-full border border-dashed border-gray-300 px-2.5 py-1 text-xs text-gray-400 hover:border-gray-400">
+                        {showAllGroups[group] ? 'Show less' : `+${trades.length - 8} more`}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
 
         <div>

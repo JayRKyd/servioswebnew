@@ -1,31 +1,52 @@
 'use client'
-import { Suspense, useState } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft, Droplets, Zap, Wind, Paintbrush, Hammer, Sparkles, Leaf, Home, Bug, Shield, Wrench } from 'lucide-react'
+import { ArrowLeft, Wrench } from 'lucide-react'
 import {
   CATEGORY_META, SERVICE_QUESTIONS, LOCATION_STEP,
 } from '@/lib/service-questions'
 import type { QuestionStep, QuestionOption } from '@/lib/service-questions'
 import { PlacesAutocomplete } from '@/components/search/PlacesAutocomplete'
 import type { PlaceResult } from '@/components/search/PlacesAutocomplete'
+import { supabase } from '@/lib/auth'
 
-const CATEGORY_ICONS: Record<string, React.ElementType> = {
-  plumber:      Droplets,
-  electrician:  Zap,
-  hvac:         Wind,
-  painter:      Paintbrush,
-  carpenter:    Hammer,
-  cleaner:      Sparkles,
-  landscaper:   Leaf,
-  roofer:       Home,
-  pest_control: Bug,
-  security:     Shield,
-  handyman:     Wrench,
+const GROUP_LABELS: Record<string, string> = {
+  trades_repairs: 'Trades & Repairs',
+  property_professionals: 'Property Professionals',
+  cleaning: 'Cleaning Services',
+  automotive: 'Automotive',
+  specialist: 'Specialist Craft',
 }
+const GROUP_ICONS: Record<string, string> = {
+  trades_repairs: '🔧',
+  property_professionals: '🏢',
+  cleaning: '🧹',
+  automotive: '🚗',
+  specialist: '✨',
+}
+const GROUP_ORDER = ['trades_repairs', 'property_professionals', 'cleaning', 'automotive', 'specialist']
 
-// ─── Category picker ───────────────────────────────────────────────────────
+interface DbCategory { slug: string; name: string; group_slug: string }
 
-function CategoryPicker({ onPick }: { onPick: (cat: string) => void }) {
+// ─── Category picker (two-level: group → category) ─────────────────────────
+
+function CategoryPicker({ onPick }: { onPick: (slug: string, displayName: string) => void }) {
+  const [cats, setCats] = useState<DbCategory[]>([])
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase
+      .from('service_categories')
+      .select('slug, name, group_slug')
+      .eq('is_active', true)
+      .not('group_slug', 'is', null)
+      .order('display_order')
+      .then(({ data }) => setCats(data ?? []))
+  }, [])
+
+  const groups = GROUP_ORDER.filter(g => cats.some(c => c.group_slug === g))
+  const filteredCats = selectedGroup ? cats.filter(c => c.group_slug === selectedGroup) : []
+
   return (
     <div className="mx-auto max-w-2xl space-y-8">
       <div className="text-center">
@@ -33,23 +54,51 @@ function CategoryPicker({ onPick }: { onPick: (cat: string) => void }) {
         <p className="mt-2 text-[14.5px] text-muted">Pick a category — we'll match you with the best providers.</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {Object.entries(CATEGORY_META).map(([key, meta]) => {
-          const Icon = CATEGORY_ICONS[key] ?? Wrench
-          return (
+      {/* Group pills */}
+      <div>
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Browse by type</p>
+        <div className="flex flex-wrap gap-2">
+          {groups.map(g => (
             <button
-              key={key}
-              onClick={() => onPick(key)}
-              className="group flex flex-col items-center gap-3 rounded-2xl border border-border bg-white p-5 text-center transition-all hover:border-primary/30 hover:shadow-[0_4px_16px_rgba(17,94,86,0.08)]"
+              key={g}
+              onClick={() => setSelectedGroup(prev => prev === g ? null : g)}
+              className={
+                'flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all ' +
+                (selectedGroup === g
+                  ? 'border-primary bg-primary text-white shadow-sm'
+                  : 'border-border bg-white text-dark hover:border-primary/30 hover:bg-primary/[0.04]')
+              }
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#f4f5f4] transition-colors group-hover:bg-primary/[0.08]">
-                <Icon size={20} className="text-muted transition-colors group-hover:text-primary" />
-              </div>
-              <span className="text-[13px] font-semibold text-dark">{meta.label}</span>
+              <span>{GROUP_ICONS[g]}</span>
+              {GROUP_LABELS[g]}
             </button>
-          )
-        })}
+          ))}
+        </div>
       </div>
+
+      {/* Category grid for selected group */}
+      {selectedGroup && (
+        <div>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+            {GROUP_LABELS[selectedGroup]} — choose a trade
+          </p>
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+            {filteredCats.map(cat => (
+              <button
+                key={cat.slug}
+                onClick={() => onPick(cat.slug, cat.name)}
+                className="group rounded-2xl border border-border bg-white px-4 py-3.5 text-left text-sm font-semibold text-dark transition-all hover:border-primary/30 hover:bg-primary/[0.04] hover:shadow-[0_4px_16px_rgba(17,94,86,0.06)]"
+              >
+                {cat.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!selectedGroup && (
+        <p className="text-center text-[13px] text-muted">Select a group above to browse services.</p>
+      )}
     </div>
   )
 }
@@ -234,7 +283,7 @@ function WizardStep({
   onBack: () => void
 }) {
   const meta = CATEGORY_META[category]
-  const Icon = CATEGORY_ICONS[category] ?? Wrench
+  const Icon = Wrench
   const isMulti = step.type === 'multi'
   const progress = ((stepIndex + 1) / totalSteps) * 100
   const canContinue = isMulti ? multiAnswers.length > 0 : singleAnswer !== ''
@@ -317,6 +366,11 @@ function BookPageInner() {
   const searchParams = useSearchParams()
 
   const [category, setCategory] = useState(searchParams.get('category') ?? '')
+  const [categoryLabel, setCategoryLabel] = useState(
+    searchParams.get('category')
+      ? (CATEGORY_META[searchParams.get('category')!]?.label ?? searchParams.get('category')!)
+      : ''
+  )
   const [stepIndex, setStepIndex] = useState(0)
   const [singles, setSingles]     = useState<Record<string, string>>({})
   const [multis, setMultis]       = useState<Record<string, string[]>>({})
@@ -333,14 +387,14 @@ function BookPageInner() {
     finalMultis: Record<string, string[]>,
     place: PlaceResult,
   ) {
-    const meta = CATEGORY_META[category]
+    const displayLabel = categoryLabel || CATEGORY_META[category]?.label || category
     const contextParts: string[] = []
     for (const [id, val] of Object.entries(finalSingles)) contextParts.push(`${id}:${val}`)
     for (const [id, vals] of Object.entries(finalMultis)) {
       if (vals.length > 0) contextParts.push(`${id}:${vals.join('|')}`)
     }
     const params = new URLSearchParams()
-    if (meta?.label) params.set('category', meta.label)
+    if (displayLabel) params.set('category', displayLabel)
     if (place.label) params.set('area', place.label)
     if (place.lat) params.set('lat', String(place.lat))
     if (place.lng) params.set('lng', String(place.lng))
@@ -405,6 +459,7 @@ function BookPageInner() {
       setStepIndex(i => i - 1)
     } else if (category) {
       setCategory('')
+      setCategoryLabel('')
       setStepIndex(0)
       setSingles({})
       setMultis({})
@@ -415,7 +470,11 @@ function BookPageInner() {
   if (!category) {
     return (
       <div className="py-8 px-4">
-        <CategoryPicker onPick={cat => { setCategory(cat); setStepIndex(0) }} />
+        <CategoryPicker onPick={(slug, displayName) => {
+          setCategory(slug)
+          setCategoryLabel(displayName)
+          setStepIndex(0)
+        }} />
       </div>
     )
   }

@@ -1,27 +1,71 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/auth'
-
-const DOC_TYPES = [
-  { value: 'id',            label: 'Government ID',       required: true },
-  { value: 'insurance',     label: 'Liability Insurance', required: true },
-  { value: 'certification', label: 'Trade Certification', required: false },
-  { value: 'license',       label: 'Business License',    required: false },
-]
+import { CATEGORY_GROUPS, docTypeLabel, type DocType } from '@/lib/document-requirements'
 
 interface UploadedDoc { type: string; fileName: string; url: string }
 
 export default function SetupDocumentsPage() {
   const router = useRouter()
+  const [docTypes, setDocTypes] = useState<{ value: string; label: string; required: boolean }[]>([])
   const [uploads, setUploads] = useState<UploadedDoc[]>([])
   const [uploading, setUploading] = useState<string | null>(null)
   const [expiry, setExpiry] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
+  const [loading, setLoading] = useState(true)
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
-  const uploadedTypes = new Set(uploads.map((u) => u.type))
-  const requiredDone = DOC_TYPES.filter((d) => d.required).every((d) => uploadedTypes.has(d.value))
+  useEffect(() => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return
+      const { data: profile } = await supabase
+        .from('provider_profiles')
+        .select('trade_categories, trade_category')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      const slugs: string[] = profile?.trade_categories?.length
+        ? profile.trade_categories
+        : profile?.trade_category ? [profile.trade_category] : []
+
+      // Look up group_slug for each selected trade
+      let requiredDocSet = new Set<DocType>()
+      if (slugs.length > 0) {
+        const { data: cats } = await supabase
+          .from('service_categories')
+          .select('group_slug')
+          .in('slug', slugs)
+          .not('group_slug', 'is', null)
+
+        const uniqueGroups = [...new Set((cats ?? []).map((c: any) => c.group_slug as string))]
+        uniqueGroups.forEach(g => {
+          const config = CATEGORY_GROUPS[g]
+          if (config) config.requiredDocs.forEach(d => requiredDocSet.add(d))
+        })
+      }
+
+      // Fallback to minimal set if no group info
+      if (requiredDocSet.size === 0) {
+        requiredDocSet.add('government_id')
+        requiredDocSet.add('liability_insurance')
+      }
+
+      // government_id is always required; others may vary
+      const allDocTypes = ['government_id', 'liability_insurance', 'trade_cert', 'professional_membership'] as DocType[]
+      const relevant = allDocTypes.filter(d => requiredDocSet.has(d))
+
+      setDocTypes(relevant.map(d => ({
+        value: d,
+        label: docTypeLabel(d),
+        required: true, // all derived docs are required
+      })))
+      setLoading(false)
+    })
+  }, [])
+
+  const uploadedTypes = new Set(uploads.map(u => u.type))
+  const requiredDone = docTypes.filter(d => d.required).every(d => uploadedTypes.has(d.value))
 
   async function handleFile(docType: string, docLabel: string, file: File) {
     setUploading(docType)
@@ -39,7 +83,6 @@ export default function SetupDocumentsPage() {
       if (uploadErr) throw uploadErr
 
       const { data: urlData } = supabase.storage.from('provider-documents').getPublicUrl(storagePath)
-
       const { data: profile } = await supabase.from('provider_profiles').select('id').eq('user_id', session.user.id).single()
 
       await supabase.from('provider_documents').insert({
@@ -52,8 +95,8 @@ export default function SetupDocumentsPage() {
         status: 'pending',
       })
 
-      setUploads((prev) => [
-        ...prev.filter((u) => u.type !== docType),
+      setUploads(prev => [
+        ...prev.filter(u => u.type !== docType),
         { type: docType, fileName: file.name, url: urlData.publicUrl },
       ])
     } catch (e: any) {
@@ -67,10 +110,14 @@ export default function SetupDocumentsPage() {
     if (!requiredDone) return
     setSubmitting(true)
     const { data: { user } } = await supabase.auth.getUser()
-    await supabase.from('provider_profiles').update({ onboarding_complete: true, onboarding_step: 'complete', verification_status: 'pending' }).eq('user_id', user!.id)
+    await supabase.from('provider_profiles').update({
+      onboarding_complete: true, onboarding_step: 'complete', verification_status: 'pending',
+    }).eq('user_id', user!.id)
     router.push('/provider/setup/complete')
     setSubmitting(false)
   }
+
+  if (loading) return <div className="flex h-64 items-center justify-center text-gray-400">Loading…</div>
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 py-10">
@@ -89,12 +136,14 @@ export default function SetupDocumentsPage() {
 
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Upload documents</h1>
-        <p className="mt-1 text-gray-500">Items marked * are required before you can go live</p>
+        <p className="mt-1 text-gray-500">
+          Required documents are based on your selected trades. All marked items must be uploaded before you can go live.
+        </p>
       </div>
 
       <div className="space-y-4">
-        {DOC_TYPES.map((doc) => {
-          const uploaded = uploads.find((u) => u.type === doc.value)
+        {docTypes.map(doc => {
+          const uploaded = uploads.find(u => u.type === doc.value)
           const isUploading = uploading === doc.value
           return (
             <div key={doc.value} className={`rounded-xl border-2 bg-white p-5 space-y-3 ${uploaded ? 'border-green-300' : 'border-gray-100'}`}>
@@ -109,17 +158,17 @@ export default function SetupDocumentsPage() {
               </div>
 
               {!uploaded && (
-                <input type="date" value={expiry[doc.value] ?? ''} onChange={(e) => setExpiry((prev) => ({ ...prev, [doc.value]: e.target.value }))}
+                <input type="date" value={expiry[doc.value] ?? ''} onChange={e => setExpiry(prev => ({ ...prev, [doc.value]: e.target.value }))}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   placeholder="Expiry date (optional)" />
               )}
 
               <input
-                ref={(el) => { fileRefs.current[doc.value] = el }}
+                ref={el => { fileRefs.current[doc.value] = el }}
                 type="file"
                 accept="image/*,application/pdf"
                 className="hidden"
-                onChange={(e) => {
+                onChange={e => {
                   const file = e.target.files?.[0]
                   if (file) handleFile(doc.value, doc.label, file)
                 }}
