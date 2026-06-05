@@ -178,7 +178,7 @@ export default function ProviderDashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:hidden">
         {([['Requests', '/provider/bookings'], ['Calendar', '/provider/calendar'], ['Earnings', '/provider/earnings'], ['Messages', '/messages']] as const).map(([label, href]) => (
           <Link key={label} href={href} className="rounded-xl bg-white p-4 text-center text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-gray-100 transition hover:ring-blue-300">{label}</Link>
         ))}
