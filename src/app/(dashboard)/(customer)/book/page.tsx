@@ -9,6 +9,7 @@ import type { QuestionStep, QuestionOption } from '@/lib/service-questions'
 import { PlacesAutocomplete } from '@/components/search/PlacesAutocomplete'
 import type { PlaceResult } from '@/components/search/PlacesAutocomplete'
 import { supabase } from '@/lib/auth'
+import { getTradeIcon } from '@/lib/trade-icons'
 
 const GROUP_LABELS: Record<string, string> = {
   trades_repairs: 'Trades & Repairs',
@@ -83,15 +84,19 @@ function CategoryPicker({ onPick }: { onPick: (slug: string, displayName: string
             {GROUP_LABELS[selectedGroup]} — choose a trade
           </p>
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-            {filteredCats.map(cat => (
-              <button
-                key={cat.slug}
-                onClick={() => onPick(cat.slug, cat.name)}
-                className="group rounded-2xl border border-border bg-white px-4 py-3.5 text-left text-sm font-semibold text-dark transition-all hover:border-primary/30 hover:bg-primary/[0.04] hover:shadow-[0_4px_16px_rgba(17,94,86,0.06)]"
-              >
-                {cat.name}
-              </button>
-            ))}
+            {filteredCats.map(cat => {
+              const Icon = getTradeIcon(cat.slug)
+              return (
+                <button
+                  key={cat.slug}
+                  onClick={() => onPick(cat.slug, cat.name)}
+                  className="group flex items-center gap-3 rounded-2xl border border-border bg-white px-4 py-3.5 text-left text-sm font-semibold text-dark transition-all hover:border-primary/30 hover:bg-primary/[0.04] hover:shadow-[0_4px_16px_rgba(17,94,86,0.06)]"
+                >
+                  <Icon size={16} className="shrink-0 text-muted transition-colors group-hover:text-primary" />
+                  {cat.name}
+                </button>
+              )
+            })}
           </div>
         </div>
       )}

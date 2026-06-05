@@ -319,10 +319,10 @@ export default function EditProviderProfilePage() {
                 type="button"
                 onClick={() => toggleArea(area)}
                 className={
-                  'rounded-full px-3 py-1 text-xs font-medium transition ' +
+                  'rounded-full border-2 px-3 py-1 text-xs font-medium transition ' +
                   (form.service_areas.includes(area)
-                    ? 'bg-primary text-white ring-2 ring-primary ring-offset-1'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200')
+                    ? 'border-primary bg-primary text-white shadow-sm'
+                    : 'border-transparent bg-gray-100 text-gray-700 hover:bg-gray-200')
                 }
               >
                 {area}

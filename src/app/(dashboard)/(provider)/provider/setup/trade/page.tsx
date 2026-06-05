@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/auth'
+import { getTradeIcon } from '@/lib/trade-icons'
 
 const GROUP_LABELS: Record<string, string> = {
   trades_repairs: 'Trades & Repairs',
@@ -118,6 +119,7 @@ export default function SetupTradePage() {
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
               {tradesByGroup[group].map(trade => {
                 const isSelected = selected.includes(trade.slug)
+                const Icon = getTradeIcon(trade.slug)
                 return (
                   <button
                     key={trade.slug}
@@ -130,10 +132,12 @@ export default function SetupTradePage() {
                         : 'border-gray-100 bg-white font-medium text-gray-700 hover:border-blue-200 hover:bg-blue-50/40')
                     }
                   >
-                    {isSelected && (
+                    {isSelected ? (
                       <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary text-[9px] text-white font-bold">✓</span>
+                    ) : (
+                      <Icon size={14} className="shrink-0 text-gray-400" />
                     )}
-                    <span className={isSelected ? '' : 'pl-0.5'}>{trade.name}</span>
+                    <span>{trade.name}</span>
                   </button>
                 )
               })}

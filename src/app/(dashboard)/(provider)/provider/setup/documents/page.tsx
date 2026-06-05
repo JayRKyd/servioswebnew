@@ -158,9 +158,17 @@ export default function SetupDocumentsPage() {
               </div>
 
               {!uploaded && (
-                <input type="date" value={expiry[doc.value] ?? ''} onChange={e => setExpiry(prev => ({ ...prev, [doc.value]: e.target.value }))}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="Expiry date (optional)" />
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-500">
+                    Expiry date <span className="font-normal">(optional)</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={expiry[doc.value] ?? ''}
+                    onChange={e => setExpiry(prev => ({ ...prev, [doc.value]: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
               )}
 
               <input
