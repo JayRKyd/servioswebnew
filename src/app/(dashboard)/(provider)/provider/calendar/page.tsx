@@ -129,7 +129,6 @@ export default function ProviderCalendarPage() {
         <div className="rounded-xl bg-white shadow-sm ring-1 ring-gray-100 overflow-hidden">
           {!selectedDate ? (
             <div className="flex flex-col items-center justify-center gap-2 p-10 text-center">
-              <div className="text-3xl">📅</div>
               <p className="text-sm font-medium text-gray-700">Select a booked day</p>
               <p className="text-xs text-gray-400">Click any highlighted date to see your jobs for that day.</p>
             </div>
