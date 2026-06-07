@@ -7,7 +7,7 @@ import {
   HardHat, Car, Cog, Clock, Armchair, Mountain, Landmark,
   Compass, MapPin, BarChart3, AlertTriangle, Waves, Flower2,
   ShieldCheck, DoorOpen, Expand, ArrowDown, Sofa, Circle,
-  Frame, Fence, LineChart, ClipboardList, TriangleRight,
+  Frame, Fence, LineChart, ClipboardList, TriangleRight, Gem,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -157,4 +157,13 @@ export const TRADE_ICONS: Record<string, LucideIcon> = {
 /** Returns the Lucide icon for a trade slug, falling back to Wrench. */
 export function getTradeIcon(slug: string): LucideIcon {
   return TRADE_ICONS[slug] ?? Wrench
+}
+
+/** Lucide icons for each top-level category group. */
+export const GROUP_ICONS: Record<string, LucideIcon> = {
+  trades_repairs:         Wrench,
+  property_professionals: Building2,
+  cleaning:               Sparkles,
+  automotive:             Car,
+  specialist:             Gem,
 }

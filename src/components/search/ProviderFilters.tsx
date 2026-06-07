@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import type { SearchFilters } from '@/hooks/useProviderSearch'
 import { PlacesAutocomplete } from './PlacesAutocomplete'
 import { supabase } from '@/lib/auth'
+import { GROUP_ICONS } from '@/lib/trade-icons'
 
 const GROUP_LABELS: Record<string, string> = {
   trades_repairs: 'Trades & Repairs',
@@ -89,18 +90,22 @@ export function ProviderFilters({
           >
             All
           </button>
-          {availableGroups.map(g => (
-            <button
-              key={g}
-              onClick={() => selectGroup(g)}
-              className={
-                'rounded-full px-3 py-1 text-xs font-medium transition ' +
-                (filters.group === g ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')
-              }
-            >
-              {GROUP_LABELS[g]}
-            </button>
-          ))}
+          {availableGroups.map(g => {
+            const GIcon = GROUP_ICONS[g]
+            return (
+              <button
+                key={g}
+                onClick={() => selectGroup(g)}
+                className={
+                  'flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition ' +
+                  (filters.group === g ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')
+                }
+              >
+                {GIcon && <GIcon size={11} className="shrink-0" />}
+                {GROUP_LABELS[g]}
+              </button>
+            )
+          })}
         </div>
       </div>
 

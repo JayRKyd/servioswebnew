@@ -30,8 +30,8 @@ search.post('/upsert/:userId', authMiddleware, async (c) => {
   const { data: p, error } = await supabase
     .from('provider_profiles')
     .select(
-      'user_id, business_name, first_name, last_name, bio, trade_category, ' +
-      'hourly_rate, rating_average, total_reviews, profile_image_url, ' +
+      'id, user_id, business_name, first_name, last_name, bio, trade_category, trade_categories, ' +
+      'hourly_rate, rating_average, total_reviews, profile_image_url, is_verified, jobs_completed, ' +
       'verification_status, availability_status, service_areas, base_location'
     )
     .eq('user_id', userId)
@@ -46,20 +46,37 @@ search.post('/upsert/:userId', authMiddleware, async (c) => {
     return c.json({ removed: true })
   }
 
+  // Fetch approved document types to build verified_badges
+  const { data: docs } = await supabase
+    .from('provider_documents')
+    .select('document_type')
+    .eq('provider_id', p.id)
+    .eq('verification_status', 'approved')
+
+  const verifiedBadges = (docs ?? []).map((d: any) => d.document_type)
+
+  // Build categories from trade_categories array, fall back to legacy single trade_category
+  const categories = Array.isArray(p.trade_categories) && p.trade_categories.length > 0
+    ? p.trade_categories
+    : (p.trade_category ? [p.trade_category] : [])
+
   const loc = p.base_location as { lat?: number; lng?: number } | null
   const record: Record<string, unknown> = {
-    objectID:       p.user_id,
-    user_id:        p.user_id,
-    business_name:  p.business_name ?? `${p.first_name} ${p.last_name}`,
-    first_name:     p.first_name,
-    last_name:      p.last_name,
-    bio:            p.bio ?? '',
-    areas:          Array.isArray(p.service_areas) ? p.service_areas : [],
-    hourly_rate:    p.hourly_rate ?? 0,
-    rating_average: parseFloat(p.rating_average) ?? 0,
-    rating_count:   p.total_reviews ?? 0,
-    avatar_url:     p.profile_image_url ?? null,
-    categories:     p.trade_category ? [p.trade_category] : [],
+    objectID:        p.user_id,
+    user_id:         p.user_id,
+    business_name:   p.business_name ?? `${p.first_name} ${p.last_name}`,
+    first_name:      p.first_name,
+    last_name:       p.last_name,
+    bio:             p.bio ?? '',
+    areas:           Array.isArray(p.service_areas) ? p.service_areas : [],
+    hourly_rate:     p.hourly_rate ?? 0,
+    rating_average:  parseFloat(p.rating_average) ?? 0,
+    rating_count:    p.total_reviews ?? 0,
+    avatar_url:      p.profile_image_url ?? null,
+    categories,
+    is_verified:     p.is_verified ?? false,
+    jobs_completed:  p.jobs_completed ?? 0,
+    verified_badges: verifiedBadges,
   }
 
   if (loc?.lat != null && loc?.lng != null) {

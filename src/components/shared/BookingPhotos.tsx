@@ -58,15 +58,18 @@ export function BookingPhotos({ bookingId, bookingStatus, isProvider, onAfterPho
       const storagePath = `${bookingId}/${uploadType}_${Date.now()}.${ext}`
       const { error: upErr } = await supabase.storage.from('booking-photos').upload(storagePath, file, { contentType: file.type })
       if (upErr) throw upErr
-      await supabase.from('booking_photos').insert({
+      const { data: urlData } = supabase.storage.from('booking-photos').getPublicUrl(storagePath)
+      const { error: insertErr } = await supabase.from('booking_photos').insert({
         booking_id: bookingId,
         uploaded_by: user?.id,
         storage_path: storagePath,
+        url: urlData.publicUrl,
         type: uploadType,
         caption: caption.trim() || null,
         marketing_consent: marketingConsent,
         consent_given_at: marketingConsent ? new Date().toISOString() : null,
       })
+      if (insertErr) throw insertErr
       setCaption('')
       if (fileRef.current) fileRef.current.value = ''
       await loadPhotos()

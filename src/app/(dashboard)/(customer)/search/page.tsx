@@ -1,7 +1,8 @@
 'use client'
-import { Suspense, useState, useCallback, useEffect } from 'react'
+import React, { Suspense, useState, useCallback, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import { useSearchParams } from 'next/navigation'
+import { Search, List, PanelLeft, Map } from 'lucide-react'
 import { useProviderSearch } from '@/hooks/useProviderSearch'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { ProviderFilters } from '@/components/search/ProviderFilters'
@@ -82,24 +83,29 @@ function SearchPageInner() {
             placeholder="Search providers, services…"
             className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><Search size={14} /></span>
           {loading && (
             <span className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           )}
         </div>
 
         {/* View mode toggle */}
-        <div className="flex rounded-lg border border-gray-200 bg-white overflow-hidden">
-          {(['list', 'split', 'map'] as ViewMode[]).map((mode) => (
+        <div className="flex rounded-lg border border-gray-200 bg-white overflow-hidden shrink-0">
+          {([
+            { mode: 'list',  Icon: List,     label: 'List'  },
+            { mode: 'split', Icon: PanelLeft,  label: 'Split' },
+            { mode: 'map',   Icon: Map,      label: 'Map'   },
+          ] as { mode: ViewMode; Icon: React.ElementType; label: string }[]).map(({ mode, Icon, label }) => (
             <button
               key={mode}
               onClick={() => setViewMode(mode)}
               className={
-                'px-3 py-2 text-xs font-medium capitalize transition ' +
+                'flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition ' +
                 (viewMode === mode ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50')
               }
             >
-              {mode === 'list' ? '☰ List' : mode === 'split' ? '⊟ Split' : '🗺 Map'}
+              <Icon size={13} />
+              {label}
             </button>
           ))}
         </div>

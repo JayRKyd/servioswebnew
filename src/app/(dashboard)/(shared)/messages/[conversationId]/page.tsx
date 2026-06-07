@@ -183,7 +183,7 @@ function JobDetailsPanel({
       <div className="mt-auto space-y-2 pt-2">
         {booking.id && (
           <Link
-            href={`/bookings/${booking.id}`}
+            href={isProvider ? `/provider/bookings/${booking.id}` : `/bookings/${booking.id}`}
             className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
           >
             View Contract →

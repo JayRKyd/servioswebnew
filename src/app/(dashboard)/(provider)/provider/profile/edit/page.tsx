@@ -1,6 +1,8 @@
 'use client'
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import Cropper from 'react-easy-crop'
+import type { Area } from 'react-easy-crop'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
 
@@ -21,17 +23,36 @@ const GROUP_ORDER = ['trades_repairs', 'property_professionals', 'cleaning', 'au
 
 interface Trade { slug: string; name: string; group_slug: string }
 
+/** Crop the raw image to the selected pixel area and return a PNG blob. */
+async function getCroppedBlob(imageSrc: string, pixelCrop: Area): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      const size = Math.min(pixelCrop.width, pixelCrop.height)
+      canvas.width = size
+      canvas.height = size
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(img, pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height, 0, 0, size, size)
+      canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Canvas empty')), 'image/jpeg', 0.92)
+    }
+    img.onerror = reject
+    img.src = imageSrc
+  })
+}
+
 export default function EditProviderProfilePage() {
   const { user } = useAuth()
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // Form state
   const [form, setForm] = useState({
     first_name: '', last_name: '', business_name: '', bio: '',
     hourly_rate: '', service_areas: [] as string[],
   })
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
-  const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [locating, setLocating] = useState(false)
@@ -40,6 +61,13 @@ export default function EditProviderProfilePage() {
   const [tradesByGroup, setTradesByGroup] = useState<Record<string, Trade[]>>({})
   const [selectedTrades, setSelectedTrades] = useState<string[]>([])
   const [showAllGroups, setShowAllGroups] = useState<Record<string, boolean>>({})
+
+  // Crop modal state
+  const [cropSrc, setCropSrc] = useState<string | null>(null)
+  const [crop, setCrop] = useState({ x: 0, y: 0 })
+  const [zoom, setZoom] = useState(1)
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
 
   // Load trades from DB
   useEffect(() => {
@@ -50,8 +78,11 @@ export default function EditProviderProfilePage() {
       .not('group_slug', 'is', null)
       .order('display_order')
       .then(({ data }) => {
+        const seen = new Set<string>()
         const grouped: Record<string, Trade[]> = {}
         ;(data ?? []).forEach((c: any) => {
+          if (seen.has(c.slug)) return
+          seen.add(c.slug)
           if (!grouped[c.group_slug]) grouped[c.group_slug] = []
           grouped[c.group_slug].push(c)
         })
@@ -101,37 +132,48 @@ export default function EditProviderProfilePage() {
     }))
   }
 
-  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+  /** File selected — open crop modal instead of uploading immediately */
+  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file || !user) return
-    if (file.size > 5 * 1024 * 1024) { setError('Photo must be under 5 MB'); return }
-
-    // Show local preview immediately
+    // Reset input so picking the same file again still triggers onChange
+    e.target.value = ''
+    if (!file) return
+    if (file.size > 10 * 1024 * 1024) { setError('Photo must be under 10 MB'); return }
     const reader = new FileReader()
-    reader.onload = ev => setAvatarPreview(ev.target?.result as string)
+    reader.onload = ev => {
+      setCropSrc(ev.target?.result as string)
+      setCrop({ x: 0, y: 0 })
+      setZoom(1)
+    }
     reader.readAsDataURL(file)
+  }
 
+  const onCropComplete = useCallback((_: Area, pixels: Area) => {
+    setCroppedAreaPixels(pixels)
+  }, [])
+
+  async function applyCrop() {
+    if (!cropSrc || !croppedAreaPixels || !user) return
     setUploadingAvatar(true)
     setError(null)
-    const ext = file.name.split('.').pop() ?? 'jpg'
-    const storagePath = `${user.id}/avatar.${ext}`
-
-    // Remove old file if any, ignore errors
-    await supabase.storage.from('provider-avatars').remove([storagePath])
-
-    const { error: upErr } = await supabase.storage
-      .from('provider-avatars')
-      .upload(storagePath, file, { upsert: true, contentType: file.type })
-
-    if (upErr) { setError('Photo upload failed: ' + upErr.message); setUploadingAvatar(false); return }
-
-    const { data: urlData } = supabase.storage.from('provider-avatars').getPublicUrl(storagePath)
-    const publicUrl = urlData.publicUrl
-
-    await supabase.from('provider_profiles').update({ profile_image_url: publicUrl }).eq('user_id', user.id)
-    setAvatarUrl(publicUrl)
-    setAvatarPreview(null)
-    setUploadingAvatar(false)
+    try {
+      const blob = await getCroppedBlob(cropSrc, croppedAreaPixels)
+      const storagePath = `${user.id}/avatar.jpg`
+      await supabase.storage.from('provider-avatars').remove([storagePath])
+      const { error: upErr } = await supabase.storage
+        .from('provider-avatars')
+        .upload(storagePath, blob, { upsert: true, contentType: 'image/jpeg' })
+      if (upErr) throw new Error(upErr.message)
+      const { data: urlData } = supabase.storage.from('provider-avatars').getPublicUrl(storagePath)
+      const publicUrl = urlData.publicUrl + `?t=${Date.now()}`
+      await supabase.from('provider_profiles').update({ profile_image_url: publicUrl }).eq('user_id', user.id)
+      setAvatarUrl(publicUrl)
+      setCropSrc(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed')
+    } finally {
+      setUploadingAvatar(false)
+    }
   }
 
   function detectLocation() {
@@ -170,7 +212,6 @@ export default function EditProviderProfilePage() {
   }
 
   const displayName = form.business_name || `${form.first_name} ${form.last_name}`.trim()
-  const currentAvatar = avatarPreview ?? avatarUrl
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
@@ -180,16 +221,11 @@ export default function EditProviderProfilePage() {
         {/* ── Profile photo ──────────────────────────────────────────────── */}
         <div className="flex items-center gap-5">
           <div className="relative h-20 w-20 shrink-0">
-            {currentAvatar ? (
-              <img src={currentAvatar} alt="Profile" className="h-20 w-20 rounded-full object-cover ring-2 ring-gray-100" />
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="Profile" className="h-20 w-20 rounded-full object-cover ring-2 ring-gray-100" />
             ) : (
               <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary text-3xl font-bold text-white">
                 {displayName.charAt(0)?.toUpperCase() || '?'}
-              </div>
-            )}
-            {uploadingAvatar && (
-              <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
               </div>
             )}
           </div>
@@ -199,12 +235,11 @@ export default function EditProviderProfilePage() {
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              disabled={uploadingAvatar}
-              className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
             >
-              {uploadingAvatar ? 'Uploading…' : currentAvatar ? 'Change photo' : 'Upload photo'}
+              {avatarUrl ? 'Change photo' : 'Upload photo'}
             </button>
-            <p className="mt-1 text-xs text-gray-400">JPG or PNG, max 5 MB</p>
+            <p className="mt-1 text-xs text-gray-400">JPG or PNG, max 10 MB</p>
           </div>
         </div>
 
@@ -369,6 +404,66 @@ export default function EditProviderProfilePage() {
           {saving ? 'Saving…' : 'Save Profile'}
         </button>
       </form>
+
+      {/* ── Crop modal ─────────────────────────────────────────────────────── */}
+      {cropSrc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl">
+            <div className="px-5 py-4 border-b border-gray-100">
+              <p className="font-semibold text-gray-900">Crop your photo</p>
+              <p className="text-xs text-gray-500 mt-0.5">Drag to reposition · scroll to zoom</p>
+            </div>
+
+            {/* Cropper canvas */}
+            <div className="relative h-72 bg-gray-900 overflow-hidden">
+              <Cropper
+                image={cropSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                cropShape="round"
+                showGrid={false}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+              />
+            </div>
+
+            {/* Zoom slider */}
+            <div className="px-5 py-3 flex items-center gap-3">
+              <span className="text-xs text-gray-400 shrink-0">Zoom</span>
+              <input
+                type="range"
+                min={1}
+                max={3}
+                step={0.05}
+                value={zoom}
+                onChange={e => setZoom(Number(e.target.value))}
+                className="flex-1 accent-primary"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 px-5 pb-5">
+              <button
+                type="button"
+                onClick={() => setCropSrc(null)}
+                className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={applyCrop}
+                disabled={uploadingAvatar}
+                className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50"
+              >
+                {uploadingAvatar ? 'Saving…' : 'Crop & Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

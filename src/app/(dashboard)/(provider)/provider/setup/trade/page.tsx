@@ -30,8 +30,11 @@ export default function SetupTradePage() {
       .not('group_slug', 'is', null)
       .order('display_order')
       .then(({ data }) => {
+        const seen = new Set<string>()
         const grouped: Record<string, Trade[]> = {}
         ;(data ?? []).forEach((c: any) => {
+          if (seen.has(c.slug)) return
+          seen.add(c.slug)
           if (!grouped[c.group_slug]) grouped[c.group_slug] = []
           grouped[c.group_slug].push(c)
         })

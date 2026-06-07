@@ -9,7 +9,7 @@ import type { QuestionStep, QuestionOption } from '@/lib/service-questions'
 import { PlacesAutocomplete } from '@/components/search/PlacesAutocomplete'
 import type { PlaceResult } from '@/components/search/PlacesAutocomplete'
 import { supabase } from '@/lib/auth'
-import { getTradeIcon } from '@/lib/trade-icons'
+import { getTradeIcon, GROUP_ICONS } from '@/lib/trade-icons'
 
 const GROUP_LABELS: Record<string, string> = {
   trades_repairs: 'Trades & Repairs',
@@ -17,13 +17,6 @@ const GROUP_LABELS: Record<string, string> = {
   cleaning: 'Cleaning Services',
   automotive: 'Automotive',
   specialist: 'Specialist Craft',
-}
-const GROUP_ICONS: Record<string, string> = {
-  trades_repairs: '🔧',
-  property_professionals: '🏢',
-  cleaning: '🧹',
-  automotive: '🚗',
-  specialist: '✨',
 }
 const GROUP_ORDER = ['trades_repairs', 'property_professionals', 'cleaning', 'automotive', 'specialist']
 
@@ -59,21 +52,24 @@ function CategoryPicker({ onPick }: { onPick: (slug: string, displayName: string
       <div>
         <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Browse by type</p>
         <div className="flex flex-wrap gap-2">
-          {groups.map(g => (
-            <button
-              key={g}
-              onClick={() => setSelectedGroup(prev => prev === g ? null : g)}
-              className={
-                'flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all ' +
-                (selectedGroup === g
-                  ? 'border-primary bg-primary text-white shadow-sm'
-                  : 'border-border bg-white text-dark hover:border-primary/30 hover:bg-primary/[0.04]')
-              }
-            >
-              <span>{GROUP_ICONS[g]}</span>
-              {GROUP_LABELS[g]}
-            </button>
-          ))}
+          {groups.map(g => {
+            const GIcon = GROUP_ICONS[g]
+            return (
+              <button
+                key={g}
+                onClick={() => setSelectedGroup(prev => prev === g ? null : g)}
+                className={
+                  'flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all ' +
+                  (selectedGroup === g
+                    ? 'border-primary bg-primary text-white shadow-sm'
+                    : 'border-border bg-white text-dark hover:border-primary/30 hover:bg-primary/[0.04]')
+                }
+              >
+                {GIcon && <GIcon size={15} className="shrink-0" />}
+                {GROUP_LABELS[g]}
+              </button>
+            )
+          })}
         </div>
       </div>
 
