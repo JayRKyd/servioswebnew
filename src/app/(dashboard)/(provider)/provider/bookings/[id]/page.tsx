@@ -174,11 +174,15 @@ export default function ProviderBookingDetailPage() {
   if (!booking) return <div className="text-gray-400">Booking not found.</div>
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="space-y-5">
       <div className="flex items-center gap-3">
         <button onClick={() => router.back()} className="text-sm text-primary hover:underline">← Back</button>
         <h1 className="text-xl font-bold text-gray-900">Booking {booking.booking_number}</h1>
       </div>
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_420px] lg:items-start">
+      {/* Left column */}
+      <div className="space-y-5">
 
       <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100 space-y-4">
         <div className="flex items-center justify-between">
@@ -309,6 +313,19 @@ export default function ProviderBookingDetailPage() {
           </button>
         )}
       </div>
+
+      <BookingPhotos
+        bookingId={id as string}
+        bookingStatus={booking.status}
+        isProvider={true}
+        onAfterPhotoCount={setAfterPhotoCount}
+      />
+
+      {/* end left column */}
+      </div>
+
+      {/* ── Right column: Milestones ─────────────────────────────────────────── */}
+      <div className="lg:sticky lg:top-6">
 
       {/* ── Milestones ──────────────────────────────────────────────────────── */}
       <div ref={milestonesRef} id="milestones" className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100 space-y-4">
@@ -515,13 +532,10 @@ export default function ProviderBookingDetailPage() {
           </div>
         )}
       </div>
-
-      <BookingPhotos
-        bookingId={id as string}
-        bookingStatus={booking.status}
-        isProvider={true}
-        onAfterPhotoCount={setAfterPhotoCount}
-      />
+      {/* end right column */}
+      </div>
+      {/* end grid */}
+      </div>
     </div>
   )
 }
