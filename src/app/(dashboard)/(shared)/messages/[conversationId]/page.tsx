@@ -189,14 +189,33 @@ function JobDetailsPanel({
             View Contract →
           </Link>
         )}
-        {isProvider && (
-          <Link
-            href={`/messages/${conversationId}/offer/new`}
-            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary-dark transition-colors"
-          >
-            + Send Offer
-          </Link>
-        )}
+        {isProvider && (() => {
+          const contractLive = booking && !['pending', null, undefined].includes(booking.status)
+          return contractLive ? (
+            <>
+              <Link
+                href={`/provider/bookings/${booking.id}#milestones`}
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary-dark transition-colors"
+              >
+                Manage Milestones →
+              </Link>
+              <button
+                disabled
+                title="Contract already started — use Manage Milestones to update"
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-400 cursor-not-allowed"
+              >
+                + Send Offer
+              </button>
+            </>
+          ) : (
+            <Link
+              href={`/messages/${conversationId}/offer/new`}
+              className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary-dark transition-colors"
+            >
+              + Send Offer
+            </Link>
+          )
+        })()}
       </div>
     </div>
   )
