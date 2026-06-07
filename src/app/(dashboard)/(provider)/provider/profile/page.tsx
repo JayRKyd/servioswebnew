@@ -65,7 +65,7 @@ export default function ProviderProfilePage() {
   )
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
         <Link href="/provider/profile/edit" className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark">Edit Profile</Link>
