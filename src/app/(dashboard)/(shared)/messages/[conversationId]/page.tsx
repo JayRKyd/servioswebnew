@@ -89,7 +89,7 @@ export default function ConversationPage() {
       const [{ data: conv }, { data: msgs }] = await Promise.all([
         supabase
           .from('conversations')
-          .select('*, booking:bookings(id, booking_number, status, service:services(title))')
+          .select('*, booking:bookings(id, booking_number, status, base_amount, total_amount, platform_fee, scheduled_date, scheduled_time_start, service:services(title))')
           .eq('id', conversationId)
           .single(),
         supabase

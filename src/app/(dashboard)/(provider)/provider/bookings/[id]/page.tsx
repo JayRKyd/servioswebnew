@@ -38,7 +38,7 @@ export default function ProviderBookingDetailPage() {
           .maybeSingle()
 
         if (conv) {
-          // Build a minimal conversation object with booking data for the panel
+          // Build conversation object with full booking data for the panel
           setConversation({
             ...conv,
             booking: {
@@ -46,6 +46,11 @@ export default function ProviderBookingDetailPage() {
               booking_number: bk.booking_number,
               status: bk.status,
               service: bk.service,
+              base_amount: bk.base_amount,
+              total_amount: bk.total_amount,
+              platform_fee: bk.platform_fee,
+              scheduled_date: bk.scheduled_date,
+              scheduled_time_start: bk.scheduled_time_start,
             },
           })
 
