@@ -65,6 +65,25 @@ const createOfferSchema = z.object({
   milestones:  z.array(milestoneSchema).min(1),
 })
 
+// ─── GET /api/v1/conversations/:conversationId/offers (latest offer) ─────────
+
+offers.get('/:conversationId/offers', async (c) => {
+  const conversationId = c.req.param('conversationId')
+  const userId         = c.get('userId')
+
+  await assertParticipant(conversationId, userId)
+
+  const { data } = await supabase
+    .from('job_offers')
+    .select('*')
+    .eq('conversation_id', conversationId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  return c.json({ offer: data ?? null })
+})
+
 // ─── GET /api/v1/conversations/:conversationId/offers/:offerId ────────────────
 
 offers.get('/:conversationId/offers/:offerId', async (c) => {
