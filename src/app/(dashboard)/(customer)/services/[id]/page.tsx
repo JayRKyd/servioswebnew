@@ -52,7 +52,7 @@ export default function ServiceDetailPage() {
                     )}
                   </div>
                   <div className="flex flex-col items-end gap-2">
-                    {o.base_price && <span className="text-sm font-medium text-primary">USD {o.base_price}/{o.price_type}</span>}
+                    {o.base_price && <span className="text-sm font-medium text-primary">£{o.base_price}/{o.price_type}</span>}
                     <Link href={'/bookings/new?service=' + service.id + '&provider=' + o.provider_id}
                       className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-dark">
                       Book

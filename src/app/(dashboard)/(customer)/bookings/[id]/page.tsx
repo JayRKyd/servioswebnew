@@ -4,8 +4,10 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/auth'
 import { apiClient } from '@/lib/api-client'
-import { formatDate, formatCurrency } from '@/lib/utils'
+import { formatDate, formatCurrency, formatTime } from '@/lib/utils'
 import { BookingPhotos } from '@/components/shared/BookingPhotos'
+import { StatusBadge } from '@/components/shared/StatusBadge'
+import { Lock, CheckCircle, Shield, AlertTriangle, MessageCircle } from 'lucide-react'
 import { loadStripe } from '@stripe/stripe-js'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
@@ -77,26 +79,6 @@ function ReviewModal({ bookingId, revieweeId, onClose }: { bookingId: string; re
   )
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-700',
-  accepted: 'bg-blue-100 text-primary',
-  in_progress: 'bg-purple-100 text-purple-700',
-  completed: 'bg-green-100 text-green-700',
-  cancelled: 'bg-gray-100 text-gray-500',
-  rejected: 'bg-red-100 text-red-700',
-  approved: 'bg-green-100 text-green-700',
-  scheduled: 'bg-blue-100 text-primary',
-  open: 'bg-red-100 text-red-700',
-  resolved: 'bg-green-100 text-green-700',
-}
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <span className={'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ' + (STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-700')}>
-      {status.replace(/_/g, ' ')}
-    </span>
-  )
-}
-
 function ClaimModal({ bookingId, onClose }: { bookingId: string; onClose: () => void }) {
   const [description, setDescription] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -162,7 +144,7 @@ export default function CustomerBookingDetailPage() {
   useEffect(() => {
     Promise.all([
       supabase.from('bookings')
-        .select('*, service:services(title), provider_profile:provider_profiles(id, user_id, first_name, last_name, business_name), customer_profile:customer_profiles(id, user_id)')
+        .select('*, service:services(title), provider_profile:provider_profiles(id, user_id, first_name, last_name, business_name, profile_image_url), customer_profile:customer_profiles(id, user_id)')
         .eq('id', id).single(),
       supabase.from('payments')
         .select('id, status, amount, captured_at, paid_at')
@@ -302,9 +284,15 @@ export default function CustomerBookingDetailPage() {
         />
       )}
 
-      <div className="flex items-center gap-3">
-        <button onClick={() => router.back()} className="text-sm text-primary hover:underline">← Back</button>
-        <h1 className="text-xl font-bold text-gray-900">Booking {booking.booking_number}</h1>
+      <div className="flex items-start gap-3">
+        <button onClick={() => router.back()} className="mt-1 text-sm text-primary hover:underline">← Back</button>
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">
+            {booking.service?.title ?? 'Booking'}
+            {booking.provider_profile ? ` — ${booking.provider_profile.business_name ?? booking.provider_profile.first_name}` : ''}
+          </h1>
+          <p className="text-xs text-gray-400 mt-0.5">#{(id as string).slice(-6).toUpperCase()}</p>
+        </div>
       </div>
 
       <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100 space-y-4">
@@ -321,9 +309,18 @@ export default function CustomerBookingDetailPage() {
         {booking.provider_profile && (
           <div className="flex items-center justify-between border-t pt-4">
             <span className="text-sm text-gray-500">Provider</span>
-            <span className="text-sm font-medium">
-              {booking.provider_profile.business_name || `${booking.provider_profile.first_name} ${booking.provider_profile.last_name}`}
-            </span>
+            <div className="flex items-center gap-2">
+              {booking.provider_profile.profile_image_url ? (
+                <img src={booking.provider_profile.profile_image_url} alt="" className="h-7 w-7 rounded-full object-cover" />
+              ) : (
+                <div className="h-7 w-7 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold">
+                  {(booking.provider_profile.first_name?.[0] ?? '?').toUpperCase()}
+                </div>
+              )}
+              <span className="text-sm font-medium">
+                {booking.provider_profile.business_name || `${booking.provider_profile.first_name} ${booking.provider_profile.last_name}`}
+              </span>
+            </div>
           </div>
         )}
         <div className="flex items-center justify-between border-t pt-4">
@@ -332,7 +329,7 @@ export default function CustomerBookingDetailPage() {
         </div>
         <div className="flex items-center justify-between border-t pt-4">
           <span className="text-sm text-gray-500">Time</span>
-          <span className="text-sm font-medium">{booking.scheduled_time_start}</span>
+          <span className="text-sm font-medium">{formatTime(booking.scheduled_time_start)}</span>
         </div>
         <div className="flex items-center justify-between border-t pt-4">
           <span className="text-sm text-gray-500">Amount</span>
@@ -443,14 +440,14 @@ export default function CustomerBookingDetailPage() {
       <div className="flex gap-3">
         {booking.status === 'accepted' && !payment && (
           <button onClick={handlePay} disabled={paying}
-            className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50">
-            {paying ? 'Processing…' : '🔒 Pay £' + (booking.total_amount / 100).toFixed(2) + ' — Secure Escrow'}
+            className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50">
+            {paying ? 'Processing…' : <><Lock size={14} /> Pay £{(booking.total_amount / 100).toFixed(2)} securely</>}
           </button>
         )}
         {canConfirm && (
           <button onClick={handleConfirmComplete} disabled={confirming}
-            className="flex-1 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50">
-            {confirming ? 'Confirming…' : '✓ Confirm Job Complete'}
+            className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50">
+            {confirming ? 'Confirming…' : <><CheckCircle size={14} /> Confirm Job Complete</>}
           </button>
         )}
         {canCancel && (
@@ -467,15 +464,15 @@ export default function CustomerBookingDetailPage() {
         )}
         {['pending','accepted','in_progress'].includes(booking.status) && (
           <button onClick={handleOpenMessage}
-            className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-            💬 Message
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            <MessageCircle size={14} /> Message
           </button>
         )}
       </div>
       {canClaim && (
         <button onClick={() => setShowClaim(true)}
-          className="w-full rounded-lg border border-orange-300 px-4 py-2 text-sm font-medium text-orange-700 hover:bg-orange-50">
-          🛡 File a Workmanship Claim
+          className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-orange-300 px-4 py-2 text-sm font-medium text-orange-700 hover:bg-orange-50">
+          <Shield size={14} /> File a Workmanship Claim
         </button>
       )}
     </div>

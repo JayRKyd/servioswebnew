@@ -29,7 +29,7 @@ export default function ProviderDetailForLandlordPage() {
         </div>
         {profile.bio && <p className="text-sm text-gray-600 border-t pt-4">{profile.bio}</p>}
         <div className="grid grid-cols-2 gap-4 border-t pt-4">
-          {profile.hourly_rate && <div><p className="text-xs text-gray-400">Rate</p><p className="font-medium">USD {profile.hourly_rate}/hr</p></div>}
+          {profile.hourly_rate && <div><p className="text-xs text-gray-400">Rate</p><p className="font-medium">£{profile.hourly_rate}/hr</p></div>}
           {profile.rating_count > 0 && <div><p className="text-xs text-gray-400">Rating</p><p className="font-medium">{profile.rating_average?.toFixed(1)} ({profile.rating_count})</p></div>}
           {profile.phone && <div><p className="text-xs text-gray-400">Phone</p><p className="font-medium">{profile.phone}</p></div>}
         </div>

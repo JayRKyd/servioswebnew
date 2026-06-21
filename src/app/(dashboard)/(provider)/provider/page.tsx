@@ -3,26 +3,17 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
-import { formatDate, formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatTime } from '@/lib/utils'
+import { StatusBadge } from '@/components/shared/StatusBadge'
 
-const STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-700',
-  accepted: 'bg-blue-100 text-primary',
-  in_progress: 'bg-purple-100 text-purple-700',
-  completed: 'bg-green-100 text-green-700',
-  cancelled: 'bg-gray-100 text-gray-500',
-  rejected: 'bg-red-100 text-red-700',
-  approved: 'bg-green-100 text-green-700',
-  scheduled: 'bg-blue-100 text-primary',
-  open: 'bg-red-100 text-red-700',
-  resolved: 'bg-green-100 text-green-700',
-}
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <span className={'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ' + (STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-700')}>
-      {status.replace(/_/g, ' ')}
-    </span>
-  )
+function relativeDate(dateStr: string): string {
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const d = new Date(dateStr); d.setHours(0, 0, 0, 0)
+  const diff = Math.round((d.getTime() - today.getTime()) / 86400000)
+  if (diff === 0) return 'Today'
+  if (diff === 1) return 'Tomorrow'
+  if (diff === -1) return 'Yesterday'
+  return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(dateStr))
 }
 
 export default function ProviderDashboard() {
@@ -37,7 +28,9 @@ export default function ProviderDashboard() {
       .then(({ data: p }) => {
         setProfile(p)
         if (!p) { setLoading(false); return }
-        supabase.from('bookings').select('*').eq('provider_id', p.id).order('created_at', { ascending: false }).limit(5)
+        supabase.from('bookings')
+          .select('*, service:services(title), customer_profile:customer_profiles(first_name, last_name)')
+          .eq('provider_id', p.id).order('created_at', { ascending: false }).limit(5)
           .then(({ data: b }) => { setBookings(b ?? []); setLoading(false) })
       })
   }, [user?.id])
@@ -62,7 +55,7 @@ export default function ProviderDashboard() {
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:hidden">
         {([['Requests', '/provider/bookings'], ['Calendar', '/provider/calendar'], ['Earnings', '/provider/earnings'], ['Messages', '/messages']] as const).map(([label, href]) => (
           <Link key={label} href={href} className="rounded-xl bg-white p-4 text-center text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-gray-100 transition hover:ring-blue-300">{label}</Link>
         ))}
@@ -76,8 +69,13 @@ export default function ProviderDashboard() {
               {bookings.map(b => (
                 <Link key={b.id} href={'/provider/bookings/' + b.id} className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100 transition hover:ring-blue-300">
                   <div>
-                    <p className="font-medium text-gray-900">{b.booking_number}</p>
-                    <p className="text-sm text-gray-500">{formatDate(b.scheduled_date)} · {b.scheduled_time_start}</p>
+                    <p className="font-medium text-gray-900">
+                      {b.service?.title ?? 'Booking'}
+                      {b.customer_profile ? ` — ${b.customer_profile.first_name} ${b.customer_profile.last_name}` : ''}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {relativeDate(b.scheduled_date)}{b.scheduled_time_start ? ' · ' + formatTime(b.scheduled_time_start) : ''}
+                    </p>
                   </div>
                   <div className="flex items-center gap-3">
                     <StatusBadge status={b.status} />

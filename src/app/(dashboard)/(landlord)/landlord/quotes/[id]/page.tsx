@@ -190,7 +190,7 @@ export default function LandlordQuoteDetailPage() {
 
       {threshold != null && isOpen && (
         <div className="rounded-lg bg-primary/[0.06] p-4 text-sm text-blue-800 ring-1 ring-blue-200">
-          Your auto-approval threshold is <strong>USD {threshold.toFixed(2)}</strong>. Quotes at or
+          Your auto-approval threshold is <strong>£{threshold.toFixed(2)}</strong>. Quotes at or
           under this amount will be automatically accepted when you select a winner.
         </div>
       )}
@@ -235,7 +235,7 @@ export default function LandlordQuoteDetailPage() {
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-xl font-bold text-gray-900">
-                        USD {r.amount.toFixed(2)}
+                        £{r.amount.toFixed(2)}
                       </p>
                       {autoApproveThis && r.status === 'pending' && (
                         <p className="text-xs text-primary font-medium mt-0.5">

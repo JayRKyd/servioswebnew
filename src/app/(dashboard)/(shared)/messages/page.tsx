@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
-import { formatDate } from '@/lib/utils'
+import { formatDate, titleCase } from '@/lib/utils'
 
 export default function MessagesPage() {
   const { user } = useAuth()
@@ -163,7 +163,8 @@ export default function MessagesPage() {
   }
 
   function displayName(c: any) {
-    return c.resolvedName ?? (role === 'provider' ? 'Customer' : 'Provider')
+    const raw = c.resolvedName ?? (role === 'provider' ? 'Customer' : 'Provider')
+    return raw.split(' ').map((w: string) => titleCase(w)).join(' ')
   }
 
   return (
@@ -250,20 +251,29 @@ export default function MessagesPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {conversations.map(c => (
-            <Link key={c.id} href={'/messages/' + c.id} className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100 transition hover:ring-blue-300">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="font-semibold text-gray-900">{displayName(c)}</p>
-                  {c.booking?.booking_number && (
-                    <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500">#{c.booking.booking_number}</span>
-                  )}
+          {conversations.map(c => {
+            const name = displayName(c)
+            const initials = name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
+            const isRecent = c.last_message_at && (Date.now() - new Date(c.last_message_at).getTime()) < 86400000
+            return (
+              <Link key={c.id} href={'/messages/' + c.id} className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100 transition hover:ring-blue-300">
+                <div className="h-9 w-9 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold shrink-0">
+                  {initials || '?'}
                 </div>
-                {c.lastMsg && <p className="text-sm text-gray-500 truncate">{c.lastMsg}</p>}
-              </div>
-              <p className="ml-3 text-xs text-gray-400 whitespace-nowrap shrink-0">{c.last_message_at ? formatDate(c.last_message_at) : ''}</p>
-            </Link>
-          ))}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-gray-900">{name}</p>
+                    {c.booking?.booking_number && (
+                      <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500">#{c.booking.booking_number}</span>
+                    )}
+                    {isRecent && <span className="h-2 w-2 rounded-full bg-primary shrink-0" />}
+                  </div>
+                  {c.lastMsg && <p className="text-sm text-gray-500 truncate">{c.lastMsg}</p>}
+                </div>
+                <p className="ml-auto text-xs text-gray-400 whitespace-nowrap shrink-0">{c.last_message_at ? formatDate(c.last_message_at) : ''}</p>
+              </Link>
+            )
+          })}
         </div>
       )}
     </div>

@@ -3,27 +3,8 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/auth'
 import { useProfileIds } from '@/hooks/useProfileIds'
-import { formatDate, formatCurrency } from '@/lib/utils'
-
-const STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-700',
-  accepted: 'bg-blue-100 text-primary',
-  in_progress: 'bg-purple-100 text-purple-700',
-  completed: 'bg-green-100 text-green-700',
-  cancelled: 'bg-gray-100 text-gray-500',
-  rejected: 'bg-red-100 text-red-700',
-  approved: 'bg-green-100 text-green-700',
-  scheduled: 'bg-blue-100 text-primary',
-  open: 'bg-red-100 text-red-700',
-  resolved: 'bg-green-100 text-green-700',
-}
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <span className={'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ' + (STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-700')}>
-      {status.replace(/_/g, ' ')}
-    </span>
-  )
-}
+import { formatDate, formatCurrency, formatTime } from '@/lib/utils'
+import { StatusBadge } from '@/components/shared/StatusBadge'
 
 const FILTERS = ['all', 'pending', 'accepted', 'in_progress', 'completed', 'cancelled']
 
@@ -69,7 +50,7 @@ export default function CustomerBookingsPage() {
                 <div>
                   <p className="font-semibold text-gray-900">{b.service?.title ?? b.booking_number}</p>
                   <p className="mt-0.5 text-sm text-gray-400 text-xs">{b.booking_number}</p>
-                  <p className="mt-0.5 text-sm text-gray-500">{formatDate(b.scheduled_date)} · {b.scheduled_time_start}</p>
+                  <p className="mt-0.5 text-sm text-gray-500">{formatDate(b.scheduled_date)} · {formatTime(b.scheduled_time_start)}</p>
                   {b.is_emergency && <span className="mt-1 inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Emergency</span>}
                 </div>
                 <div className="flex flex-col items-end gap-2">

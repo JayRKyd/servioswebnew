@@ -85,10 +85,10 @@ export default function LandlordSettingsPage() {
           {enabled && (
             <div className="space-y-1">
               <label className="block text-sm font-medium text-gray-700">
-                Threshold amount (USD)
+                Threshold amount (£)
               </label>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-500">USD</span>
+                <span className="text-sm font-medium text-gray-500">£</span>
                 <input
                   required
                   type="number"
@@ -101,7 +101,7 @@ export default function LandlordSettingsPage() {
                 />
               </div>
               <p className="text-xs text-gray-400">
-                Jobs ≤ USD {threshold || '—'} will be auto-approved when submitted by a trusted provider.
+                Jobs ≤ £{threshold || '—'} will be auto-approved when submitted by a trusted provider.
               </p>
             </div>
           )}

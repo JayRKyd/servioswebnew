@@ -257,7 +257,7 @@ export default function PreferredProvidersPage() {
                         <div className="mt-1 flex items-center gap-3 text-xs text-gray-400">
                           {p.island && <span>{p.island}</span>}
                           {p.rating_average && <span>★ {p.rating_average.toFixed(1)}</span>}
-                          {p.hourly_rate && <span>USD {p.hourly_rate}/hr</span>}
+                          {p.hourly_rate && <span>£{p.hourly_rate}/hr</span>}
                         </div>
                         {/* Notes */}
                         {editingId === p.user_id ? (

@@ -5,25 +5,7 @@ import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { CATEGORY_META } from '@/lib/service-questions'
-
-const STATUS_COLORS: Record<string, string> = {
-  pending:     'bg-yellow-100 text-yellow-700',
-  accepted:    'bg-blue-100 text-primary',
-  in_progress: 'bg-purple-100 text-purple-700',
-  completed:   'bg-green-100 text-green-700',
-  cancelled:   'bg-gray-100 text-gray-500',
-  rejected:    'bg-red-100 text-red-700',
-  approved:    'bg-green-100 text-green-700',
-  scheduled:   'bg-blue-100 text-primary',
-}
-
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <span className={'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ' + (STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-700')}>
-      {status.replace(/_/g, ' ')}
-    </span>
-  )
-}
+import { StatusBadge } from '@/components/shared/StatusBadge'
 
 export default function CustomerDashboard() {
   const { user } = useAuth()

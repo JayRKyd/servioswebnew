@@ -6,6 +6,14 @@ import { formatDate } from '@/lib/utils'
 
 const DOC_TYPES = ['insurance', 'license', 'certification', 'id', 'contract', 'other']
 
+const DOC_HINTS: Record<string, string> = {
+  insurance: 'Public liability insurance — minimum £1m cover. Required to accept jobs.',
+  license: 'Trade licence or Gas Safe / NICEIC / equivalent certification.',
+  id: 'Passport or driving licence. Used for identity verification only.',
+  certification: 'Any relevant trade qualification or accreditation.',
+  contract: 'A signed contract or terms of service document.',
+}
+
 export default function ProviderDocumentsPage() {
   const { user } = useAuth()
   const [docs, setDocs] = useState<any[]>([])
@@ -33,6 +41,11 @@ export default function ProviderDocumentsPage() {
     <div className="mx-auto max-w-2xl space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Documents</h1>
 
+      <div className="rounded-xl bg-blue-50 border border-blue-200 p-4 text-sm text-blue-800 space-y-1">
+        <p className="font-semibold">Why we verify your documents</p>
+        <p>Verified providers are shown to more customers and earn a trust badge on their profile. Insurance and a valid ID are required before you can accept bookings.</p>
+      </div>
+
       <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100 space-y-4">
         <h2 className="font-semibold text-gray-900">Add Document</h2>
         <form onSubmit={handleUpload} className="space-y-4">
@@ -43,6 +56,9 @@ export default function ProviderDocumentsPage() {
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                 {DOC_TYPES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
               </select>
+              {DOC_HINTS[form.type] && (
+                <p className="mt-1 text-xs text-gray-500">{DOC_HINTS[form.type]}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>

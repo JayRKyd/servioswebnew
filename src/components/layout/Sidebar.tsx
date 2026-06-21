@@ -36,6 +36,7 @@ const NAV_LABELS: Record<string, string> = {
   "/provider/analytics": "Analytics",
   "/provider/quotes": "Quote Requests",
   "/provider/payouts": "Payouts",
+  "/provider/reviews": "Reviews",
   "/landlord": "Dashboard",
   "/landlord/properties": "Properties",
   "/landlord/tenants": "Tenants",

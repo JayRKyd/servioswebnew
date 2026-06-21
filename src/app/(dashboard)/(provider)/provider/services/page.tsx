@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
+import { Briefcase } from 'lucide-react'
 
 export default function ProviderServicesPage() {
   const { user } = useAuth()
@@ -39,8 +40,17 @@ export default function ProviderServicesPage() {
 
       {loading ? <div className="flex h-40 items-center justify-center text-gray-400">Loading…</div> :
         offerings.length === 0 ? (
-          <div className="flex h-40 items-center justify-center rounded-xl border-2 border-dashed border-gray-200 text-center">
-            <div><p className="text-gray-400">No services yet</p><Link href="/provider/services/new" className="mt-2 block text-sm text-primary hover:underline">Add your first service</Link></div>
+          <div className="rounded-xl border-2 border-dashed border-gray-200 py-16 text-center space-y-3">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+              <Briefcase size={22} className="text-gray-400" />
+            </div>
+            <div>
+              <p className="font-semibold text-gray-900">List your services</p>
+              <p className="mt-1 text-sm text-gray-500 max-w-xs mx-auto">Add the services you offer and set your prices. Customers searching for your trade will be able to book you directly.</p>
+            </div>
+            <Link href="/provider/services/new" className="inline-block rounded-lg bg-primary px-5 py-2 text-sm font-medium text-white hover:bg-primary-dark">
+              Add your first service
+            </Link>
           </div>
         ) : (
           <div className="space-y-3">
@@ -48,7 +58,7 @@ export default function ProviderServicesPage() {
               <div key={o.id} className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
                 <div>
                   <p className="font-semibold text-gray-900">{o.services?.title}</p>
-                  <p className="text-xs text-gray-400">{o.services?.service_categories?.name} · USD {o.custom_price ?? '—'}/{o.price_type}</p>
+                  <p className="text-xs text-gray-400">{o.services?.service_categories?.name} · £{o.custom_price ?? '—'}/{o.price_type}</p>
                   {o.duration_minutes && <p className="text-xs text-gray-400">{o.duration_minutes} min</p>}
                 </div>
                 <button onClick={() => toggle(o.id, o.is_active)}

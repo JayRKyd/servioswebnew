@@ -59,7 +59,7 @@ export default function ProviderVerificationPage() {
                   {p.bio && <p className="mt-2 text-sm text-gray-600">{p.bio}</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-4 text-sm">
-                  {p.hourly_rate && <div><p className="text-xs text-gray-400">Rate</p><p>USD {p.hourly_rate}/hr</p></div>}
+                  {p.hourly_rate && <div><p className="text-xs text-gray-400">Rate</p><p>£{p.hourly_rate}/hr</p></div>}
                   {p.phone && <div><p className="text-xs text-gray-400">Phone</p><p>{p.phone}</p></div>}
                 </div>
                 <div className="flex gap-3 border-t pt-4">
