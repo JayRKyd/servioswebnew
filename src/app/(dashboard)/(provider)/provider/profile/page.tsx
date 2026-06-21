@@ -46,16 +46,27 @@ function UKLocalTime() {
 function EditableText({
   value, placeholder, onSave, multiline = false,
 }: {
-  value: string; placeholder: string; onSave: (v: string) => void; multiline?: boolean
+  value: string; placeholder: string; onSave: (v: string) => Promise<boolean>; multiline?: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const ref = useRef<HTMLTextAreaElement & HTMLInputElement>(null)
 
+  // keep draft in sync when parent value changes after a successful save
+  useEffect(() => { if (!editing) setDraft(value) }, [value, editing])
   useEffect(() => { if (editing) ref.current?.focus() }, [editing])
 
-  function save() { onSave(draft); setEditing(false) }
-  function cancel() { setDraft(value); setEditing(false) }
+  async function handleSave() {
+    setSaving(true)
+    setError(null)
+    const ok = await onSave(draft)
+    setSaving(false)
+    if (ok) setEditing(false)
+    else setError('Failed to save — please try again.')
+  }
+  function cancel() { setDraft(value); setEditing(false); setError(null) }
 
   if (editing) {
     return (
@@ -68,11 +79,14 @@ function EditableText({
           <input ref={ref as any} value={draft} onChange={e => setDraft(e.target.value)}
             className="w-full rounded-lg border border-primary px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/30" />
         )}
+        {error && <p className="text-xs text-red-500">{error}</p>}
         <div className="flex gap-2">
-          <button onClick={save} className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/90">
-            <Check size={12} /> Save
+          <button onClick={handleSave} disabled={saving}
+            className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-60">
+            <Check size={12} /> {saving ? 'Saving…' : 'Save'}
           </button>
-          <button onClick={cancel} className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-500 hover:bg-gray-50">
+          <button onClick={cancel} disabled={saving}
+            className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-500 hover:bg-gray-50">
             <X size={12} /> Cancel
           </button>
         </div>
@@ -96,12 +110,21 @@ function EditableText({
 function EditableNumber({
   value, placeholder, prefix = '', suffix = '', onSave,
 }: {
-  value: number | null; placeholder: string; prefix?: string; suffix?: string; onSave: (v: number | null) => void
+  value: number | null; placeholder: string; prefix?: string; suffix?: string; onSave: (v: number | null) => Promise<boolean>
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value?.toString() ?? '')
+  const [saving, setSaving] = useState(false)
 
-  function save() { onSave(draft ? parseFloat(draft) : null); setEditing(false) }
+  // keep draft in sync when parent value changes
+  useEffect(() => { if (!editing) setDraft(value?.toString() ?? '') }, [value, editing])
+
+  async function handleSave() {
+    setSaving(true)
+    const ok = await onSave(draft ? parseFloat(draft) : null)
+    setSaving(false)
+    if (ok) setEditing(false)
+  }
   function cancel() { setDraft(value?.toString() ?? ''); setEditing(false) }
 
   if (editing) {
@@ -111,8 +134,8 @@ function EditableNumber({
         <input autoFocus type="number" value={draft} onChange={e => setDraft(e.target.value)}
           className="w-24 rounded-lg border border-primary px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
         <span className="text-sm text-gray-500">{suffix}</span>
-        <button onClick={save} className="h-6 w-6 flex items-center justify-center rounded-full bg-primary text-white"><Check size={11} /></button>
-        <button onClick={cancel} className="h-6 w-6 flex items-center justify-center rounded-full border border-gray-200 text-gray-400"><X size={11} /></button>
+        <button onClick={handleSave} disabled={saving} className="h-6 w-6 flex items-center justify-center rounded-full bg-primary text-white disabled:opacity-60"><Check size={11} /></button>
+        <button onClick={cancel} disabled={saving} className="h-6 w-6 flex items-center justify-center rounded-full border border-gray-200 text-gray-400"><X size={11} /></button>
       </div>
     )
   }
@@ -133,14 +156,26 @@ function EditableNumber({
 function EditableList({
   items, label, placeholder, onSave,
 }: {
-  items: string[]; label: string; placeholder: string; onSave: (v: string[]) => void
+  items: string[]; label: string; placeholder: string; onSave: (v: string[]) => Promise<boolean>
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(items)
   const [newItem, setNewItem] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  function save() { onSave(draft); setEditing(false) }
-  function cancel() { setDraft(items); setEditing(false) }
+  // keep draft in sync when parent items change
+  useEffect(() => { if (!editing) setDraft(items) }, [items, editing])
+
+  async function handleSave() {
+    setSaving(true)
+    setError(null)
+    const ok = await onSave(draft)
+    setSaving(false)
+    if (ok) setEditing(false)
+    else setError('Failed to save — please try again.')
+  }
+  function cancel() { setDraft(items); setEditing(false); setError(null) }
   function remove(i: number) { setDraft(d => d.filter((_, idx) => idx !== i)) }
   function add() {
     if (!newItem.trim()) return
@@ -177,9 +212,10 @@ function EditableList({
               <Plus size={13} />
             </button>
           </div>
+          {error && <p className="text-xs text-red-500">{error}</p>}
           <div className="flex gap-2 pt-1">
-            <button onClick={save} className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white"><Check size={11} /> Save</button>
-            <button onClick={cancel} className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500"><X size={11} /> Cancel</button>
+            <button onClick={handleSave} disabled={saving} className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"><Check size={11} /> {saving ? 'Saving…' : 'Save'}</button>
+            <button onClick={cancel} disabled={saving} className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500"><X size={11} /> Cancel</button>
           </div>
         </div>
       ) : items.length > 0 ? (
@@ -223,9 +259,17 @@ export default function ProviderProfilePage() {
     })
   }, [user?.id])
 
-  async function save(field: string, value: any) {
-    await supabase.from('provider_profiles').update({ [field]: value }).eq('user_id', user!.id)
+  async function save(field: string, value: any): Promise<boolean> {
+    const { error } = await supabase
+      .from('provider_profiles')
+      .update({ [field]: value })
+      .eq('user_id', user!.id)
+    if (error) {
+      console.error(`Failed to save ${field}:`, error.message)
+      return false
+    }
     setProfile((p: any) => ({ ...p, [field]: value }))
+    return true
   }
 
   if (loading) return <div className="flex h-40 items-center justify-center text-gray-400">Loading…</div>
@@ -528,7 +572,7 @@ export default function ProviderProfilePage() {
                   value={bio}
                   placeholder="No bio added yet. Click to write about yourself…"
                   multiline
-                  onSave={v => { save('bio', v); setBioExpanded(false) }}
+                  onSave={async v => { const ok = await save('bio', v); if (ok) setBioExpanded(false); return ok }}
                 />
               )}
             </div>
