@@ -110,7 +110,7 @@ export default function ProviderProfilePage() {
   const isTopRated = rating >= 4.7 && jobs >= 3
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="w-full">
       {/* page action row */}
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-semibold text-gray-900">My Profile</h1>
@@ -173,17 +173,21 @@ export default function ProviderProfilePage() {
                 </div>
               )}
 
-              {/* Badge pills — dark navy outlined, matching Upwork style */}
+              {/* Badge pills — filled icon in circle + text, Upwork style */}
               <div className="flex flex-wrap items-center gap-2 mt-3">
                 {isTopRated && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-gray-800 px-3 py-0.5 text-xs font-semibold text-gray-800">
-                    <Crown size={11} />
+                  <span className="inline-flex items-center gap-2 rounded-full border-2 border-gray-800 pl-1 pr-3 py-0.5 text-xs font-semibold text-gray-800">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-800">
+                      <Crown size={10} className="text-white" />
+                    </span>
                     Top Rated
                   </span>
                 )}
                 {profile.identity_verified && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-gray-800 px-3 py-0.5 text-xs font-semibold text-gray-800">
-                    <BadgeCheck size={11} />
+                  <span className="inline-flex items-center gap-2 rounded-full border-2 border-gray-800 pl-1 pr-3 py-0.5 text-xs font-semibold text-gray-800">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-800">
+                      <BadgeCheck size={10} className="text-white" />
+                    </span>
                     ID Verified
                   </span>
                 )}
@@ -211,7 +215,7 @@ export default function ProviderProfilePage() {
         </div>
 
         {/* ── STATS STRIP ── */}
-        <div className="border-t border-gray-100 px-6 py-4 flex items-start gap-8">
+        <div className="border-t border-gray-100 px-6 py-5 flex items-start gap-10">
           {/* Jobs */}
           <div className="shrink-0">
             <p className="text-xl font-bold text-gray-900">{jobs > 0 ? jobs : '0'}</p>
@@ -252,13 +256,13 @@ export default function ProviderProfilePage() {
         <div className="border-t border-gray-100 flex min-h-0">
 
           {/* ── LEFT SIDEBAR ── */}
-          <aside className="w-48 shrink-0 border-r border-gray-100 px-5 py-5 space-y-5">
+          <aside className="w-56 shrink-0 border-r border-gray-100 px-6 py-6 space-y-6">
 
             {profile.max_travel_distance && (
               <div>
                 <p className="text-sm font-semibold text-gray-800">Service radius</p>
                 <p className="text-sm text-gray-500 mt-0.5">
-                  {profile.max_travel_distance} miles
+                  Up to {profile.max_travel_distance} miles
                 </p>
               </div>
             )}
@@ -286,8 +290,8 @@ export default function ProviderProfilePage() {
 
             {/* Verifications — "Label: Value ✓" format matching Upwork exactly */}
             <div>
-              <p className="text-sm font-semibold text-gray-800 mb-1.5">Verifications</p>
-              <div className="space-y-1.5">
+              <p className="text-sm font-semibold text-gray-800 mb-2">Verifications</p>
+              <div className="space-y-2">
                 <p className="text-sm text-gray-600">
                   ID:{' '}
                   {profile.identity_verified ? (
@@ -308,6 +312,23 @@ export default function ProviderProfilePage() {
                 )}
               </div>
             </div>
+
+            {/* Service areas */}
+            {areas.length > 0 && (
+              <div>
+                <p className="text-sm font-semibold text-gray-800 mb-2">Service areas</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {areas.map((area: string) => (
+                    <span
+                      key={area}
+                      className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-600"
+                    >
+                      {area}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </aside>
 
           {/* ── MAIN CONTENT ── */}
