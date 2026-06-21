@@ -40,6 +40,8 @@ export function MilestoneTracker({ milestones, isProvider, onStatusChange, onEdi
 
   // Only the lowest-numbered pending milestone can be activated
   const nextPendingId = milestones.find(m => m.status === 'pending')?.id ?? null
+  // Only the lowest-numbered active milestone can be completed (enforces 1→2→3 order)
+  const nextActiveId  = milestones.find(m => m.status === 'active')?.id ?? null
 
   async function handleChange(id: string, newStatus: string) {
     setLoading(id)
@@ -76,7 +78,7 @@ export function MilestoneTracker({ milestones, isProvider, onStatusChange, onEdi
     <div className="divide-y divide-gray-100">
       {milestones.map((m) => {
         const canActivate  = isProvider && m.status === 'pending' && m.id === nextPendingId
-        const canComplete  = isProvider && m.status === 'active'
+        const canComplete  = isProvider && m.status === 'active'  && m.id === nextActiveId
         const canEdit      = isProvider && (m.status === 'pending' || m.status === 'active') && !!onEdit
         const isInProgress = loading === m.id
         const isEditing    = editing === m.id

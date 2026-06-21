@@ -75,9 +75,12 @@ export function JobOfferPanel({
             <h3 className="text-[15px] font-bold text-gray-900 leading-snug">
               {booking.service?.title ?? booking.booking_number}
             </h3>
-            {booking.booking_number && (
-              <p className="text-xs text-gray-400 mt-0.5">#{booking.booking_number}</p>
-            )}
+            {(booking.booking_number || booking.id) && (() => {
+              const shortRef = booking.booking_number
+                ? '#' + booking.booking_number.split('-').at(-1)
+                : '#' + (booking.id as string).slice(0, 5)
+              return <p className="text-xs text-gray-400 mt-0.5">{shortRef}</p>
+            })()}
             <span className={`mt-2.5 inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold capitalize ${
               booking.status === 'completed'   ? 'bg-purple-100 text-purple-700' :
               booking.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
@@ -283,30 +286,30 @@ export function JobOfferPanel({
           </Link>
         )}
 
-        {/* Provider: create offer CTA (no offer, no milestones yet) */}
-        {isProvider && !offer && !hasMilestones && (
-          <Link
-            href={`/messages/${conversationId}/offer/new`}
-            className="block w-full rounded-lg bg-primary py-2.5 text-center text-sm font-semibold text-white hover:bg-primary-dark transition-colors"
-          >
-            + Send Offer
-          </Link>
-        )}
-
-        {/* Provider: edit offer or send new offer text link */}
-        {isProvider && (offer || hasMilestones) && (
-          <div className="text-center pt-0.5">
-            <Link
-              href={
-                offer && isPending
-                  ? `/messages/${conversationId}/offer/${offer.id}/edit`
-                  : `/messages/${conversationId}/offer/new`
-              }
-              className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              {offer && isPending ? 'Edit Offer' : '+ Send Offer'}
-            </Link>
-          </div>
+        {/* Provider offer CTAs — hidden once contract is locked (accepted offer or milestones exist) */}
+        {isProvider && !hasMilestones && offer?.status !== 'accepted' && (
+          <>
+            {/* No offer yet, or previous offer was declined → allow creating a new one */}
+            {(!offer || offer.status === 'declined') && (
+              <Link
+                href={`/messages/${conversationId}/offer/new`}
+                className="block w-full rounded-lg bg-primary py-2.5 text-center text-sm font-semibold text-white hover:bg-primary-dark transition-colors"
+              >
+                + Send Offer
+              </Link>
+            )}
+            {/* Offer pending → edit only, no new offer */}
+            {offer && isPending && (
+              <div className="text-center pt-0.5">
+                <Link
+                  href={`/messages/${conversationId}/offer/${offer.id}/edit`}
+                  className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  Edit Offer
+                </Link>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
