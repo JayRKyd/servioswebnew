@@ -56,6 +56,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // API routes handle their own auth — never block or redirect them
+  if (pathname.startsWith('/api/')) {
+    return NextResponse.next()
+  }
+
   // Block landlord/tenant routes entirely when flag is off (before auth check)
   if (!LANDLORD_TENANT_ENABLED && isLandlordTenantRoute(pathname)) {
     return NextResponse.redirect(new URL('/coming-soon', request.url))
