@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { apiClient } from '@/lib/api-client'
+import { formatCurrency } from '@/lib/utils'
 
 interface MilestoneRow {
   title:       string
@@ -126,7 +127,7 @@ export default function NewOfferPage() {
 
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">£</span>
                 <input
                   type="number"
                   min="0"
@@ -158,7 +159,7 @@ export default function NewOfferPage() {
       {/* Total */}
       <div className="flex items-center justify-between rounded-xl bg-primary/[0.06] px-4 py-3 ring-1 ring-blue-100">
         <span className="text-sm font-semibold text-primary">Total</span>
-        <span className="text-lg font-bold text-primary">${(totalCents / 100).toFixed(2)}</span>
+        <span className="text-lg font-bold text-primary">{formatCurrency(totalCents / 100)}</span>
       </div>
 
       <button
