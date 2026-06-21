@@ -143,7 +143,7 @@ export default function ProviderProfilePage() {
       </div>
 
       {/* ─── CARD ─── */}
-      <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 overflow-hidden">
+      <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 overflow-hidden flex flex-col min-h-[calc(100vh-8rem)]">
 
         {/* ── HEADER ── */}
         <div className="px-6 pt-6 pb-5">
@@ -277,7 +277,7 @@ export default function ProviderProfilePage() {
         </div>
 
         {/* ── BODY: sidebar + main ── */}
-        <div className="border-t border-gray-100 flex min-h-0">
+        <div className="border-t border-gray-100 flex flex-1">
 
           {/* ── LEFT SIDEBAR ── */}
           <aside className="w-56 shrink-0 border-r border-gray-100 px-6 py-6 space-y-6">
