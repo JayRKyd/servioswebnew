@@ -13,6 +13,26 @@ import {
   Crown,
 } from 'lucide-react'
 
+function UKLocalTime() {
+  const [time, setTime] = useState('')
+  useEffect(() => {
+    function update() {
+      setTime(
+        new Intl.DateTimeFormat('en-GB', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+          timeZone: 'Europe/London',
+        }).format(new Date())
+      )
+    }
+    update()
+    const id = setInterval(update, 60_000)
+    return () => clearInterval(id)
+  }, [])
+  return <>{time}</>
+}
+
 function StarRow({ rating }: { rating: number }) {
   return (
     <span className="flex items-center gap-0.5">
@@ -165,11 +185,15 @@ export default function ProviderProfilePage() {
                 </p>
               )}
 
-              {/* Location */}
-              {areas.length > 0 && (
+              {/* Location + local time — matches Upwork style */}
+              {(profile.city || areas.length > 0) && (
                 <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
                   <MapPin size={13} className="shrink-0" />
-                  <span>{areas.join(', ')}, Bahamas</span>
+                  <span>
+                    {profile.city ?? areas[0]}, UK
+                    {' – '}
+                    <UKLocalTime /> local time
+                  </span>
                 </div>
               )}
 
@@ -313,6 +337,44 @@ export default function ProviderProfilePage() {
               </div>
             </div>
 
+            {/* Licenses */}
+            <div>
+              <p className="text-sm font-semibold text-gray-800 mb-2">Licenses</p>
+              {(profile.licenses ?? []).length > 0 ? (
+                <div className="space-y-1">
+                  {(profile.licenses as string[]).map((lic) => (
+                    <p key={lic} className="text-sm text-gray-600">{lic}</p>
+                  ))}
+                </div>
+              ) : (
+                <Link href="/provider/profile/edit" className="text-xs text-primary hover:underline">
+                  Add a licence →
+                </Link>
+              )}
+            </div>
+
+            {/* Languages */}
+            <div>
+              <p className="text-sm font-semibold text-gray-800 mb-2">Languages</p>
+              {(profile.languages ?? []).length > 0 ? (
+                <div className="space-y-1">
+                  {(profile.languages as string[]).map((lang) => {
+                    const [name, level] = lang.split(':').map((s) => s.trim())
+                    return (
+                      <p key={lang} className="text-sm text-gray-600">
+                        {name}:{' '}
+                        <span className="text-primary font-medium">{level ?? 'Fluent'}</span>
+                      </p>
+                    )
+                  })}
+                </div>
+              ) : (
+                <Link href="/provider/profile/edit" className="text-xs text-primary hover:underline">
+                  Add a language →
+                </Link>
+              )}
+            </div>
+
             {/* Service areas */}
             {areas.length > 0 && (
               <div>
@@ -327,6 +389,19 @@ export default function ProviderProfilePage() {
                     </span>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* City (editable via profile settings) */}
+            {!profile.city && (
+              <div>
+                <p className="text-sm font-semibold text-gray-800 mb-1">Location</p>
+                <Link
+                  href="/provider/profile/edit"
+                  className="text-xs text-primary hover:underline"
+                >
+                  Add your city →
+                </Link>
               </div>
             )}
           </aside>
