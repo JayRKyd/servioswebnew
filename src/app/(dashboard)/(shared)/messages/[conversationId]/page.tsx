@@ -18,7 +18,7 @@ const EVENT_META: Record<string, { icon: string; label: (m: string) => string; c
   milestone_complete: { icon: '🏁', label: () => 'Marked milestone complete', color: 'border-purple-200 bg-purple-50' },
 }
 
-function SystemMessageCard({ msg, conversationId }: { msg: any; conversationId: string }) {
+function SystemMessageCard({ msg, conversationId, isProvider }: { msg: any; conversationId: string; isProvider: boolean }) {
   const meta = EVENT_META[msg.message_type]
   if (!meta) return null
 
@@ -26,11 +26,12 @@ function SystemMessageCard({ msg, conversationId }: { msg: any; conversationId: 
   const isOfferEvent   = ['offer_sent', 'offer_updated', 'offer_accepted', 'offer_declined'].includes(msg.message_type)
   const isPayment      = msg.message_type === 'payment_released'
   const isMilestone    = msg.message_type === 'milestone_complete'
+  const bookingBase    = isProvider ? '/provider/bookings' : '/bookings'
 
   const href = isOfferEvent && md.offer_id
     ? `/messages/${conversationId}/offer/${md.offer_id}`
     : md.booking_id && (isPayment || isMilestone)
-    ? `/bookings/${md.booking_id}`
+    ? `${bookingBase}/${md.booking_id}`
     : null
 
   return (
@@ -184,7 +185,7 @@ export default function ConversationPage() {
         {/* Both: view contract if accepted offer exists */}
         {conversation?.booking?.id && (
           <Link
-            href={`/bookings/${conversation.booking.id}`}
+            href={isProvider ? `/provider/bookings/${conversation.booking.id}` : `/bookings/${conversation.booking.id}`}
             className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
           >
             View Contract
@@ -199,7 +200,7 @@ export default function ConversationPage() {
           if (msg.message_type !== 'text') {
             return (
               <div key={msg.id} className="py-1">
-                <SystemMessageCard msg={msg} conversationId={conversationId} />
+                <SystemMessageCard msg={msg} conversationId={conversationId} isProvider={isProvider} />
               </div>
             )
           }
