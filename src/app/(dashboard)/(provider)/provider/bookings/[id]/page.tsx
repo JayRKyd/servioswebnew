@@ -7,6 +7,7 @@ import { apiClient } from '@/lib/api-client'
 import { BookingPhotos } from '@/components/shared/BookingPhotos'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { JobOfferPanel } from '@/components/shared/JobOfferPanel'
+import { MilestoneTracker } from '@/components/shared/MilestoneTracker'
 import { MessageCircle, Lock, CheckCircle2 } from 'lucide-react'
 
 export default function ProviderBookingDetailPage() {
@@ -18,6 +19,7 @@ export default function ProviderBookingDetailPage() {
   const [afterPhotoCount, setAfterPhotoCount] = useState<number | null>(null)
   const [conversation, setConversation] = useState<any>(null)
   const [offer, setOffer]               = useState<any>(null)
+  const [milestones, setMilestones]     = useState<any[]>([])
 
   useEffect(() => {
     async function load() {
@@ -58,12 +60,25 @@ export default function ProviderBookingDetailPage() {
           const { data } = await apiClient<{ offer: any }>(`/api/v1/conversations/${conv.id}/offers`)
           setOffer(data?.offer ?? null)
         }
+
+        // Fetch booking milestones
+        const { data: ms } = await supabase
+          .from('booking_milestones')
+          .select('*')
+          .eq('booking_id', bk.id)
+          .order('milestone_number')
+        setMilestones(ms ?? [])
       }
 
       setLoading(false)
     }
     load()
   }, [id])
+
+  async function handleMilestoneStatusChange(milestoneId: string, newStatus: string) {
+    await supabase.from('booking_milestones').update({ status: newStatus }).eq('id', milestoneId)
+    setMilestones(prev => prev.map(m => m.id === milestoneId ? { ...m, status: newStatus } : m))
+  }
 
   async function updateStatus(status: string) {
     setActing(true)
@@ -282,6 +297,17 @@ export default function ProviderBookingDetailPage() {
           isProvider={true}
           onAfterPhotoCount={setAfterPhotoCount}
         />
+
+        {milestones.length > 0 && (
+          <div id="milestones" className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100 scroll-mt-6">
+            <h2 className="text-sm font-semibold text-gray-900 mb-5">Milestones</h2>
+            <MilestoneTracker
+              milestones={milestones}
+              isProvider={true}
+              onStatusChange={handleMilestoneStatusChange}
+            />
+          </div>
+        )}
       </div>
 
       {/* ── Offer panel (desktop right column) ───────────────────────────── */}
@@ -292,6 +318,7 @@ export default function ProviderBookingDetailPage() {
             conversation={conversation}
             offer={offer}
             isProvider={true}
+            milestones={milestones}
             onOfferAction={(action) => {
               setOffer((prev: any) => ({ ...prev, status: action === 'accept' ? 'accepted' : 'declined' }))
             }}

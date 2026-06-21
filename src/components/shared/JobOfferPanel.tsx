@@ -11,6 +11,8 @@ interface JobOfferPanelProps {
   offer: any
   isProvider: boolean
   onOfferAction: (action: 'accept' | 'decline') => void
+  /** When provided (e.g. from booking detail page), skips internal fetch and uses these directly. */
+  milestones?: any[]
 }
 
 export function JobOfferPanel({
@@ -19,25 +21,30 @@ export function JobOfferPanel({
   offer,
   isProvider,
   onOfferAction,
+  milestones: milestonesProp,
 }: JobOfferPanelProps) {
   const [acting, setActing] = useState<'accept' | 'decline' | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [bookingMilestones, setBookingMilestones] = useState<any[]>([])
+  const [fetchedMilestones, setFetchedMilestones] = useState<any[]>([])
 
   const booking = conversation?.booking
   const bookingBase = isProvider ? '/provider/bookings' : '/bookings'
   const isPending = offer?.status === 'sent'
 
-  // Fetch booking milestones (created when offer is accepted)
+  // Self-fetch only when milestones prop is not provided (messages page / uncontrolled mode)
   useEffect(() => {
+    if (milestonesProp !== undefined) return   // controlled — skip fetch
     if (!booking?.id) return
     supabase
       .from('booking_milestones')
       .select('*')
       .eq('booking_id', booking.id)
       .order('milestone_number')
-      .then(({ data }) => setBookingMilestones(data ?? []))
-  }, [booking?.id])
+      .then(({ data }) => setFetchedMilestones(data ?? []))
+  }, [booking?.id, milestonesProp])
+
+  // Use prop when controlled, otherwise use self-fetched
+  const bookingMilestones = milestonesProp ?? fetchedMilestones
 
   async function handleAction(action: 'accept' | 'decline') {
     setActing(action)
@@ -269,7 +276,7 @@ export function JobOfferPanel({
         {/* Manage Milestones primary button */}
         {hasMilestones && booking?.id && (
           <Link
-            href={`${bookingBase}/${booking.id}`}
+            href={`${bookingBase}/${booking.id}#milestones`}
             className="block w-full rounded-lg bg-gray-900 py-2.5 text-center text-sm font-semibold text-white hover:bg-gray-800 transition-colors"
           >
             Manage Milestones
