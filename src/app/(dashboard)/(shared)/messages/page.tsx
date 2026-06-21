@@ -32,7 +32,7 @@ export default function MessagesPage() {
       if (role === 'provider') {
         const { data: convs } = await supabase
           .from('conversations')
-          .select('id, last_message_at, conversation_type, customer_id, booking:bookings(booking_number)')
+          .select('id, last_message_at, conversation_type, customer_id, booking:bookings(booking_number, service:services(title))')
           .eq('provider_id', user!.id)
           .order('last_message_at', { ascending: false, nullsFirst: false })
         const rows = convs ?? []
@@ -51,7 +51,7 @@ export default function MessagesPage() {
         setCustomerUserId(user!.id)
         const { data: convs } = await supabase
           .from('conversations')
-          .select('id, last_message_at, conversation_type, provider_id, booking:bookings(booking_number)')
+          .select('id, last_message_at, conversation_type, provider_id, booking:bookings(booking_number, service:services(title))')
           .eq('customer_id', user!.id)
           .order('last_message_at', { ascending: false, nullsFirst: false })
         const rows = convs ?? []
@@ -263,8 +263,8 @@ export default function MessagesPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="font-semibold text-gray-900">{name}</p>
-                    {c.booking?.booking_number && (
-                      <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500">#{c.booking.booking_number}</span>
+                    {c.booking && (
+                      <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500">{c.booking.service?.title ?? c.booking.booking_number}</span>
                     )}
                     {isRecent && <span className="h-2 w-2 rounded-full bg-primary shrink-0" />}
                   </div>

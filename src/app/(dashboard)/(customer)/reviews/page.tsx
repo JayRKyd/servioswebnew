@@ -25,8 +25,8 @@ function ReviewsPageInner() {
   useEffect(() => {
     if (!customerId || !user) return
     Promise.all([
-      supabase.from('bookings').select('*').eq('customer_id', customerId).eq('status', 'completed'),
-      supabase.from('reviews').select('*, bookings(booking_number, scheduled_date)').eq('reviewer_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('bookings').select('*, service:services(title)').eq('customer_id', customerId).eq('status', 'completed'),
+      supabase.from('reviews').select('*, bookings(booking_number, scheduled_date, service:services(title))').eq('reviewer_id', user.id).order('created_at', { ascending: false }),
     ]).then(([{ data: b }, { data: r }]) => {
       setCompletedBookings(b ?? [])
       setExisting(r ?? [])
@@ -59,7 +59,7 @@ function ReviewsPageInner() {
               <select required value={selectedBooking} onChange={e => setSelectedBooking(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                 <option value="">Select a booking…</option>
-                {completedBookings.map(b => <option key={b.id} value={b.id}>{b.booking_number} · {formatDate(b.scheduled_date)}</option>)}
+                {completedBookings.map(b => <option key={b.id} value={b.id}>{b.service?.title ?? 'Booking'} · {formatDate(b.scheduled_date)}</option>)}
               </select>
             </div>
             <div>
@@ -92,7 +92,7 @@ function ReviewsPageInner() {
             {existing.map(r => (
               <div key={r.id} className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-gray-900">{r.bookings?.booking_number}</p>
+                  <p className="text-sm font-medium text-gray-900">{r.bookings?.service?.title ?? r.bookings?.booking_number}</p>
                   <span className="text-yellow-400">{'★'.repeat(r.rating)}</span>
                 </div>
                 <p className="mt-1 text-sm text-gray-500">{r.comment}</p>

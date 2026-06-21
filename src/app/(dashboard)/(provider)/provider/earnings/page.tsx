@@ -80,8 +80,7 @@ export default function ProviderEarningsPage() {
                     return (
                       <tr key={b.id} className="hover:bg-gray-50">
                         <td className="px-4 py-3">
-                          <p className="font-medium text-gray-900">{b.service?.title ?? b.booking_number}</p>
-                          <p className="text-xs text-gray-400">{b.booking_number}</p>
+                          <p className="font-medium text-gray-900">{b.service?.title ?? 'Booking'}</p>
                         </td>
                         <td className="px-4 py-3 text-gray-500">{formatDate(b.scheduled_date)}</td>
                         <td className="px-4 py-3 text-right text-gray-600">{formatCurrency(gross / 100)}</td>

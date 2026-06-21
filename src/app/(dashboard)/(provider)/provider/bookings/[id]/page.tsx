@@ -89,7 +89,7 @@ export default function ProviderBookingDetailPage() {
             {booking.service?.title ?? 'Booking'}
             {cp ? ` — ${cp.first_name} ${cp.last_name}` : ''}
           </h1>
-          <p className="text-xs text-gray-400 mt-0.5">#{(id as string).slice(-6).toUpperCase()}</p>
+          <p className="text-xs text-gray-400 mt-0.5">Job &quot;{booking.service?.title ?? 'Booking'}&quot;</p>
         </div>
       </div>
 

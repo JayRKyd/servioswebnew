@@ -42,8 +42,7 @@ export default function ProviderBookingsPage() {
               <Link key={b.id} href={'/provider/bookings/' + b.id} className="block rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100 transition hover:ring-blue-300">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="font-semibold text-gray-900">{b.service?.title ?? b.booking_number}</p>
-                    <p className="text-xs text-gray-400">{b.booking_number}</p>
+                    <p className="font-semibold text-gray-900">{b.service?.title ?? 'Booking'}</p>
                     <p className="text-sm text-gray-500">{formatDate(b.scheduled_date)} · {formatTime(b.scheduled_time_start)}</p>
                     {b.is_emergency && <span className="mt-1 inline-block rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Emergency</span>}
                   </div>

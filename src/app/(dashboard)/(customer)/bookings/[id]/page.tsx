@@ -291,7 +291,7 @@ export default function CustomerBookingDetailPage() {
             {booking.service?.title ?? 'Booking'}
             {booking.provider_profile ? ` — ${booking.provider_profile.business_name ?? booking.provider_profile.first_name}` : ''}
           </h1>
-          <p className="text-xs text-gray-400 mt-0.5">#{(id as string).slice(-6).toUpperCase()}</p>
+          <p className="text-xs text-gray-400 mt-0.5">Job &quot;{booking.service?.title ?? 'Booking'}&quot;</p>
         </div>
       </div>
 

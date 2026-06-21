@@ -76,7 +76,7 @@ export default function ConversationPage() {
 
     async function load() {
       const [{ data: conv }, { data: msgs }] = await Promise.all([
-        supabase.from('conversations').select('*, booking:bookings(id, booking_number, status)').eq('id', conversationId).single(),
+        supabase.from('conversations').select('*, booking:bookings(id, booking_number, status, service:services(title))').eq('id', conversationId).single(),
         supabase.from('messages').select('*').eq('conversation_id', conversationId).order('created_at', { ascending: true }),
       ])
       setConversation(conv)
@@ -165,7 +165,7 @@ export default function ConversationPage() {
           </p>
           {conversation?.booking && (
             <p className="text-xs text-gray-400">
-              Job #{conversation.booking.booking_number}
+              Job &quot;{conversation.booking.service?.title ?? conversation.booking.booking_number}&quot;
               {conversation.booking.status && <span className="ml-1 capitalize">· {conversation.booking.status.replace(/_/g, ' ')}</span>}
             </p>
           )}
