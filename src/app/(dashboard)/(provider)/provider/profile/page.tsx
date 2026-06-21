@@ -282,6 +282,19 @@ export default function ProviderProfilePage() {
           {/* ── LEFT SIDEBAR ── */}
           <aside className="w-56 shrink-0 border-r border-gray-100 px-6 py-6 space-y-6">
 
+            {profile.avg_response_hours != null && (
+              <div>
+                <p className="text-sm font-semibold text-gray-800">Avg. response</p>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  {profile.avg_response_hours < 1
+                    ? 'Under 1 hour'
+                    : profile.avg_response_hours === 1
+                    ? '1 hour'
+                    : `${profile.avg_response_hours} hours`}
+                </p>
+              </div>
+            )}
+
             {profile.max_travel_distance && (
               <div>
                 <p className="text-sm font-semibold text-gray-800">Service radius</p>
