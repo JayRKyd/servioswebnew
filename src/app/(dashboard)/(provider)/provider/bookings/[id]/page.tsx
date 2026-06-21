@@ -80,6 +80,11 @@ export default function ProviderBookingDetailPage() {
     setMilestones(prev => prev.map(m => m.id === milestoneId ? { ...m, status: newStatus } : m))
   }
 
+  async function handleMilestoneEdit(milestoneId: string, updates: { title: string; amount: number; due_date: string | null }) {
+    await supabase.from('booking_milestones').update(updates).eq('id', milestoneId)
+    setMilestones(prev => prev.map(m => m.id === milestoneId ? { ...m, ...updates } : m))
+  }
+
   async function updateStatus(status: string) {
     setActing(true)
     const updates: Record<string, any> = { status }
@@ -305,6 +310,7 @@ export default function ProviderBookingDetailPage() {
               milestones={milestones}
               isProvider={true}
               onStatusChange={handleMilestoneStatusChange}
+              onEdit={handleMilestoneEdit}
             />
           </div>
         )}
