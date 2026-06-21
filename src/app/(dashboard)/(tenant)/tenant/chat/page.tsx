@@ -32,7 +32,7 @@ export default function TenantChatPage() {
     if (!text.trim() || !user || !conversationId) return
     const content = text
     setText('')
-    const { data } = await supabase.from('messages').insert({ conversation_id: conversationId, sender_id: user.id, content }).select().single()
+    const { data } = await supabase.from('messages').insert({ conversation_id: conversationId, sender_id: user.id, message_text: content, message_type: 'text' }).select().single()
     if (data) setMessages(m => [...m, data])
   }
 

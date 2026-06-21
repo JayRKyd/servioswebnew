@@ -106,24 +106,23 @@ messages.post('/conversations/:id/messages', zValidator('json', sendMessageSchem
   const { content, attachments } = c.req.valid('json')
 
   const { data: participant } = await supabase
-    .from('conversation_participants')
+    .from('conversations')
     .select('id')
-    .eq('conversation_id', conversationId)
-    .eq('user_id', userId)
+    .eq('id', conversationId)
+    .or(`customer_id.eq.${userId},provider_id.eq.${userId},landlord_id.eq.${userId},tenant_id.eq.${userId}`)
     .single()
 
   if (!participant) throw new HTTPException(403, { message: 'Forbidden' })
 
   const { data, error } = await supabase
     .from('messages')
-    .insert({ conversation_id: conversationId, sender_id: userId, content, attachments: attachments || [] })
+    .insert({ conversation_id: conversationId, sender_id: userId, message_text: content, message_type: 'text' })
     .select('*, sender:users(id)')
     .single()
 
   if (error) throw new HTTPException(400, { message: error.message })
 
-  // Update conversation updated_at
-  await supabase.from('conversations').update({ updated_at: new Date().toISOString() }).eq('id', conversationId)
+  await supabase.from('conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conversationId)
 
   return c.json({ message: data }, 201)
 })

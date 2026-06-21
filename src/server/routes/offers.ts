@@ -24,7 +24,7 @@ async function postSystemMessage(
     .insert({
       conversation_id: conversationId,
       sender_id: senderId,
-      content,
+      message_text: content,
       message_type: messageType,
       metadata,
     })
@@ -33,7 +33,7 @@ async function postSystemMessage(
 
   await supabase
     .from('conversations')
-    .update({ updated_at: new Date().toISOString() })
+    .update({ last_message_at: new Date().toISOString() })
     .eq('id', conversationId)
 
   return data
@@ -42,10 +42,10 @@ async function postSystemMessage(
 /** Verify the caller is a participant in this conversation */
 async function assertParticipant(conversationId: string, userId: string) {
   const { data } = await supabase
-    .from('conversation_participants')
+    .from('conversations')
     .select('id')
-    .eq('conversation_id', conversationId)
-    .eq('user_id', userId)
+    .eq('id', conversationId)
+    .or(`customer_id.eq.${userId},provider_id.eq.${userId},landlord_id.eq.${userId},tenant_id.eq.${userId}`)
     .single()
   if (!data) throw new HTTPException(403, { message: 'Forbidden' })
 }

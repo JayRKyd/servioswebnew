@@ -56,7 +56,7 @@ export default function AvailabilityPage() {
         .from('provider_availability')
         .select('*')
         .eq('provider_id', user.id)
-        .single()
+        .maybeSingle()
 
       if (data) {
         const loaded: WeekSchedule = {}
