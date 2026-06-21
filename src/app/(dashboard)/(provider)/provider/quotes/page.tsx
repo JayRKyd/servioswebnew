@@ -97,7 +97,7 @@ export default function ProviderQuotesPage() {
   ] as const
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Quote Requests</h1>
 
       <div className="flex gap-2 border-b border-gray-200">

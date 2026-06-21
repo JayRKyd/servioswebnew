@@ -67,7 +67,7 @@ function ProviderPayoutsInner() {
   }
 
   return (
-    <div className="mx-auto max-w-xl space-y-8">
+    <div className="space-y-8">
       <h1 className="text-2xl font-bold text-gray-900">Payouts</h1>
 
       {successParam && (

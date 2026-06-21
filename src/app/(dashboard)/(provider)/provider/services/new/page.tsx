@@ -70,7 +70,7 @@ export default function NewProviderServicePage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg space-y-6">
+    <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Add Service</h1>
       <form onSubmit={handleSubmit} className="space-y-5 rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
         <div>

@@ -38,7 +38,7 @@ export default function ProviderDocumentsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Documents</h1>
 
       <div className="rounded-xl bg-blue-50 border border-blue-200 p-4 text-sm text-blue-800 space-y-1">
