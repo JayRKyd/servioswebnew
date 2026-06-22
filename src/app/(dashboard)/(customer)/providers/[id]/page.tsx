@@ -443,6 +443,10 @@ function CustomerProviderProfileInner() {
               {memberSince && (
                 <p className="text-sm text-muted">Member since {memberSince}</p>
               )}
+              <Link href={`/providers/${provider.user_id}/profile`}
+                className="mt-1 inline-block text-xs font-medium text-primary hover:underline">
+                View full profile →
+              </Link>
             </div>
           </div>
 
