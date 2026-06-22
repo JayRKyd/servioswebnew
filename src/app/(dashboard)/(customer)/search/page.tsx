@@ -262,7 +262,10 @@ function SearchPageInner() {
   const [showMap, setShowMap]         = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [selectedId, setSelectedId]   = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({})
+
+  const ITEMS_PER_PAGE = 6
 
   const categoryParam = searchParams.get('category')
   const context       = searchParams.get('context') ?? ''
@@ -271,6 +274,9 @@ function SearchPageInner() {
     if (categoryParam) updateFilter('category', categoryParam)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryParam])
+
+  // Reset to page 1 whenever category changes
+  useEffect(() => { setCurrentPage(1) }, [filters.category])
 
   useEffect(() => {
     if (location) {
@@ -315,6 +321,13 @@ function SearchPageInner() {
 
   const usingMock = results.length === 0
   const providerCount = total > 0 ? total : displayProviders.length
+
+  // Grid mode (single category selected)
+  const totalPages       = Math.ceil(displayProviders.length / ITEMS_PER_PAGE)
+  const paginatedProviders = displayProviders.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE,
+  )
 
   const activeFilterCount = [
     filters.island !== '',
@@ -418,56 +431,129 @@ function SearchPageInner() {
             <p className="shrink-0 text-sm text-red-500">{error}</p>
           )}
 
-          {Array.from(grouped.entries()).map(([category, providers]) => (
-            <section key={category} className="shrink-0 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-base font-bold text-dark">{category}</h2>
-                  <p className="text-xs text-muted mt-0.5">
-                    {providers.length} provider{providers.length !== 1 ? 's' : ''} available
-                  </p>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => scrollRow(category, 'left')}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-gray-200 hover:shadow-md transition-shadow"
-                    aria-label={`Scroll ${category} left`}
+          {/* ── All tab: horizontal scroll rows per category ── */}
+          {!filters.category && (
+            <>
+              {Array.from(grouped.entries()).map(([category, providers]) => (
+                <section key={category} className="shrink-0 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-base font-bold text-dark">{category}</h2>
+                      <p className="text-xs text-muted mt-0.5">
+                        {providers.length} provider{providers.length !== 1 ? 's' : ''} available
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => scrollRow(category, 'left')}
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-gray-200 hover:shadow-md transition-shadow"
+                        aria-label={`Scroll ${category} left`}
+                      >
+                        <ChevronLeft size={15} className="text-dark" />
+                      </button>
+                      <button
+                        onClick={() => scrollRow(category, 'right')}
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-gray-200 hover:shadow-md transition-shadow"
+                        aria-label={`Scroll ${category} right`}
+                      >
+                        <ChevronRight size={15} className="text-dark" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div
+                    ref={el => { rowRefs.current[category] = el }}
+                    className="flex gap-4 overflow-x-auto pb-2"
+                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                   >
-                    <ChevronLeft size={15} className="text-dark" />
-                  </button>
-                  <button
-                    onClick={() => scrollRow(category, 'right')}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-gray-200 hover:shadow-md transition-shadow"
-                    aria-label={`Scroll ${category} right`}
-                  >
-                    <ChevronRight size={15} className="text-dark" />
-                  </button>
+                    {providers.map(p => (
+                      <AirbnbProviderCard
+                        key={p.user_id}
+                        provider={p}
+                        isSelected={selectedId === p.user_id}
+                        onHover={setSelectedId}
+                        context={context}
+                      />
+                    ))}
+                  </div>
+
+                  <div className="border-b border-gray-100 pt-2" />
+                </section>
+              ))}
+
+              {grouped.size === 0 && !loading && (
+                <div className="flex h-40 items-center justify-center rounded-2xl border-2 border-dashed border-gray-200">
+                  <p className="text-sm text-muted">No providers found. Try adjusting your filters.</p>
                 </div>
+              )}
+            </>
+          )}
+
+          {/* ── Single category: grid + pagination ── */}
+          {filters.category && (
+            <div className="shrink-0 space-y-5">
+              {/* Header */}
+              <div>
+                <h2 className="text-base font-bold text-dark">{filters.category}</h2>
+                <p className="text-xs text-muted mt-0.5">
+                  {displayProviders.length} provider{displayProviders.length !== 1 ? 's' : ''} available
+                </p>
               </div>
 
-              <div
-                ref={el => { rowRefs.current[category] = el }}
-                className="flex gap-4 overflow-x-auto pb-2"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-              >
-                {providers.map(p => (
-                  <AirbnbProviderCard
-                    key={p.user_id}
-                    provider={p}
-                    isSelected={selectedId === p.user_id}
-                    onHover={setSelectedId}
-                    context={context}
-                  />
-                ))}
-              </div>
+              {/* Grid */}
+              {paginatedProviders.length > 0 ? (
+                <div className="grid grid-cols-2 gap-5 lg:grid-cols-3 xl:grid-cols-4">
+                  {paginatedProviders.map(p => (
+                    <AirbnbProviderCard
+                      key={p.user_id}
+                      provider={p}
+                      isSelected={selectedId === p.user_id}
+                      onHover={setSelectedId}
+                      context={context}
+                      fill
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="flex h-40 items-center justify-center rounded-2xl border-2 border-dashed border-gray-200">
+                  <p className="text-sm text-muted">No providers found. Try adjusting your filters.</p>
+                </div>
+              )}
 
-              <div className="border-b border-gray-100 pt-2" />
-            </section>
-          ))}
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-1.5 pt-2">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-dark hover:border-gray-300 disabled:opacity-30 disabled:cursor-default transition"
+                  >
+                    <ChevronLeft size={15} />
+                  </button>
 
-          {grouped.size === 0 && !loading && (
-            <div className="flex h-40 items-center justify-center rounded-2xl border-2 border-dashed border-gray-200">
-              <p className="text-sm text-muted">No providers found. Try adjusting your filters.</p>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-medium transition ${
+                        page === currentPage
+                          ? 'bg-dark text-white border border-dark'
+                          : 'border border-gray-200 bg-white text-dark hover:border-gray-300'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-dark hover:border-gray-300 disabled:opacity-30 disabled:cursor-default transition"
+                  >
+                    <ChevronRight size={15} />
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

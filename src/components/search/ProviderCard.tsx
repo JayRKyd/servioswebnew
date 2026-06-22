@@ -111,11 +111,13 @@ export function AirbnbProviderCard({
   isSelected,
   onHover,
   context,
+  fill = false,
 }: {
   provider: ProviderHit
   isSelected?: boolean
   onHover?: (id: string | null) => void
   context?: string
+  fill?: boolean
 }) {
   const displayName = provider.business_name || `${provider.first_name} ${provider.last_name}`
   const initial     = displayName.charAt(0).toUpperCase()
@@ -128,7 +130,7 @@ export function AirbnbProviderCard({
       href={href}
       onMouseEnter={() => onHover?.(provider.user_id)}
       onMouseLeave={() => onHover?.(null)}
-      className="group block w-[248px] shrink-0"
+      className={`group block ${fill ? 'w-full' : 'w-[248px] shrink-0'}`}
     >
       {/* Photo / avatar area */}
       <div className={`relative aspect-[4/3] overflow-hidden rounded-2xl bg-surface transition-all duration-200 ${
