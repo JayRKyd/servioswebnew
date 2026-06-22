@@ -44,7 +44,6 @@ interface Review {
   rating: number
   review_text: string | null
   created_at: string
-  reviewer: { first_name: string; last_name: string } | null
 }
 
 function StarRow({ rating, size = 14 }: { rating: number; size?: number }) {
@@ -105,7 +104,7 @@ function CustomerProviderProfileInner() {
           .select('id, service:services(title, description, base_price)')
           .eq('provider_id', pp.id).eq('is_active', true).limit(12),
         supabase.from('reviews')
-          .select('id, rating, review_text, created_at, reviewer:customer_profiles(first_name, last_name)')
+          .select('id, rating, review_text, created_at')
           .eq('reviewee_id', pp.id).order('created_at', { ascending: false }).limit(20),
         supabase.from('provider_portfolio_photos')
           .select('id, url, caption')
@@ -129,11 +128,9 @@ function CustomerProviderProfileInner() {
     async function prefetch() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data: cp } = await supabase.from('customer_profiles').select('id').eq('user_id', user.id).maybeSingle()
-      if (!cp) return
-      setPrefetchedCustomerId(cp.id)
+      setPrefetchedCustomerId(user.id)
       const { data: existing } = await supabase.from('conversations').select('id')
-        .eq('customer_id', cp.id).eq('provider_id', provider.id).is('booking_id', null).maybeSingle()
+        .eq('customer_id', user.id).eq('provider_id', provider.user_id).is('booking_id', null).maybeSingle()
       if (existing) setPrefetchedConvId(existing.id)
     }
     prefetch()
@@ -188,20 +185,16 @@ function CustomerProviderProfileInner() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
 
-    const customerId = prefetchedCustomerId ?? (
-      await supabase.from('customer_profiles').select('id').eq('user_id', user.id).maybeSingle()
-    ).data?.id
-
-    if (!customerId) { setMessaging(false); return }
+    const customerId = prefetchedCustomerId ?? user.id
 
     // Check again in case pre-fetch hadn't finished
     const { data: existing } = await supabase.from('conversations').select('id')
-      .eq('customer_id', customerId).eq('provider_id', provider.id).is('booking_id', null).maybeSingle()
+      .eq('customer_id', customerId).eq('provider_id', provider.user_id).is('booking_id', null).maybeSingle()
 
     if (existing) { router.push(`/messages/${existing.id}`); return }
 
     const { data: conv } = await supabase.from('conversations').insert({
-      customer_id: customerId, provider_id: provider.id,
+      customer_id: customerId, provider_id: provider.user_id,
       conversation_type: 'direct', status: 'active',
     }).select('id').single()
     setMessaging(false)
@@ -547,10 +540,8 @@ function CustomerProviderProfileInner() {
                 {/* Review cards — 2 column */}
                 <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
                   {displayedReviews.map(rv => {
-                    const reviewerName = rv.reviewer
-                      ? `${titleCase(rv.reviewer.first_name)} ${titleCase(rv.reviewer.last_name)}`
-                      : 'Customer'
-                    const reviewerInitial = rv.reviewer?.first_name?.[0]?.toUpperCase() ?? 'C'
+                    const reviewerName = 'Customer'
+                    const reviewerInitial = 'C'
                     return (
                       <div key={rv.id} className="space-y-3">
                         <div className="flex items-center gap-3">
