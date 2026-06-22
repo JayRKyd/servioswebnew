@@ -308,6 +308,26 @@ export default function ProviderProfilePage() {
   const jobs = profile.total_jobs_completed ?? 0
   const isTopRated = rating >= 4.7 && jobs >= 3
 
+  // ── Profile completeness ──
+  const COMPLETION_ITEMS = [
+    { key: 'photo',     label: 'Add a profile photo',          weight: 15, done: !!profile.profile_image_url },
+    { key: 'bio',       label: 'Write a bio',                  weight: 15, done: !!(profile.bio ?? '').trim() },
+    { key: 'trades',    label: 'Add trade categories',         weight: 10, done: (profile.trade_categories ?? []).length > 0 },
+    { key: 'rate',      label: 'Set your hourly rate',         weight: 10, done: profile.hourly_rate != null },
+    { key: 'phone',     label: 'Add a phone number',           weight: 10, done: !!profile.phone },
+    { key: 'location',  label: 'Add your location',            weight: 10, done: !!(profile.city || areas.length > 0) },
+    { key: 'licenses',  label: 'Add licences / certifications',weight: 10, done: licenses.length > 0 },
+    { key: 'verified',  label: 'Verify your identity',         weight: 10, done: !!profile.identity_verified },
+    { key: 'languages', label: 'Add languages you speak',      weight:  5, done: languages.length > 0 },
+    { key: 'areas',     label: 'Set service areas',            weight:  5, done: areas.length > 0 },
+  ]
+  const completionPct = COMPLETION_ITEMS.filter(i => i.done).reduce((s, i) => s + i.weight, 0)
+  const pending = COMPLETION_ITEMS.filter(i => !i.done)
+  const R = 28, CIRC = 2 * Math.PI * R
+  const ringOffset = CIRC * (1 - completionPct / 100)
+  const ringColour = completionPct >= 70 ? 'text-primary' : completionPct >= 40 ? 'text-amber-400' : 'text-rose-400'
+  const barColour  = completionPct >= 70 ? 'bg-primary'   : completionPct >= 40 ? 'bg-amber-400'   : 'bg-rose-400'
+
   return (
     <div className="w-full">
       {/* page action row */}
@@ -315,6 +335,70 @@ export default function ProviderProfilePage() {
         <h1 className="text-xl font-semibold text-gray-900">My Profile</h1>
         <div className="flex items-center gap-3" />
       </div>
+
+      {/* ── PROFILE COMPLETENESS BANNER ── */}
+      {completionPct < 100 && (
+        <div className="mb-5 rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 px-5 py-4">
+          <div className="flex items-start gap-5">
+
+            {/* SVG ring */}
+            <div className="relative shrink-0 flex items-center justify-center" style={{ width: 72, height: 72 }}>
+              <svg width="72" height="72" className="-rotate-90" aria-hidden>
+                <circle cx="36" cy="36" r={R} fill="none" stroke="currentColor" strokeWidth="6" className="text-gray-100" />
+                <circle
+                  cx="36" cy="36" r={R} fill="none" stroke="currentColor" strokeWidth="6"
+                  strokeLinecap="round"
+                  strokeDasharray={CIRC}
+                  strokeDashoffset={ringOffset}
+                  className={`${ringColour} transition-all duration-700`}
+                />
+              </svg>
+              <span className="absolute text-sm font-bold text-gray-900 rotate-0">{completionPct}%</span>
+            </div>
+
+            {/* Right column */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-bold text-gray-900">Profile strength</p>
+                  <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">
+                    {completionPct < 40
+                      ? 'Add key details so customers can find and trust you.'
+                      : completionPct < 70
+                      ? 'Looking good — a few more steps to stand out.'
+                      : 'Almost there — complete your profile for maximum visibility.'}
+                  </p>
+                </div>
+                <div className="shrink-0 pt-1 w-28">
+                  <div className="h-1.5 w-full rounded-full bg-gray-100">
+                    <div className={`h-1.5 rounded-full transition-all duration-700 ${barColour}`} style={{ width: `${completionPct}%` }} />
+                  </div>
+                  <p className="mt-1 text-right text-[10px] font-medium text-gray-400">{100 - completionPct}% to go</p>
+                </div>
+              </div>
+
+              {pending.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-3">
+                  {pending.map(item => (
+                    <span key={item.key}
+                      className="inline-flex items-center gap-1 rounded-full border border-dashed border-gray-300 bg-gray-50 px-2.5 py-0.5 text-[11px] text-gray-500">
+                      <Plus size={9} className="shrink-0" />
+                      {item.label}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {completionPct === 100 && (
+        <div className="mb-5 flex items-center gap-2 rounded-2xl bg-green-50 border border-green-100 px-5 py-3">
+          <BadgeCheck size={16} className="text-green-600 shrink-0" />
+          <p className="text-sm font-semibold text-green-800">Profile complete — you have maximum visibility on Servios.</p>
+        </div>
+      )}
 
       {/* ─── CARD ─── */}
       <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 overflow-hidden flex flex-col min-h-[calc(100vh-8rem)]">
