@@ -178,11 +178,11 @@ function CustomerProviderProfileInner() {
 
           {/* Hero */}
           <div className="flex items-start gap-5">
-            <div className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl ${meta?.color ?? 'bg-gray-100'} flex items-center justify-center shadow-sm`}>
+            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-surface flex items-center justify-center shadow-sm ring-1 ring-gray-100">
               {provider.profile_image_url ? (
                 <img src={provider.profile_image_url} alt={displayName} className="h-full w-full object-cover" />
               ) : (
-                <span className={`text-3xl font-bold opacity-40 ${meta?.accent ?? 'text-gray-400'}`}>{initials}</span>
+                <span className="text-3xl font-bold text-primary/30">{initials}</span>
               )}
             </div>
 
@@ -196,7 +196,7 @@ function CustomerProviderProfileInner() {
                 )}
               </div>
               {meta && (
-                <span className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${meta.color} ${meta.accent}`}>
+                <span className="mt-1 inline-block rounded-full bg-primary/[0.08] px-2.5 py-0.5 text-xs font-medium text-primary capitalize">
                   {meta.label}
                 </span>
               )}

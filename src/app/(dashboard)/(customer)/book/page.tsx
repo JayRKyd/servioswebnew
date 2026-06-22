@@ -37,7 +37,7 @@ function ProviderBrowseCard({ provider }: { provider: any }) {
   return (
     <Link href={`/providers/${provider.user_id}`} className="group block">
       {/* Photo / avatar area */}
-      <div className={`relative aspect-[4/3] overflow-hidden rounded-2xl mb-3 ${meta?.color ?? 'bg-gray-100'} flex items-center justify-center`}>
+      <div className="relative aspect-[4/3] overflow-hidden rounded-2xl mb-3 bg-surface flex items-center justify-center">
         {provider.profile_image_url ? (
           <img
             src={provider.profile_image_url}
@@ -45,7 +45,7 @@ function ProviderBrowseCard({ provider }: { provider: any }) {
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
-          <span className={`text-5xl font-bold opacity-30 select-none ${meta?.accent ?? 'text-gray-400'}`}>
+          <span className="text-5xl font-bold text-primary/20 select-none">
             {initials}
           </span>
         )}
@@ -94,14 +94,14 @@ function CategoryPicker({ onPick }: { onPick: (cat: string) => void }) {
           <button
             key={key}
             onClick={() => onPick(key)}
-            className={`group flex flex-col items-center gap-3 rounded-2xl border border-transparent ${meta.color} p-5 text-center transition-all hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)] hover:scale-[1.02] active:scale-[0.98]`}
+            className="group flex flex-col items-center gap-3 rounded-2xl border border-border bg-white p-5 text-center transition-all hover:border-primary/30 hover:shadow-[0_4px_16px_rgba(17,94,86,0.08)]"
           >
-            <div className={`flex h-12 w-12 items-center justify-center rounded-xl bg-white/60 shadow-sm`}>
-              <Icon size={22} className={meta.accent} />
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-surface transition-colors group-hover:bg-primary/[0.08]">
+              <Icon size={20} className="text-muted transition-colors group-hover:text-primary" />
             </div>
             <div>
-              <p className="text-[13px] font-semibold text-gray-900">{meta.label}</p>
-              <p className="text-[11px] text-gray-500 mt-0.5">Tap to get matched</p>
+              <p className="text-[13px] font-semibold text-dark">{meta.label}</p>
+              <p className="text-[11px] text-muted mt-0.5">Tap to get matched</p>
             </div>
           </button>
         )

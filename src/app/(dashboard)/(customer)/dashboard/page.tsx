@@ -35,7 +35,7 @@ function dateBlock(dateStr: string) {
   const isToday = d.getTime() === today.getTime()
   return (
     <div className={`flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl ${
-      isToday ? 'bg-blue-600 text-white' : 'bg-gray-50 text-gray-700'
+      isToday ? 'bg-primary text-white' : 'bg-gray-50 text-gray-700'
     }`}>
       <span className="text-[10px] font-semibold uppercase leading-none tracking-wide">
         {d.toLocaleDateString('en-GB', { month: 'short' })}
@@ -46,7 +46,7 @@ function dateBlock(dateStr: string) {
 }
 
 const QUICK_LINKS = [
-  { label: 'Book a Service', href: '/book',      icon: <Search size={18} />,       color: 'text-blue-600 bg-blue-50' },
+  { label: 'Book a Service', href: '/book',      icon: <Search size={18} />,       color: 'text-primary bg-primary/[0.08]' },
   { label: 'My Bookings',    href: '/bookings',  icon: <ClipboardList size={18} />, color: 'text-purple-600 bg-purple-50' },
   { label: 'Messages',       href: '/messages',  icon: <MessageSquare size={18} />, color: 'text-teal-600 bg-teal-50' },
   { label: 'Reviews',        href: '/reviews',   icon: <Star size={18} />,          color: 'text-amber-600 bg-amber-50' },
@@ -95,7 +95,7 @@ export default function CustomerDashboard() {
 
   if (loading) return (
     <div className="flex h-64 items-center justify-center">
-      <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+      <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
     </div>
   )
 
@@ -103,7 +103,7 @@ export default function CustomerDashboard() {
     <div className="space-y-5">
 
       {/* ── Hero ── */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 via-blue-600 to-blue-500 p-6 text-white shadow-sm">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary to-primary/80 p-6 text-white shadow-sm">
         <div className="pointer-events-none absolute -right-8 -top-8 h-48 w-48 rounded-full bg-white/[0.06]" />
         <div className="pointer-events-none absolute -right-2 top-14 h-28 w-28 rounded-full bg-white/[0.04]" />
 
@@ -150,7 +150,7 @@ export default function CustomerDashboard() {
       {/* ── Stat cards ── */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Link href="/bookings?status=pending"
-          className="group rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-blue-200">
+          className="group rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-primary/20">
           <div className="mb-4 flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Pending</p>
             <div className={`rounded-xl p-1.5 ${pending.length > 0 ? 'bg-amber-50' : 'bg-gray-50'}`}>
@@ -166,11 +166,11 @@ export default function CustomerDashboard() {
         </Link>
 
         <Link href="/bookings"
-          className="group rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-blue-200">
+          className="group rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-primary/20">
           <div className="mb-4 flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Active</p>
-            <div className="rounded-xl bg-blue-50 p-1.5">
-              <CalendarDays size={14} className="text-blue-600" />
+            <div className="rounded-xl bg-primary/[0.08] p-1.5">
+              <CalendarDays size={14} className="text-primary" />
             </div>
           </div>
           <p className="text-3xl font-bold tracking-tight text-gray-900">{active.length}</p>
@@ -180,7 +180,7 @@ export default function CustomerDashboard() {
         </Link>
 
         <Link href="/bookings"
-          className="group rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-blue-200">
+          className="group rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-primary/20">
           <div className="mb-4 flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Completed</p>
             <div className="rounded-xl bg-green-50 p-1.5">
@@ -212,7 +212,7 @@ export default function CustomerDashboard() {
         <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
             <h2 className="text-sm font-semibold text-gray-900">Upcoming</h2>
-            <Link href="/bookings" className="text-xs text-blue-600 hover:underline">View all →</Link>
+            <Link href="/bookings" className="text-xs text-primary hover:underline">View all →</Link>
           </div>
           <div className="divide-y divide-gray-50">
             {upcoming.slice(0, 3).map(b => (
@@ -245,7 +245,7 @@ export default function CustomerDashboard() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {QUICK_LINKS.map(({ label, href, icon, color }) => (
               <Link key={href} href={href}
-                className="flex flex-col items-center gap-2 rounded-xl p-4 text-center ring-1 ring-gray-100 hover:ring-blue-200 hover:bg-blue-50/30 transition-all">
+                className="flex flex-col items-center gap-2 rounded-xl p-4 text-center ring-1 ring-gray-100 hover:ring-primary/20 hover:bg-primary/[0.04] transition-all">
                 <div className={`rounded-xl p-2.5 ${color}`}>{icon}</div>
                 <span className="text-xs font-medium text-gray-700">{label}</span>
               </Link>
@@ -261,7 +261,7 @@ export default function CustomerDashboard() {
               const meta = CATEGORY_META[key]
               return (
                 <Link key={key} href={`/book?category=${key}`}
-                  className="flex flex-col items-center gap-1.5 rounded-xl bg-gray-50 px-2 py-3 text-center hover:bg-blue-50 hover:ring-1 hover:ring-blue-200 transition-all">
+                  className="flex flex-col items-center gap-1.5 rounded-xl bg-gray-50 px-2 py-3 text-center hover:bg-blue-50 hover:ring-1 hover:ring-primary/20 transition-all">
                   <span className="text-xl">{meta?.icon}</span>
                   <span className="text-[11px] font-medium text-gray-600">{meta?.label}</span>
                 </Link>
@@ -269,7 +269,7 @@ export default function CustomerDashboard() {
             })}
           </div>
           <Link href="/book"
-            className="mt-3 flex items-center justify-center gap-1 text-xs text-blue-600 hover:underline">
+            className="mt-3 flex items-center justify-center gap-1 text-xs text-primary hover:underline">
             View all services →
           </Link>
         </div>
@@ -279,7 +279,7 @@ export default function CustomerDashboard() {
       <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
           <h2 className="text-sm font-semibold text-gray-900">Recent Bookings</h2>
-          <Link href="/bookings" className="text-xs text-blue-600 hover:underline">View all →</Link>
+          <Link href="/bookings" className="text-xs text-primary hover:underline">View all →</Link>
         </div>
 
         {recent.length === 0 ? (
