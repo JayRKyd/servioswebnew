@@ -245,6 +245,8 @@ export default function ProviderProfilePage() {
   const [latestReview, setLatestReview] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [bioExpanded, setBioExpanded] = useState(false)
+  const [cityEditing, setCityEditing] = useState(false)
+  const [cityDraft, setCityDraft] = useState('')
 
   useEffect(() => {
     if (!user) return
@@ -264,6 +266,8 @@ export default function ProviderProfilePage() {
       .from('provider_profiles')
       .update({ [field]: value })
       .eq('user_id', user!.id)
+      .select('id')
+      .single()
     if (error) {
       console.error(`Failed to save ${field}:`, error.message)
       return false
@@ -309,12 +313,7 @@ export default function ProviderProfilePage() {
       {/* page action row */}
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-xl font-semibold text-gray-900">My Profile</h1>
-        <div className="flex items-center gap-3">
-          <Link href="/provider/profile/edit"
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-            Profile settings
-          </Link>
-        </div>
+        <div className="flex items-center gap-3" />
       </div>
 
       {/* ─── CARD ─── */}
@@ -346,27 +345,52 @@ export default function ProviderProfilePage() {
               )}
 
               {/* Location + live UK time */}
-              <div className="flex items-center gap-1 text-sm text-gray-500 mt-1.5 group">
+              <div className="flex items-center gap-1 text-sm text-gray-500 mt-1.5">
                 <MapPin size={13} className="shrink-0" />
-                {profile.city ? (
-                  <span>{profile.city}, UK – <UKLocalTime /> local time</span>
-                ) : areas.length > 0 ? (
-                  <span>{areas[0]}, UK – <UKLocalTime /> local time</span>
+                {cityEditing ? (
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      autoFocus
+                      value={cityDraft}
+                      onChange={e => setCityDraft(e.target.value)}
+                      placeholder="Enter city"
+                      className="rounded-lg border border-primary px-2 py-0.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      onKeyDown={async e => {
+                        if (e.key === 'Enter') { const ok = await save('city', cityDraft || null); if (ok) setCityEditing(false) }
+                        if (e.key === 'Escape') setCityEditing(false)
+                      }}
+                    />
+                    <button
+                      onClick={async () => { const ok = await save('city', cityDraft || null); if (ok) setCityEditing(false) }}
+                      className="h-6 w-6 flex items-center justify-center rounded-full bg-primary text-white">
+                      <Check size={11} />
+                    </button>
+                    <button
+                      onClick={() => setCityEditing(false)}
+                      className="h-6 w-6 flex items-center justify-center rounded-full border border-gray-200 text-gray-400">
+                      <X size={11} />
+                    </button>
+                  </div>
                 ) : (
-                  <button onClick={() => {
-                    const city = prompt('Enter your city:')
-                    if (city) save('city', city)
-                  }} className="text-primary hover:underline text-xs">
-                    Add location →
-                  </button>
-                )}
-                {(profile.city || areas.length > 0) && (
-                  <button onClick={() => {
-                    const city = prompt('Update city:', profile.city ?? areas[0])
-                    if (city) save('city', city)
-                  }} className="opacity-0 group-hover:opacity-100 ml-1 h-5 w-5 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-primary hover:border-primary transition-opacity">
-                    <Pencil size={10} />
-                  </button>
+                  <div className="group flex items-center gap-1">
+                    {profile.city ? (
+                      <span>{profile.city}, UK – <UKLocalTime /> local time</span>
+                    ) : areas.length > 0 ? (
+                      <span>{areas[0]}, UK – <UKLocalTime /> local time</span>
+                    ) : (
+                      <button onClick={() => { setCityDraft(''); setCityEditing(true) }}
+                        className="text-primary hover:underline text-xs">
+                        Add location →
+                      </button>
+                    )}
+                    {(profile.city || areas.length > 0) && (
+                      <button
+                        onClick={() => { setCityDraft(profile.city ?? areas[0] ?? ''); setCityEditing(true) }}
+                        className="opacity-0 group-hover:opacity-100 ml-1 h-5 w-5 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-primary hover:border-primary transition-opacity">
+                        <Pencil size={10} />
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -449,21 +473,12 @@ export default function ProviderProfilePage() {
             {/* Avg. response */}
             <div>
               <p className="text-sm font-semibold text-gray-800 mb-1">Avg. response</p>
-              <div className="group flex items-center gap-2">
-                <p className="text-sm text-gray-500">
-                  {profile.avg_response_hours != null
-                    ? profile.avg_response_hours < 1 ? 'Under 1 hour'
-                      : profile.avg_response_hours === 1 ? '1 hour'
-                      : `${profile.avg_response_hours} hours`
-                    : <span className="italic text-gray-400">Not set</span>}
-                </p>
-                <button onClick={() => {
-                  const val = prompt('Avg. response time (hours):', profile.avg_response_hours ?? '')
-                  if (val !== null) save('avg_response_hours', val ? parseFloat(val) : null)
-                }} className="opacity-0 group-hover:opacity-100 transition-opacity h-5 w-5 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-primary hover:border-primary">
-                  <Pencil size={10} />
-                </button>
-              </div>
+              <EditableNumber
+                value={profile.avg_response_hours ?? null}
+                placeholder="Set response time"
+                suffix=" hrs"
+                onSave={v => save('avg_response_hours', v)}
+              />
             </div>
 
             {/* Phone */}
@@ -479,25 +494,11 @@ export default function ProviderProfilePage() {
             {/* Website */}
             <div>
               <p className="text-sm font-semibold text-gray-800 mb-1">Website</p>
-              {profile.website ? (
-                <div className="group flex items-start gap-2">
-                  <a href={profile.website} target="_blank" rel="noopener noreferrer"
-                    className="text-sm text-primary hover:underline break-all">
-                    {profile.website.replace(/^https?:\/\//, '')}
-                  </a>
-                  <button onClick={() => {
-                    const val = prompt('Website URL:', profile.website ?? '')
-                    if (val !== null) save('website', val || null)
-                  }} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity h-5 w-5 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-primary hover:border-primary">
-                    <Pencil size={10} />
-                  </button>
-                </div>
-              ) : (
-                <button onClick={() => {
-                  const val = prompt('Website URL:')
-                  if (val) save('website', val)
-                }} className="text-xs text-primary hover:underline">Add website →</button>
-              )}
+              <EditableText
+                value={profile.website ?? ''}
+                placeholder="Add website URL"
+                onSave={v => save('website', v || null)}
+              />
             </div>
 
             {/* Verifications */}
