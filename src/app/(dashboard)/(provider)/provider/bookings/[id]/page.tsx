@@ -171,7 +171,7 @@ export default function ProviderBookingDetailPage() {
               <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">Booking</p>
               <h2 className="text-lg font-bold text-gray-900">{booking.service?.title ?? 'Service'}</h2>
               {booking.booking_number && (
-                <p className="text-xs text-gray-400 mt-0.5">#{booking.booking_number}</p>
+                <p className="text-xs text-gray-400 mt-0.5">#{String(booking.booking_number).slice(-3)}</p>
               )}
             </div>
             <StatusBadge status={booking.status} />
