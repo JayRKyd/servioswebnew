@@ -1,30 +1,79 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
-import { formatDate, titleCase } from '@/lib/utils'
+import { titleCase } from '@/lib/utils'
+import { Search, Plus, MessageSquare, X } from 'lucide-react'
+
+// ── Time formatting ────────────────────────────────────────────────────────────
+function formatConversationTime(iso: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const now = new Date()
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const startOfWeek  = new Date(startOfToday)
+  startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay())
+
+  if (d >= startOfToday)
+    return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  if (d >= startOfWeek)
+    return d.toLocaleDateString('en-GB', { weekday: 'short' })
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+}
+
+// ── Name normalisation ─────────────────────────────────────────────────────────
+function normaliseName(raw: string): string {
+  return raw.split(' ').map(w => titleCase(w)).join(' ')
+}
+
+// ── Initials ──────────────────────────────────────────────────────────────────
+function initials(name: string): string {
+  return name.split(' ').map(w => w[0] ?? '').join('').toUpperCase().slice(0, 2) || '?'
+}
+
+// ── Avatar colours (deterministic per name) ───────────────────────────────────
+const AVATAR_COLOURS = [
+  'bg-primary/20 text-primary',
+  'bg-purple-100 text-purple-700',
+  'bg-blue-100 text-blue-700',
+  'bg-teal-100 text-teal-700',
+  'bg-pink-100 text-pink-700',
+  'bg-amber-100 text-amber-700',
+]
+function avatarColour(name: string): string {
+  let n = 0
+  for (let i = 0; i < name.length; i++) n += name.charCodeAt(i)
+  return AVATAR_COLOURS[n % AVATAR_COLOURS.length]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function MessagesPage() {
   const { user } = useAuth()
-  const router = useRouter()
+  const router   = useRouter()
+
   const [conversations, setConversations] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading]     = useState(true)
   const [customerUserId, setCustomerUserId] = useState<string | null>(null)
 
-  // New message search state
-  const [showSearch, setShowSearch] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
+  // Conversation filter
+  const [filterQuery, setFilterQuery] = useState('')
+
+  // New-message search (customers only)
+  const [showSearch,    setShowSearch]    = useState(false)
+  const [searchQuery,   setSearchQuery]   = useState('')
   const [searchResults, setSearchResults] = useState<any[]>([])
-  const [searching, setSearching] = useState(false)
-  const [starting, setStarting] = useState(false)
-  const [startError, setStartError] = useState<string | null>(null)
-  const searchRef = useRef<HTMLDivElement>(null)
+  const [searching,     setSearching]     = useState(false)
+  const [starting,      setStarting]      = useState(false)
+  const [startError,    setStartError]    = useState<string | null>(null)
+  const searchRef  = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const role = user?.user_metadata?.active_role
 
+  // ── Load conversations ───────────────────────────────────────────────────
   useEffect(() => {
     if (!user) return
 
@@ -35,18 +84,27 @@ export default function MessagesPage() {
           .select('id, last_message_at, conversation_type, customer_id, booking:bookings(booking_number, service:services(title))')
           .eq('provider_id', user!.id)
           .order('last_message_at', { ascending: false, nullsFirst: false })
+
         const rows = convs ?? []
-        // Resolve customer names
         const customerIds = Array.from(new Set(rows.map((c: any) => c.customer_id).filter(Boolean)))
-        let nameMap: Record<string, string> = {}
+        let nameMap: Record<string, { name: string; avatar: string | null }> = {}
         if (customerIds.length > 0) {
           const { data: profiles } = await supabase
             .from('customer_profiles')
-            .select('user_id, first_name, last_name')
+            .select('user_id, first_name, last_name, profile_image_url')
             .in('user_id', customerIds)
-          profiles?.forEach((p: any) => { nameMap[p.user_id] = `${p.first_name} ${p.last_name}`.trim() || 'Customer' })
+          profiles?.forEach((p: any) => {
+            nameMap[p.user_id] = {
+              name: `${p.first_name} ${p.last_name}`.trim() || 'Customer',
+              avatar: p.profile_image_url ?? null,
+            }
+          })
         }
-        await attachLastMessages(rows.map((c: any) => ({ ...c, resolvedName: nameMap[c.customer_id] ?? 'Customer' })))
+        await attachLastMessages(rows.map((c: any) => ({
+          ...c,
+          resolvedName: nameMap[c.customer_id]?.name ?? 'Customer',
+          resolvedAvatar: nameMap[c.customer_id]?.avatar ?? null,
+        })))
       } else if (role === 'customer') {
         setCustomerUserId(user!.id)
         const { data: convs } = await supabase
@@ -54,18 +112,27 @@ export default function MessagesPage() {
           .select('id, last_message_at, conversation_type, provider_id, booking:bookings(booking_number, service:services(title))')
           .eq('customer_id', user!.id)
           .order('last_message_at', { ascending: false, nullsFirst: false })
+
         const rows = convs ?? []
-        // Resolve provider names
         const providerIds = Array.from(new Set(rows.map((c: any) => c.provider_id).filter(Boolean)))
-        let nameMap: Record<string, string> = {}
+        let nameMap: Record<string, { name: string; avatar: string | null }> = {}
         if (providerIds.length > 0) {
           const { data: profiles } = await supabase
             .from('provider_profiles')
-            .select('user_id, first_name, last_name, business_name')
+            .select('user_id, business_name, first_name, last_name, profile_image_url')
             .in('user_id', providerIds)
-          profiles?.forEach((p: any) => { nameMap[p.user_id] = p.business_name || `${p.first_name} ${p.last_name}`.trim() || 'Provider' })
+          profiles?.forEach((p: any) => {
+            nameMap[p.user_id] = {
+              name: p.business_name || `${p.first_name} ${p.last_name}`.trim() || 'Provider',
+              avatar: p.profile_image_url ?? null,
+            }
+          })
         }
-        await attachLastMessages(rows.map((c: any) => ({ ...c, resolvedName: nameMap[c.provider_id] ?? 'Provider' })))
+        await attachLastMessages(rows.map((c: any) => ({
+          ...c,
+          resolvedName: nameMap[c.provider_id]?.name ?? 'Provider',
+          resolvedAvatar: nameMap[c.provider_id]?.avatar ?? null,
+        })))
       } else {
         setLoading(false)
       }
@@ -81,7 +148,9 @@ export default function MessagesPage() {
           .in('conversation_id', ids)
           .eq('message_type', 'text')
           .order('created_at', { ascending: false })
-        msgs?.forEach((m: any) => { if (!lastMsgs[m.conversation_id]) lastMsgs[m.conversation_id] = m.message_text })
+        msgs?.forEach((m: any) => {
+          if (!lastMsgs[m.conversation_id]) lastMsgs[m.conversation_id] = m.message_text
+        })
       }
       setConversations(convs.map((c: any) => ({ ...c, lastMsg: lastMsgs[c.id] ?? null })))
       setLoading(false)
@@ -90,7 +159,7 @@ export default function MessagesPage() {
     load()
   }, [user?.id])
 
-  // Search providers as customer types
+  // ── Provider search (new message) ────────────────────────────────────────
   useEffect(() => {
     if (!showSearch) return
     clearTimeout(debounceRef.current)
@@ -109,13 +178,11 @@ export default function MessagesPage() {
     return () => clearTimeout(debounceRef.current)
   }, [searchQuery, showSearch])
 
-  // Close search on outside click
+  // Close new-message panel on outside click
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setShowSearch(false)
-        setSearchQuery('')
-        setSearchResults([])
+        setShowSearch(false); setSearchQuery(''); setSearchResults([])
       }
     }
     if (showSearch) document.addEventListener('mousedown', handler)
@@ -124,66 +191,56 @@ export default function MessagesPage() {
 
   async function startConversation(provider: any) {
     if (!customerUserId || starting) return
-    setStarting(true)
-    setStartError(null)
+    setStarting(true); setStartError(null)
     try {
-      // Find existing conversation
       const { data: existing } = await supabase
-        .from('conversations')
-        .select('id')
-        .eq('customer_id', customerUserId)
-        .eq('provider_id', provider.user_id)
-        .maybeSingle()
-
-      if (existing?.id) {
-        router.push('/messages/' + existing.id)
-        return
-      }
-
-      // Create new
+        .from('conversations').select('id')
+        .eq('customer_id', customerUserId).eq('provider_id', provider.user_id).maybeSingle()
+      if (existing?.id) { router.push('/messages/' + existing.id); return }
       const { data: conv, error } = await supabase
         .from('conversations')
         .insert({ customer_id: customerUserId, provider_id: provider.user_id, conversation_type: 'direct' })
-        .select('id')
-        .single()
-
-      if (error) {
-        console.error('create conversation error:', error)
-        setStartError(error.message)
-        return
-      }
+        .select('id').single()
+      if (error) { setStartError(error.message); return }
       if (!conv) { setStartError('Failed to create conversation'); return }
       router.push('/messages/' + conv.id)
     } catch (e: any) {
-      console.error('startConversation unexpected error:', e)
       setStartError(e?.message ?? String(e))
     } finally {
       setStarting(false)
     }
   }
 
-  function displayName(c: any) {
-    const raw = c.resolvedName ?? (role === 'provider' ? 'Customer' : 'Provider')
-    return raw.split(' ').map((w: string) => titleCase(w)).join(' ')
-  }
+  // ── Filtered conversations ───────────────────────────────────────────────
+  const filtered = useMemo(() => {
+    if (!filterQuery.trim()) return conversations
+    const q = filterQuery.toLowerCase()
+    return conversations.filter(c =>
+      normaliseName(c.resolvedName ?? '').toLowerCase().includes(q) ||
+      c.booking?.service?.title?.toLowerCase().includes(q) ||
+      c.lastMsg?.toLowerCase().includes(q)
+    )
+  }, [conversations, filterQuery])
 
+  // ────────────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
-      {startError && (
-        <div className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700 ring-1 ring-red-200">
-          {startError}
+    <div className="flex flex-col h-[calc(100vh-7rem)]">
+
+      {/* ── Header ── */}
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Messages</h1>
+          <p className="mt-0.5 text-sm text-gray-400">
+            {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
+          </p>
         </div>
-      )}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Messages</h1>
+
         {role === 'customer' && (
           <div ref={searchRef} className="relative">
             {showSearch ? (
               <div className="flex flex-col">
-                <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400 w-72">
-                  <svg className="h-4 w-4 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-                  </svg>
+                <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 shadow-sm focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 w-72">
+                  <Search size={15} className="shrink-0 text-gray-400" />
                   <input
                     autoFocus
                     placeholder="Search providers…"
@@ -191,91 +248,163 @@ export default function MessagesPage() {
                     onChange={e => setSearchQuery(e.target.value)}
                     className="flex-1 bg-transparent text-sm outline-none placeholder:text-gray-400"
                   />
-                  {searching && <span className="h-3 w-3 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500 shrink-0" />}
+                  {searching
+                    ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-200 border-t-primary shrink-0" />
+                    : searchQuery && <button onClick={() => { setSearchQuery(''); setSearchResults([]) }}><X size={13} className="text-gray-300 hover:text-gray-500" /></button>
+                  }
                 </div>
-
                 {(searchResults.length > 0 || (searchQuery && !searching)) && (
-                  <div className="absolute right-0 top-full z-20 mt-1 w-72 overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-gray-100">
-                    {searchResults.length === 0 ? (
-                      <p className="px-4 py-3 text-sm text-gray-400">No providers found</p>
-                    ) : (
-                      searchResults.map(p => (
-                        <button
-                          key={p.id}
-                          onClick={() => startConversation(p)}
-                          disabled={starting}
-                          className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-gray-50 disabled:opacity-60"
-                        >
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-primary">
-                            {(p.business_name ?? p.first_name)?.[0]?.toUpperCase() ?? '?'}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-gray-900">
-                              {p.business_name || `${p.first_name} ${p.last_name}`.trim()}
-                            </p>
-                            {p.trade_category && <p className="truncate text-xs text-gray-400">{p.trade_category}</p>}
-                          </div>
-                        </button>
-                      ))
-                    )}
+                  <div className="absolute right-0 top-full z-20 mt-1 w-72 overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-gray-100">
+                    {searchResults.length === 0
+                      ? <p className="px-4 py-4 text-sm text-gray-400 text-center">No providers found</p>
+                      : searchResults.map(p => {
+                          const pName = normaliseName(p.business_name || `${p.first_name} ${p.last_name}`.trim() || 'Provider')
+                          const pInitials = initials(pName)
+                          const colour = avatarColour(pName)
+                          return (
+                            <button key={p.id} onClick={() => startConversation(p)} disabled={starting}
+                              className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-gray-50 disabled:opacity-60">
+                              <div className={`flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-bold ${colour}`}>
+                                {p.profile_image_url
+                                  ? <img src={p.profile_image_url} alt="" className="h-9 w-9 object-cover" />
+                                  : pInitials}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-gray-900">{pName}</p>
+                                {p.trade_category && (
+                                  <p className="truncate text-xs text-gray-400 capitalize">{p.trade_category.replace(/_/g, ' ')}</p>
+                                )}
+                              </div>
+                            </button>
+                          )
+                        })}
                   </div>
                 )}
               </div>
             ) : (
-              <button
-                onClick={() => setShowSearch(true)}
-                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                New message
+              <button onClick={() => setShowSearch(true)}
+                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 transition-colors">
+                <Plus size={15} /> New Message
               </button>
             )}
           </div>
         )}
       </div>
 
-      {loading ? (
-        <div className="flex h-40 items-center justify-center text-gray-400">Loading…</div>
-      ) : conversations.length === 0 ? (
-        <div className="flex h-40 items-center justify-center rounded-xl border-2 border-dashed border-gray-200">
-          <div className="text-center">
-            <p className="text-gray-400">No conversations yet</p>
+      {startError && (
+        <div className="mb-3 rounded-xl bg-red-50 px-4 py-2.5 text-sm text-red-700 ring-1 ring-red-200">
+          {startError}
+        </div>
+      )}
+
+      {/* ── Conversation filter search bar ── */}
+      {conversations.length > 0 && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 shadow-sm focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+          <Search size={15} className="shrink-0 text-gray-400" />
+          <input
+            placeholder="Search conversations…"
+            value={filterQuery}
+            onChange={e => setFilterQuery(e.target.value)}
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-gray-400"
+          />
+          {filterQuery && (
+            <button onClick={() => setFilterQuery('')}>
+              <X size={13} className="text-gray-300 hover:text-gray-500" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ── Conversation list ── */}
+      <div className="flex-1 overflow-y-auto">
+        {loading ? (
+          <div className="flex h-40 items-center justify-center">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          </div>
+        ) : filtered.length === 0 && conversations.length === 0 ? (
+          /* Empty state — no conversations at all */
+          <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
+            <div className="rounded-3xl bg-gray-50 p-6">
+              <MessageSquare size={32} className="text-gray-300" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-600">No conversations yet</p>
+              <p className="mt-1 text-xs text-gray-400">
+                {role === 'customer' ? 'Start a conversation with a verified provider.' : 'Conversations will appear here when customers message you.'}
+              </p>
+            </div>
             {role === 'customer' && (
-              <button onClick={() => setShowSearch(true)} className="mt-2 text-sm text-primary hover:underline">
-                Message a provider
+              <button onClick={() => setShowSearch(true)}
+                className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 transition-colors">
+                Message a Provider
               </button>
             )}
           </div>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {conversations.map(c => {
-            const name = displayName(c)
-            const initials = name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
-            const isRecent = c.last_message_at && (Date.now() - new Date(c.last_message_at).getTime()) < 86400000
-            return (
-              <Link key={c.id} href={'/messages/' + c.id} className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100 transition hover:ring-blue-300">
-                <div className="h-9 w-9 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold shrink-0">
-                  {initials || '?'}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold text-gray-900">{name}</p>
-                    {c.booking && (
-                      <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500">{c.booking.service?.title ?? c.booking.booking_number}</span>
+        ) : filtered.length === 0 ? (
+          /* Filter returned nothing */
+          <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+            <Search size={20} className="text-gray-300" />
+            <p className="text-sm text-gray-400">No conversations match &ldquo;{filterQuery}&rdquo;</p>
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 divide-y divide-gray-50">
+            {filtered.map(c => {
+              const name   = normaliseName(c.resolvedName ?? (role === 'provider' ? 'Customer' : 'Provider'))
+              const ini    = initials(name)
+              const colour = avatarColour(name)
+              const time   = formatConversationTime(c.last_message_at)
+              const isNew  = c.last_message_at && (Date.now() - new Date(c.last_message_at).getTime()) < 86400000
+              const serviceTag = c.booking?.service?.title ?? c.booking?.booking_number ?? null
+
+              return (
+                <Link key={c.id} href={'/messages/' + c.id}
+                  className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-gray-50/70">
+
+                  {/* Avatar */}
+                  <div className="relative shrink-0">
+                    <div className={`flex h-12 w-12 items-center justify-center overflow-hidden rounded-full text-sm font-bold ${colour}`}>
+                      {c.resolvedAvatar
+                        ? <img src={c.resolvedAvatar} alt={name} className="h-12 w-12 object-cover" />
+                        : ini}
+                    </div>
+                    {/* Online / recent dot */}
+                    {isNew && (
+                      <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-green-400" />
                     )}
-                    {isRecent && <span className="h-2 w-2 rounded-full bg-primary shrink-0" />}
                   </div>
-                  {c.lastMsg && <p className="text-sm text-gray-500 truncate">{c.lastMsg}</p>}
-                </div>
-                <p className="ml-auto text-xs text-gray-400 whitespace-nowrap shrink-0">{c.last_message_at ? formatDate(c.last_message_at) : ''}</p>
-              </Link>
-            )
-          })}
-        </div>
-      )}
+
+                  {/* Main content */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p className={`truncate text-sm font-semibold text-gray-900 ${isNew ? 'font-bold' : ''}`}>
+                        {name}
+                      </p>
+                      <span className="shrink-0 text-xs text-gray-400 whitespace-nowrap">{time}</span>
+                    </div>
+
+                    {serviceTag && (
+                      <span className="mb-0.5 inline-block rounded-md bg-primary/8 px-1.5 py-0.5 text-[10px] font-medium text-primary/80">
+                        {serviceTag}
+                      </span>
+                    )}
+
+                    <p className={`truncate text-xs leading-relaxed ${isNew ? 'font-medium text-gray-700' : 'text-gray-400'}`}>
+                      {c.lastMsg ?? <span className="italic text-gray-300">No messages yet</span>}
+                    </p>
+                  </div>
+
+                  {/* Unread badge */}
+                  {isNew && (
+                    <div className="shrink-0">
+                      <span className="flex h-2.5 w-2.5 rounded-full bg-primary" />
+                    </div>
+                  )}
+                </Link>
+              )
+            })}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
