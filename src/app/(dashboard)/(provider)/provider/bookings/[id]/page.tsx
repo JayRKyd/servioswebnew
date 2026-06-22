@@ -163,92 +163,115 @@ export default function ProviderBookingDetailPage() {
           </div>
         </div>
 
-        <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100 space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-500">Status</span>
+        <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 overflow-hidden">
+
+          {/* ── Header: service name + status ── */}
+          <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+            <div>
+              <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">Booking</p>
+              <h2 className="text-lg font-bold text-gray-900">{booking.service?.title ?? 'Service'}</h2>
+              {booking.booking_number && (
+                <p className="text-xs text-gray-400 mt-0.5">#{booking.booking_number}</p>
+              )}
+            </div>
             <StatusBadge status={booking.status} />
           </div>
 
-          {booking.service?.title && (
-            <div className="flex items-center justify-between border-t pt-4">
-              <span className="text-sm text-gray-500">Service</span>
-              <span className="text-sm font-medium">{booking.service.title}</span>
-            </div>
-          )}
+          {/* ── Job details grid ── */}
+          <div className="px-6 py-5 space-y-0">
 
-          {cp && (
-            <div className="flex items-center justify-between border-t pt-4">
-              <span className="text-sm text-gray-500">Customer</span>
-              <div className="flex items-center gap-2">
-                {cp.profile_image_url ? (
-                  <img src={cp.profile_image_url} alt="" className="h-7 w-7 rounded-full object-cover" />
-                ) : (
-                  <div className="h-7 w-7 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold">{initials}</div>
-                )}
-                <p className="text-sm font-medium">{cp.first_name} {cp.last_name}</p>
+            {/* Customer */}
+            {cp && (
+              <div className="flex items-center justify-between py-3.5 border-b border-gray-50">
+                <span className="text-sm text-gray-400">Customer</span>
+                <div className="flex items-center gap-2.5">
+                  {cp.profile_image_url ? (
+                    <img src={cp.profile_image_url} alt="" className="h-7 w-7 rounded-full object-cover ring-1 ring-gray-200" />
+                  ) : (
+                    <div className="h-7 w-7 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold shrink-0">{initials}</div>
+                  )}
+                  <span className="text-sm font-semibold text-gray-900">{cp.first_name} {cp.last_name}</span>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {addressDisplay && (
-            <div className="flex items-start justify-between border-t pt-4">
-              <span className="text-sm text-gray-500">Address</span>
-              <span className="text-sm font-medium text-right max-w-xs">{addressDisplay}</span>
-            </div>
-          )}
+            {/* Address */}
+            {addressDisplay && (
+              <div className="flex items-start justify-between py-3.5 border-b border-gray-50 gap-8">
+                <span className="text-sm text-gray-400 shrink-0">Address</span>
+                <span className="text-sm font-medium text-gray-900 text-right">{addressDisplay}</span>
+              </div>
+            )}
 
-          <div className="flex items-center justify-between border-t pt-4">
-            <span className="text-sm text-gray-500">Date</span>
-            <span className="text-sm font-medium">{formatDate(booking.scheduled_date)}</span>
+            {/* Date & Time on same row */}
+            <div className="flex items-center justify-between py-3.5 border-b border-gray-50">
+              <span className="text-sm text-gray-400">Scheduled</span>
+              <span className="text-sm font-medium text-gray-900">
+                {formatDate(booking.scheduled_date)}
+                {booking.scheduled_time_start && (
+                  <span className="text-gray-400 ml-2">at {formatTime(booking.scheduled_time_start)}</span>
+                )}
+              </span>
+            </div>
+
+            {/* Duration */}
+            {booking.service?.duration_minutes && (
+              <div className="flex items-center justify-between py-3.5 border-b border-gray-50">
+                <span className="text-sm text-gray-400">Duration</span>
+                <span className="text-sm font-medium text-gray-900">{booking.service.duration_minutes} min</span>
+              </div>
+            )}
+
+            {booking.is_emergency && (
+              <div className="py-3.5 border-b border-gray-50">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 border border-red-200 px-3 py-1 text-xs font-semibold text-red-600">
+                  ⚡ Emergency booking — 15% commission
+                </span>
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center justify-between border-t pt-4">
-            <span className="text-sm text-gray-500">Time</span>
-            <span className="text-sm font-medium">{formatTime(booking.scheduled_time_start)}</span>
+          {/* ── Financial breakdown ── */}
+          <div className="mx-6 mb-5 rounded-xl bg-gray-50 border border-gray-100 overflow-hidden">
+            <div className="px-5 py-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">Job amount</span>
+                <span className="text-sm font-medium text-gray-900">
+                  {formatCurrency((booking.base_amount ?? booking.total_amount) / 100)}
+                </span>
+              </div>
+              {booking.commission_rate && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500">
+                    Platform fee ({Math.round(booking.commission_rate * 100)}%)
+                  </span>
+                  <span className="text-sm font-medium text-red-500">
+                    −{formatCurrency((booking.platform_fee ?? 0) / 100)}
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-between bg-white border-t border-gray-100 px-5 py-4">
+              <span className="text-sm font-bold text-gray-900">Your payout</span>
+              <span className="text-xl font-bold text-green-600">
+                {formatCurrency(((booking.base_amount ?? booking.total_amount) - (booking.platform_fee ?? 0)) / 100)}
+              </span>
+            </div>
           </div>
 
-          {booking.service?.duration_minutes && (
-            <div className="flex items-center justify-between border-t pt-4">
-              <span className="text-sm text-gray-500">Duration</span>
-              <span className="text-sm font-medium">{booking.service.duration_minutes} min</span>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between border-t pt-4">
-            <span className="text-sm text-gray-500">Job Amount</span>
-            <span className="text-sm font-semibold">{formatCurrency((booking.base_amount ?? booking.total_amount) / 100)}</span>
-          </div>
-          {booking.commission_rate && (
-            <div className="flex items-center justify-between border-t pt-4">
-              <span className="text-sm text-gray-500">Commission ({Math.round(booking.commission_rate * 100)}%)</span>
-              <span className="text-sm text-red-500">−{formatCurrency((booking.platform_fee ?? 0) / 100)}</span>
-            </div>
-          )}
-          <div className="flex items-center justify-between border-t pt-4">
-            <span className="text-sm font-semibold text-gray-700">Your Payout</span>
-            <span className="text-sm font-bold text-green-700">
-              {formatCurrency(((booking.base_amount ?? booking.total_amount) - (booking.platform_fee ?? 0)) / 100)}
-            </span>
-          </div>
-
-          {booking.is_emergency && (
-            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 border border-red-200">
-              Emergency booking — 15% commission applies
-            </div>
-          )}
-
+          {/* ── Escrow / payment status banner ── */}
           {['pending', 'accepted', 'in_progress'].includes(booking.status) && booking.total_amount > 0 && (
-            <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 flex items-start gap-3">
-              <Lock size={16} className="mt-0.5 text-blue-600 shrink-0" />
+            <div className="mx-6 mb-5 rounded-xl bg-blue-50 border border-blue-200 px-5 py-4 flex items-start gap-3">
+              <Lock size={16} className="mt-0.5 text-blue-500 shrink-0" />
               <div>
                 <p className="text-sm font-semibold text-blue-900">Payment in escrow</p>
-                <p className="text-xs text-blue-700 mt-0.5">Released to you once the customer confirms job completion.</p>
+                <p className="text-xs text-blue-600 mt-0.5">Released to you once the customer confirms job completion.</p>
               </div>
             </div>
           )}
 
           {booking.status === 'completed' && (
-            <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3 flex items-start gap-3">
+            <div className="mx-6 mb-5 rounded-xl bg-green-50 border border-green-200 px-5 py-4 flex items-start gap-3">
               <CheckCircle2 size={16} className="mt-0.5 text-green-600 shrink-0" />
               <div>
                 <p className="text-sm font-semibold text-green-900">Payment released</p>
@@ -259,10 +282,11 @@ export default function ProviderBookingDetailPage() {
             </div>
           )}
 
+          {/* ── Customer notes ── */}
           {booking.customer_notes && (
-            <div className="border-t pt-4">
-              <p className="text-sm text-gray-500 mb-1">Customer notes</p>
-              <p className="text-sm text-gray-700">{booking.customer_notes}</p>
+            <div className="px-6 pb-6 border-t border-gray-50 pt-4">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Customer notes</p>
+              <p className="text-sm text-gray-700 leading-relaxed">{booking.customer_notes}</p>
             </div>
           )}
         </div>
