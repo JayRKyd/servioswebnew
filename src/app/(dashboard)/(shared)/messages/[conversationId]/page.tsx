@@ -65,7 +65,7 @@ function SystemMessageCard({ msg, conversationId, isProvider }: { msg: any; conv
 export default function ConversationPage() {
   const { conversationId } = useParams<{ conversationId: string }>()
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, session } = useAuth()
 
   const [messages, setMessages]     = useState<any[]>([])
   const [text, setText]             = useState('')
@@ -132,7 +132,11 @@ export default function ConversationPage() {
 
   // ── Real-time: messages + offer changes ───────────────────────────────────
   useEffect(() => {
-    if (!conversationId) return
+    if (!conversationId || !session?.access_token) return
+
+    // Ensure the realtime WS carries the authenticated JWT before subscribing
+    supabase.realtime.setAuth(session.access_token)
+
     const channel = supabase
       .channel(`conv:${conversationId}`)
       .on(
@@ -152,7 +156,7 @@ export default function ConversationPage() {
       )
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [conversationId])
+  }, [conversationId, session?.access_token])
 
   // Auto-scroll
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])

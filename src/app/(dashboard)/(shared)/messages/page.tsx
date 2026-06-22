@@ -51,7 +51,7 @@ function avatarColour(name: string): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function MessagesPage() {
-  const { user } = useAuth()
+  const { user, session } = useAuth()
   const router   = useRouter()
 
   const [conversations, setConversations] = useState<any[]>([])
@@ -161,7 +161,11 @@ export default function MessagesPage() {
 
   // ── Real-time: keep list live ─────────────────────────────────────────────
   useEffect(() => {
-    if (!user?.id || !role) return
+    if (!user?.id || !role || !session?.access_token) return
+
+    // Ensure the realtime WS carries the authenticated JWT before subscribing
+    supabase.realtime.setAuth(session.access_token)
+
     const col = role === 'provider' ? 'provider_id' : 'customer_id'
 
     const channel = supabase
@@ -206,7 +210,7 @@ export default function MessagesPage() {
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [user?.id, role])
+  }, [user?.id, role, session?.access_token])
 
   // ── Provider search (new message) ────────────────────────────────────────
   useEffect(() => {
