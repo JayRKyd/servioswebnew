@@ -143,25 +143,46 @@ export default function ProviderEarningsPage() {
 
       {/* ── 6-month bar chart ── */}
       <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
-        <p className="mb-5 text-sm font-semibold text-gray-900">Monthly Earnings — Last 6 Months</p>
-        <div className="flex items-end gap-2" style={{ height: '120px' }}>
+        <p className="mb-1 text-sm font-semibold text-gray-900">Monthly Earnings — Last 6 Months</p>
+        <p className="mb-5 text-xs text-gray-400">Net payout per month after commission</p>
+
+        {/* Value labels row */}
+        <div className="flex gap-3 mb-1">
+          {bars.map(b => (
+            <div key={b.key} className="flex-1 text-center">
+              <span className="text-[10px] font-medium text-gray-400 whitespace-nowrap">
+                {b.val > 0 ? formatCurrency(b.val / 100) : ''}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Bars — fixed 80px height, pixel-calculated */}
+        <div className="flex items-end gap-3" style={{ height: '80px' }}>
           {bars.map(b => {
-            const pct = (b.val / maxBar) * 100
+            const BAR_MAX = 80
+            const barH = b.val > 0 ? Math.max(Math.round((b.val / maxBar) * BAR_MAX), 6) : 3
             const isCurrent = b.key === monthKey(now)
             return (
-              <div key={b.key} className="flex flex-1 flex-col items-center gap-1">
-                {b.val > 0 && (
-                  <span className="text-[10px] font-medium text-gray-400 whitespace-nowrap">
-                    {formatCurrency(b.val / 100)}
-                  </span>
-                )}
-                <div className="relative flex w-full flex-1 flex-col justify-end">
-                  <div
-                    className={`w-full rounded-t-lg transition-all duration-500 ${isCurrent ? 'bg-primary' : 'bg-primary/20 hover:bg-primary/40'}`}
-                    style={{ height: b.val > 0 ? `${Math.max(pct, 5)}%` : '2px', opacity: b.val === 0 ? 0.3 : 1 }}
-                  />
-                </div>
-                <span className={`text-xs font-medium ${isCurrent ? 'text-primary' : 'text-gray-400'}`}>
+              <div key={b.key} className="group relative flex flex-1 items-end justify-center" style={{ height: '80px' }}>
+                <div
+                  className={`w-full rounded-t-lg transition-all duration-500 ${
+                    isCurrent ? 'bg-primary' : 'bg-primary/20 group-hover:bg-primary/40'
+                  } ${b.val === 0 ? 'opacity-20' : ''}`}
+                  style={{ height: `${barH}px` }}
+                />
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Month labels row */}
+        <div className="flex gap-3 mt-2">
+          {bars.map(b => {
+            const isCurrent = b.key === monthKey(now)
+            return (
+              <div key={b.key} className="flex-1 text-center">
+                <span className={`text-xs font-semibold ${isCurrent ? 'text-primary' : 'text-gray-400'}`}>
                   {b.label}
                 </span>
               </div>
