@@ -29,55 +29,54 @@ const CATEGORY_ICONS: Record<string, React.ElementType> = {
 function ProviderBrowseCard({ provider }: { provider: any }) {
   const displayName = provider.business_name
     ?? `${titleCase(provider.first_name)} ${titleCase(provider.last_name)}`
-  const initials = provider.business_name
-    ? provider.business_name.charAt(0).toUpperCase()
-    : `${provider.first_name?.[0] ?? ''}${provider.last_name?.[0] ?? ''}`.toUpperCase()
+  const initial = displayName.charAt(0).toUpperCase()
   const meta = provider.trade_category ? CATEGORY_META[provider.trade_category] : null
 
   return (
     <Link href={`/providers/${provider.user_id}`} className="group block">
       {/* Photo / avatar area */}
-      <div className="relative aspect-[4/3] overflow-hidden rounded-2xl mb-3 bg-surface flex items-center justify-center">
+      <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-surface group-hover:shadow-md transition-all duration-200">
         {provider.profile_image_url ? (
           <img
             src={provider.profile_image_url}
             alt={displayName}
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
-          <span className="text-5xl font-bold text-primary/20 select-none">
-            {initials}
-          </span>
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/[0.10] to-primary/[0.20]">
+            <span className="text-6xl font-bold text-primary/25 select-none">{initial}</span>
+          </div>
         )}
-        {provider.identity_verified && (
-          <span className="absolute top-2.5 right-2.5 flex items-center gap-1 rounded-full bg-white/90 backdrop-blur-sm px-2 py-0.5 text-[11px] font-semibold text-primary shadow-sm">
-            <BadgeCheck size={11} /> Verified
-          </span>
-        )}
+        {/* Verified chip — bottom-left */}
+        <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1 rounded-full bg-white/90 backdrop-blur-sm px-2 py-0.5 shadow-sm">
+          <BadgeCheck size={11} className="text-primary" />
+          <span className="text-[11px] font-semibold text-primary">Verified</span>
+        </div>
       </div>
 
       {/* Info */}
-      <div className="space-y-0.5 px-0.5">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-semibold text-gray-900 truncate">{displayName}</p>
-          {provider.rating_average != null && (
-            <span className="flex shrink-0 items-center gap-0.5 text-xs font-medium text-gray-700">
-              <Star size={11} className="fill-amber-400 stroke-amber-400" />
+      <div className="mt-3 px-0.5 space-y-0.5">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-sm font-semibold text-dark truncate leading-snug">{displayName}</p>
+          {provider.rating_average > 0 && (
+            <span className="flex shrink-0 items-center gap-0.5 text-xs font-semibold text-dark">
+              <Star size={11} className="fill-dark stroke-dark" />
               {Number(provider.rating_average).toFixed(1)}
             </span>
           )}
         </div>
-        <p className="text-xs text-gray-500 capitalize">{meta?.label ?? provider.trade_category?.replace(/_/g, ' ')}</p>
-        <div className="flex items-center justify-between pt-0.5">
-          {provider.service_areas?.length > 0 && (
-            <span className="text-xs text-gray-400 truncate">{provider.service_areas.slice(0, 2).join(', ')}</span>
-          )}
-          {provider.hourly_rate != null && (
-            <span className="text-xs font-semibold text-gray-900 shrink-0 ml-auto">
-              <span className="font-normal text-gray-500">From </span>£{provider.hourly_rate}/hr
-            </span>
-          )}
-        </div>
+        {meta && <p className="text-xs text-muted capitalize">{meta.label}</p>}
+        {provider.service_areas?.length > 0 && (
+          <p className="text-xs text-muted">{provider.service_areas.slice(0, 2).join(', ')}</p>
+        )}
+        {provider.total_reviews > 0 && (
+          <p className="text-xs text-muted">{provider.total_reviews} review{provider.total_reviews !== 1 ? 's' : ''}</p>
+        )}
+        {provider.hourly_rate != null && (
+          <p className="text-sm font-semibold text-dark pt-1">
+            <span className="font-normal text-muted text-xs">From </span>£{provider.hourly_rate}/hr
+          </p>
+        )}
       </div>
     </Link>
   )
@@ -492,7 +491,7 @@ function BookPageInner() {
               onClick={() => setBrowseCategory(key)}
               className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${browseCategory === key ? 'bg-gray-900 text-white' : 'bg-white ring-1 ring-gray-200 text-gray-600 hover:bg-gray-50'}`}
             >
-              {meta.icon} {meta.label}
+              {meta.label}
             </button>
           ))}
         </div>
