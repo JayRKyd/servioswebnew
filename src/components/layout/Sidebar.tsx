@@ -119,10 +119,11 @@ const ROLE_LABEL: Record<Role, string> = {
 }
 
 const PROVIDER_SETUP_ROUTES = new Set(['/provider/setup/trade', '/provider/setup/services', '/provider/setup/documents', '/provider/setup/complete'])
+const NAV_HIDDEN = new Set(['/providers'])
 
 export function Sidebar({ role }: SidebarProps) {
   const pathname = usePathname()
-  const routes = [...ROLE_ROUTES[role], ...SHARED_ROUTES]
+  const routes = [...ROLE_ROUTES[role], ...SHARED_ROUTES].filter(r => !NAV_HIDDEN.has(r))
   const onboarding = useContext(OnboardingContext)
   const isProvider = role === 'provider'
   const onboardingLocked = isProvider && !onboarding.complete
