@@ -65,7 +65,7 @@ function SystemMessageCard({ msg, conversationId, isProvider }: { msg: any; conv
 export default function ConversationPage() {
   const { conversationId } = useParams<{ conversationId: string }>()
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, session } = useAuth()
 
   const [messages, setMessages]     = useState<any[]>([])
   const [text, setText]             = useState('')
@@ -131,20 +131,44 @@ export default function ConversationPage() {
     fetchOffer()
   }, [conversationId, isProvider])
 
-  // ── Real-time: messages (broadcast) + offer changes (postgres_changes) ──────
+  // ── Mark conversation as read ──────────────────────────────────────────────
+  async function markRead() {
+    if (!conversationId || !user) return
+    await supabase
+      .from('conversation_reads')
+      .upsert(
+        { conversation_id: conversationId, user_id: user.id, last_read_at: new Date().toISOString() },
+        { onConflict: 'conversation_id,user_id' },
+      )
+  }
+
+  // Mark read once the thread is loaded
   useEffect(() => {
-    if (!conversationId) return
+    if (!loading) markRead()
+  }, [loading, conversationId, user?.id])
+
+  // ── Real-time: messages + offer changes (postgres_changes) ──────────────────
+  useEffect(() => {
+    if (!conversationId || !session?.access_token) return
+
+    // Ensure the realtime WS carries the authenticated JWT so RLS allows delivery
+    supabase.realtime.setAuth(session.access_token)
 
     const channel = supabase.channel(`conv:${conversationId}`)
     channelRef.current = channel
 
     channel
-      // Incoming messages via Broadcast (bypasses RLS filtering entirely)
-      .on('broadcast', { event: 'new_message' }, ({ payload }) => {
-        setMessages((prev) =>
-          prev.some((m) => m.id === payload.id) ? prev : [...prev, payload]
-        )
-      })
+      // Incoming messages via postgres_changes (RLS lets participants read them)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
+        (payload: any) => {
+          const msg = payload.new as any
+          setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]))
+          // Keep this conversation marked read while it's open
+          if (msg.sender_id !== user?.id) markRead()
+        },
+      )
       // Offer changes still use postgres_changes (re-fetch on event, payload not needed)
       .on(
         'postgres_changes',
@@ -159,7 +183,7 @@ export default function ConversationPage() {
       supabase.removeChannel(channel)
       channelRef.current = null
     }
-  }, [conversationId])
+  }, [conversationId, session?.access_token, user?.id])
 
   // Auto-scroll
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
@@ -181,13 +205,8 @@ export default function ConversationPage() {
       .select()
       .single()
     if (data) {
-      setMessages((m) => [...m, data])
-      // Push to the other party in real-time via Broadcast
-      channelRef.current?.send({
-        type: 'broadcast',
-        event: 'new_message',
-        payload: data,
-      })
+      // Optimistic local append; the postgres_changes INSERT echo is de-duped by id
+      setMessages((m) => (m.some((x: any) => x.id === data.id) ? m : [...m, data]))
     }
     await supabase.from('conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conversationId)
     setSending(false)

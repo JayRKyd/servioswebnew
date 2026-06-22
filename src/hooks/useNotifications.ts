@@ -4,7 +4,7 @@ import { supabase } from '@/lib/auth'
 import { useAuth } from './useAuth'
 
 export function useNotifications() {
-  const { user } = useAuth()
+  const { user, session } = useAuth()
   const [notifications, setNotifications] = useState<any[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
@@ -30,6 +30,24 @@ export function useNotifications() {
   }, [user?.id, refetch])
 
   useEffect(() => { refetch() }, [refetch])
+
+  // Real-time: keep notifications + badge live
+  useEffect(() => {
+    if (!user?.id || !session?.access_token) return
+
+    supabase.realtime.setAuth(session.access_token)
+
+    const channel = supabase
+      .channel(`notifications:${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+        () => { refetch() },
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [user?.id, session?.access_token, refetch])
 
   return { notifications, unreadCount, isLoading, refetch, markAllRead }
 }

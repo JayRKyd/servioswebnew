@@ -141,18 +141,34 @@ export default function MessagesPage() {
     async function attachLastMessages(convs: any[]) {
       const ids = convs.map((c: any) => c.id)
       let lastMsgs: Record<string, string> = {}
+      let latest: Record<string, { sender_id: string; created_at: string }> = {}
+      let reads: Record<string, string> = {}
       if (ids.length > 0) {
-        const { data: msgs } = await supabase
-          .from('messages')
-          .select('conversation_id, message_text, message_type')
-          .in('conversation_id', ids)
-          .eq('message_type', 'text')
-          .order('created_at', { ascending: false })
+        const [{ data: msgs }, { data: readRows }] = await Promise.all([
+          supabase
+            .from('messages')
+            .select('conversation_id, message_text, message_type, sender_id, created_at')
+            .in('conversation_id', ids)
+            .eq('message_type', 'text')
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('conversation_reads')
+            .select('conversation_id, last_read_at')
+            .eq('user_id', user!.id)
+            .in('conversation_id', ids),
+        ])
         msgs?.forEach((m: any) => {
           if (!lastMsgs[m.conversation_id]) lastMsgs[m.conversation_id] = m.message_text
+          if (!latest[m.conversation_id]) latest[m.conversation_id] = { sender_id: m.sender_id, created_at: m.created_at }
         })
+        readRows?.forEach((r: any) => { reads[r.conversation_id] = r.last_read_at })
       }
-      setConversations(convs.map((c: any) => ({ ...c, lastMsg: lastMsgs[c.id] ?? null })))
+      setConversations(convs.map((c: any) => {
+        const l = latest[c.id]
+        const read = reads[c.id]
+        const unread = !!l && l.sender_id !== user!.id && (!read || new Date(l.created_at).getTime() > new Date(read).getTime())
+        return { ...c, lastMsg: lastMsgs[c.id] ?? null, unread }
+      }))
       setLoading(false)
     }
 
@@ -197,7 +213,7 @@ export default function MessagesPage() {
           setConversations(prev =>
             prev.map(c =>
               c.id === msg.conversation_id
-                ? { ...c, lastMsg: msg.message_text, last_message_at: msg.created_at }
+                ? { ...c, lastMsg: msg.message_text, last_message_at: msg.created_at, unread: msg.sender_id !== user.id }
                 : c
             ).sort((a, b) => {
               if (!a.last_message_at) return 1
@@ -406,7 +422,7 @@ export default function MessagesPage() {
               const ini    = initials(name)
               const colour = avatarColour(name)
               const time   = formatConversationTime(c.last_message_at)
-              const isNew  = c.last_message_at && (Date.now() - new Date(c.last_message_at).getTime()) < 86400000
+              const isNew  = !!c.unread
               const serviceTag = c.booking?.service?.title ?? c.booking?.booking_number ?? null
               // For customer conversations, link avatar to provider public profile
               const profileHref = role === 'customer' && c.provider_id ? `/providers/${c.provider_id}` : null

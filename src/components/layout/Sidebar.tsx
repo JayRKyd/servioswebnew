@@ -3,6 +3,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useContext } from "react"
 import { useNotifications } from "@/hooks/useNotifications"
+import { useUnreadMessages } from "@/hooks/useUnreadMessages"
 import type { Role } from "@/lib/permissions"
 import { ROLE_ROUTES, SHARED_ROUTES } from "@/lib/permissions"
 import { OnboardingContext } from "@/contexts/OnboardingContext"
@@ -128,6 +129,7 @@ export function Sidebar({ role }: SidebarProps) {
   const isProvider = role === 'provider'
   const onboardingLocked = isProvider && !onboarding.complete
   const { unreadCount } = useNotifications()
+  const { unreadCount: unreadMessages } = useUnreadMessages()
 
   function isActive(route: string) {
     if (route === "/dashboard" || route === "/provider" || route === "/landlord" || route === "/tenant" || route === "/admin") {
@@ -206,6 +208,11 @@ export function Sidebar({ role }: SidebarProps) {
                     {route === '/notifications' && unreadCount > 0 && (
                       <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
                         {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                    {route === '/messages' && unreadMessages > 0 && (
+                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                        {unreadMessages > 9 ? '9+' : unreadMessages}
                       </span>
                     )}
                   </Link>
