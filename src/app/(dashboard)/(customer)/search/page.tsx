@@ -6,7 +6,7 @@ import { useProviderSearch } from '@/hooks/useProviderSearch'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { AirbnbProviderCard } from '@/components/search/ProviderCard'
 import {
-  ChevronLeft, ChevronRight, Search, SlidersHorizontal, Map, X, MapPin,
+  ChevronLeft, ChevronRight, Search, SlidersHorizontal, Map as MapIcon, X, MapPin,
 } from 'lucide-react'
 import type { ProviderHit, SearchFilters } from '@/hooks/useProviderSearch'
 
@@ -349,7 +349,7 @@ function SearchPageInner() {
                 : 'border-gray-200 bg-white text-dark hover:border-gray-300'
             }`}
           >
-            <Map size={14} />
+            <MapIcon size={14} />
             {showMap ? 'Hide map' : 'Show map'}
           </button>
         </div>
