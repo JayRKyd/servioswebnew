@@ -6,7 +6,11 @@ import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
 import { useSmartReplies } from '@/hooks/useSmartReplies'
 import { SmartReplySuggestions } from '@/components/shared/SmartReplySuggestions'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, titleCase } from '@/lib/utils'
+
+function normaliseName(raw: string): string {
+  return raw.split(' ').map(w => titleCase(w)).join(' ')
+}
 import { apiClient } from '@/lib/api-client'
 import { JobOfferPanel } from '@/components/shared/JobOfferPanel'
 
@@ -108,14 +112,14 @@ export default function ConversationPage() {
             .select('first_name, last_name')
             .eq('user_id', conv.customer_id)
             .single()
-          setOtherParty({ name: cp ? `${cp.first_name} ${cp.last_name}`.trim() || 'Customer' : 'Customer' })
+          setOtherParty({ name: cp ? normaliseName(`${cp.first_name} ${cp.last_name}`.trim() || 'Customer') : 'Customer' })
         } else {
           const { data: pp } = await supabase
             .from('provider_profiles')
             .select('first_name, last_name, business_name')
             .eq('user_id', conv.provider_id)
             .single()
-          setOtherParty({ name: pp ? (pp.business_name || `${pp.first_name} ${pp.last_name}`.trim() || 'Provider') : 'Provider' })
+          setOtherParty({ name: pp ? normaliseName(pp.business_name || `${pp.first_name} ${pp.last_name}`.trim() || 'Provider') : 'Provider' })
         }
       }
 

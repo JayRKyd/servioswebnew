@@ -95,7 +95,7 @@ export default function MessagesPage() {
             .in('user_id', customerIds)
           profiles?.forEach((p: any) => {
             nameMap[p.user_id] = {
-              name: `${p.first_name} ${p.last_name}`.trim() || 'Customer',
+              name: normaliseName(`${p.first_name} ${p.last_name}`.trim() || 'Customer'),
               avatar: p.profile_image_url ?? null,
             }
           })
@@ -123,7 +123,7 @@ export default function MessagesPage() {
             .in('user_id', providerIds)
           profiles?.forEach((p: any) => {
             nameMap[p.user_id] = {
-              name: p.business_name || `${p.first_name} ${p.last_name}`.trim() || 'Provider',
+              name: normaliseName(p.business_name || `${p.first_name} ${p.last_name}`.trim() || 'Provider'),
               avatar: p.profile_image_url ?? null,
             }
           })

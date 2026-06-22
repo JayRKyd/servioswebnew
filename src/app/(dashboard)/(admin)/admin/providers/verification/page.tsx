@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
+import { titleCase } from '@/lib/utils'
 import {
   Shield, Award, BadgeCheck, CreditCard, FileText, File,
   Eye, Check, X, AlertTriangle, Clock,
@@ -35,8 +36,8 @@ function DocReviewCard({
   const meta = DOC_TYPE_META[doc.document_type] ?? DOC_TYPE_META.other
   const provider = doc.provider
   const providerName = provider?.business_name
-    ? `${provider.business_name} (${provider.first_name} ${provider.last_name})`
-    : `${provider?.first_name ?? ''} ${provider?.last_name ?? ''}`.trim() || 'Unknown provider'
+    ? `${titleCase(provider.business_name)} (${titleCase(provider.first_name ?? '')} ${titleCase(provider.last_name ?? '')})`
+    : `${titleCase(provider?.first_name ?? '')} ${titleCase(provider?.last_name ?? '')}`.trim() || 'Unknown provider'
 
   async function handleApprove() {
     setActing('verified')
@@ -305,8 +306,8 @@ export default function ProviderVerificationPage() {
               {providers.map(p => (
                 <div key={p.id} className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100 space-y-4">
                   <div>
-                    <p className="text-lg font-bold text-gray-900">{p.business_name}</p>
-                    <p className="text-sm text-gray-500">{p.first_name} {p.last_name}</p>
+                    <p className="text-lg font-bold text-gray-900">{p.business_name ? titleCase(p.business_name) : ''}</p>
+                    <p className="text-sm text-gray-500">{titleCase(p.first_name ?? '')} {titleCase(p.last_name ?? '')}</p>
                     {p.bio && <p className="mt-2 text-sm text-gray-600">{p.bio}</p>}
                   </div>
                   <div className="grid grid-cols-2 gap-4 text-sm">

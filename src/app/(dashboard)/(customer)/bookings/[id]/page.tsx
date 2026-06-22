@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/auth'
 import { apiClient } from '@/lib/api-client'
-import { formatDate, formatCurrency, formatTime } from '@/lib/utils'
+import { formatDate, formatCurrency, formatTime, titleCase } from '@/lib/utils'
 import { BookingPhotos } from '@/components/shared/BookingPhotos'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Lock, CheckCircle, Shield, AlertTriangle, MessageCircle } from 'lucide-react'
@@ -318,7 +318,9 @@ export default function CustomerBookingDetailPage() {
                 </div>
               )}
               <span className="text-sm font-medium">
-                {booking.provider_profile.business_name || `${booking.provider_profile.first_name} ${booking.provider_profile.last_name}`}
+                {booking.provider_profile.business_name
+                  ? titleCase(booking.provider_profile.business_name)
+                  : `${titleCase(booking.provider_profile.first_name)} ${titleCase(booking.provider_profile.last_name)}`}
               </span>
             </div>
           </div>

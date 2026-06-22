@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/auth'
+import { titleCase } from '@/lib/utils'
 
 export default function ServiceDetailPage() {
   const { id } = useParams()
@@ -46,7 +47,7 @@ export default function ServiceDetailPage() {
                 <div key={o.id} className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
                   <div>
                     <p className="font-semibold text-gray-900">{p?.business_name}</p>
-                    <p className="text-sm text-gray-500">{p?.first_name} {p?.last_name}</p>
+                    <p className="text-sm text-gray-500">{titleCase(p?.first_name ?? '')} {titleCase(p?.last_name ?? '')}</p>
                     {p?.rating_average > 0 && (
                       <p className="mt-0.5 text-xs text-yellow-500">{'★'.repeat(Math.round(p.rating_average))} ({p.rating_count})</p>
                     )}
