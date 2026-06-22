@@ -1,30 +1,69 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/auth'
 import { useProfileIds } from '@/hooks/useProfileIds'
 import { formatCurrency } from '@/lib/utils'
+import { Briefcase, CheckCircle, TrendingUp, PoundSterling, Star, MessageSquare } from 'lucide-react'
 
-type ChartPoint = { label: string; completed: number; revenue: number }
+const BAR_H = 80 // max bar height in px
 
-function BarChart({ data }: { data: ChartPoint[] }) {
-  const maxRevenue = Math.max(...data.map(d => d.revenue), 1)
-  const maxCount = Math.max(...data.map(d => d.completed), 1)
+function monthKey(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+function BarGroup({
+  title,
+  bars,
+  format,
+}: {
+  title: string
+  bars: { label: string; key: string; val: number; isCurrent: boolean }[]
+  format: (v: number) => string
+}) {
+  const max = Math.max(...bars.map(b => b.val), 1)
   return (
-    <div className="space-y-2">
-      <div className="flex items-end gap-1 h-32">
-        {data.map((d, i) => (
-          <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
-            <div
-              className="w-full rounded-t bg-primary/80 transition-all"
-              style={{ height: `${(d.completed / maxCount) * 100}%`, minHeight: d.completed > 0 ? 4 : 0 }}
-            />
+    <div className="flex-1 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
+      <p className="mb-5 text-sm font-semibold text-gray-900">{title}</p>
+
+      {/* Value labels */}
+      <div className="flex gap-3 mb-1">
+        {bars.map(b => (
+          <div key={b.key} className="flex-1 text-center">
+            <span className="text-[10px] font-medium text-gray-400 whitespace-nowrap">
+              {b.val > 0 ? format(b.val) : ''}
+            </span>
           </div>
         ))}
       </div>
-      <div className="flex gap-1">
-        {data.map((d, i) => (
-          <div key={i} className="flex-1 text-center">
-            <p className="text-[10px] text-gray-400 truncate">{d.label}</p>
+
+      {/* Bars */}
+      <div className="flex items-end gap-3" style={{ height: `${BAR_H}px` }}>
+        {bars.map(b => {
+          const h = b.val > 0 ? Math.max(Math.round((b.val / max) * BAR_H), 6) : 3
+          return (
+            <div
+              key={b.key}
+              className="group relative flex flex-1 items-end justify-center"
+              style={{ height: `${BAR_H}px` }}
+            >
+              <div
+                className={`w-full rounded-t-lg transition-all duration-500 ${
+                  b.isCurrent ? 'bg-primary' : 'bg-primary/20 group-hover:bg-primary/40'
+                } ${b.val === 0 ? 'opacity-20' : ''}`}
+                style={{ height: `${h}px` }}
+              />
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Month labels */}
+      <div className="flex gap-3 mt-2">
+        {bars.map(b => (
+          <div key={b.key} className="flex-1 text-center">
+            <span className={`text-xs font-semibold ${b.isCurrent ? 'text-primary' : 'text-gray-400'}`}>
+              {b.label}
+            </span>
           </div>
         ))}
       </div>
@@ -32,82 +71,181 @@ function BarChart({ data }: { data: ChartPoint[] }) {
   )
 }
 
+function StarRating({ rating }: { rating: number }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map(i => (
+        <Star
+          key={i}
+          size={14}
+          className={i <= Math.round(rating) ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}
+        />
+      ))}
+    </div>
+  )
+}
+
 export default function ProviderAnalyticsPage() {
   const { providerId } = useProfileIds()
-  const [stats, setStats] = useState({ total: 0, completed: 0, cancelled: 0, revenue: 0, avg_rating: 0, rating_count: 0 })
-  const [chartData, setChartData] = useState<ChartPoint[]>([])
+  const [bookings, setBookings] = useState<any[]>([])
+  const [profile, setProfile] = useState<{ rating_average: number; total_reviews: number } | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!providerId) return
     Promise.all([
-      supabase.from('bookings').select('status, total_amount, scheduled_date').eq('provider_id', providerId),
+      supabase.from('bookings').select('status, total_amount, base_amount, scheduled_date').eq('provider_id', providerId),
       supabase.from('provider_profiles').select('rating_average, total_reviews').eq('id', providerId).maybeSingle(),
     ]).then(([{ data: b }, { data: p }]) => {
-      const all = b ?? []
-      const completed = all.filter((x: any) => x.status === 'completed')
-      setStats({
-        total: all.length,
-        completed: completed.length,
-        cancelled: all.filter((x: any) => x.status === 'cancelled').length,
-        revenue: completed.reduce((s: number, x: any) => s + (x.total_amount ?? 0), 0),
-        avg_rating: Number(p?.rating_average ?? 0),
-        rating_count: p?.total_reviews ?? 0,
-      })
-
-      // Build last 6 months chart
-      const months: ChartPoint[] = []
-      for (let i = 5; i >= 0; i--) {
-        const d = new Date()
-        d.setMonth(d.getMonth() - i)
-        const label = d.toLocaleString('en-GB', { month: 'short' })
-        const yr = d.getFullYear()
-        const mo = d.getMonth()
-        const slice = completed.filter((x: any) => {
-          const dd = new Date(x.scheduled_date)
-          return dd.getFullYear() === yr && dd.getMonth() === mo
-        })
-        months.push({ label, completed: slice.length, revenue: slice.reduce((s: number, x: any) => s + (x.total_amount ?? 0), 0) })
-      }
-      setChartData(months)
+      setBookings(b ?? [])
+      setProfile(p)
       setLoading(false)
     })
   }, [providerId])
 
-  if (loading) return <div className="flex h-40 items-center justify-center text-gray-400">Loading…</div>
+  const now = new Date()
+  const completed  = bookings.filter(x => x.status === 'completed')
+  const cancelled  = bookings.filter(x => x.status === 'cancelled')
+  const totalRev   = completed.reduce((s, x) => s + (x.base_amount ?? x.total_amount ?? 0), 0)
+  const completion = bookings.length > 0 ? Math.round((completed.length / bookings.length) * 100) : 0
+  const avgRating  = Number(profile?.rating_average ?? 0)
+  const reviewCount = profile?.total_reviews ?? 0
 
-  const completionRate = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0
-  const noRatingData = stats.avg_rating === 0 && stats.rating_count === 0
+  // Last 6 months data
+  const months = useMemo(() => {
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
+      const key = monthKey(d)
+      const label = d.toLocaleDateString('en-GB', { month: 'short' })
+      const slice = completed.filter(x => monthKey(new Date(x.scheduled_date)) === key)
+      return {
+        key,
+        label,
+        isCurrent: key === monthKey(now),
+        jobs: slice.length,
+        revenue: slice.reduce((s, x) => s + (x.base_amount ?? x.total_amount ?? 0), 0),
+      }
+    })
+  }, [bookings])
+
+  if (loading) {
+    return (
+      <div className="flex h-40 items-center justify-center">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    )
+  }
+
+  const statCards = [
+    {
+      label: 'Total Bookings',
+      value: bookings.length,
+      display: bookings.length.toString(),
+      icon: <Briefcase size={15} />,
+      iconBg: 'bg-blue-50 text-blue-600',
+      sub: `${cancelled.length} cancelled`,
+    },
+    {
+      label: 'Completed',
+      value: completed.length,
+      display: completed.length.toString(),
+      icon: <CheckCircle size={15} />,
+      iconBg: 'bg-green-50 text-green-600',
+      sub: `${bookings.length - completed.length - cancelled.length} in progress`,
+    },
+    {
+      label: 'Completion Rate',
+      value: completion,
+      display: bookings.length > 0 ? `${completion}%` : '—',
+      icon: <TrendingUp size={15} />,
+      iconBg: 'bg-purple-50 text-purple-600',
+      progress: bookings.length > 0 ? completion : null,
+    },
+    {
+      label: 'Total Revenue',
+      value: totalRev,
+      display: completed.length > 0 ? formatCurrency(totalRev / 100) : '—',
+      icon: <PoundSterling size={15} />,
+      iconBg: 'bg-emerald-50 text-emerald-600',
+      sub: completed.length > 0 ? `avg ${formatCurrency(totalRev / completed.length / 100)} / job` : undefined,
+    },
+    {
+      label: 'Avg Rating',
+      value: avgRating,
+      display: avgRating > 0 ? avgRating.toFixed(1) : '—',
+      icon: <Star size={15} />,
+      iconBg: 'bg-amber-50 text-amber-500',
+      stars: avgRating > 0,
+      sub: avgRating > 0 ? undefined : 'No reviews yet',
+    },
+    {
+      label: 'Total Reviews',
+      value: reviewCount,
+      display: reviewCount.toString(),
+      icon: <MessageSquare size={15} />,
+      iconBg: 'bg-pink-50 text-pink-600',
+      sub: reviewCount > 0 ? `based on ${reviewCount} review${reviewCount !== 1 ? 's' : ''}` : 'No reviews yet',
+    },
+  ]
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
 
-      {/* Chart */}
-      <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
-        <p className="text-sm font-semibold text-gray-700 mb-4">Completed jobs — last 6 months</p>
-        {chartData.some(d => d.completed > 0)
-          ? <BarChart data={chartData} />
-          : <p className="text-sm text-gray-400 py-8 text-center">No completed bookings yet</p>
-        }
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
+        <p className="mt-0.5 text-sm text-gray-400">Performance overview for your provider account</p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {([
-          ['Total Bookings', stats.total.toString()],
-          ['Completed', stats.completed.toString()],
-          ['Completion Rate', stats.total > 0 ? completionRate + '%' : '—'],
-          ['Total Revenue', stats.completed > 0 ? formatCurrency(stats.revenue / 100) : '—'],
-          ['Avg Rating', noRatingData ? 'Not enough data yet' : stats.avg_rating.toFixed(1) + ' ★'],
-          ['Total Reviews', noRatingData ? 'Not enough data yet' : stats.rating_count.toString()],
-        ] as const).map(([label, val]) => (
-          <div key={label} className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
-            <p className="text-sm text-gray-500">{label}</p>
-            <p className={`mt-1 font-bold text-gray-900 ${val.length > 8 ? 'text-base' : 'text-2xl'}`}>{val}</p>
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+        {statCards.map(card => (
+          <div key={card.label} className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">{card.label}</p>
+              <div className={`rounded-xl p-1.5 ${card.iconBg}`}>{card.icon}</div>
+            </div>
+
+            <p className="text-3xl font-bold tracking-tight text-gray-900">{card.display}</p>
+
+            {'stars' in card && card.stars && (
+              <div className="mt-2">
+                <StarRating rating={avgRating} />
+              </div>
+            )}
+
+            {'progress' in card && card.progress !== null && (
+              <div className="mt-3">
+                <div className="h-1.5 w-full rounded-full bg-gray-100">
+                  <div
+                    className="h-1.5 rounded-full bg-primary transition-all"
+                    style={{ width: `${card.progress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {card.sub && (
+              <p className="mt-1.5 text-xs text-gray-400">{card.sub}</p>
+            )}
           </div>
         ))}
       </div>
+
+      {/* Charts */}
+      <div className="flex gap-4">
+        <BarGroup
+          title="Jobs Completed — Last 6 Months"
+          bars={months.map(m => ({ ...m, val: m.jobs }))}
+          format={v => v.toString()}
+        />
+        <BarGroup
+          title="Revenue — Last 6 Months"
+          bars={months.map(m => ({ ...m, val: m.revenue }))}
+          format={v => formatCurrency(v / 100)}
+        />
+      </div>
+
     </div>
   )
 }
