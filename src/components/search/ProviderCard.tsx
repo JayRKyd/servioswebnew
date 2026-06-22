@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { BadgeCheck, Star } from 'lucide-react'
 import type { ProviderHit } from '@/hooks/useProviderSearch'
 
 function Stars({ rating }: { rating: number }) {
@@ -96,8 +97,91 @@ export function ProviderCard({
               {(provider._rankingInfo.geoDistance / 1000).toFixed(1)} km away
             </p>
           )}
-          <p className="text-xs text-blue-500 font-medium mt-1">View profile →</p>
+          <p className="text-xs text-primary font-medium mt-1">View profile →</p>
         </div>
+      </div>
+    </Link>
+  )
+}
+
+// ─── Airbnb-style card (horizontal scroll row) ─────────────────────────────
+
+export function AirbnbProviderCard({
+  provider,
+  isSelected,
+  onHover,
+  context,
+}: {
+  provider: ProviderHit
+  isSelected?: boolean
+  onHover?: (id: string | null) => void
+  context?: string
+}) {
+  const displayName = provider.business_name || `${provider.first_name} ${provider.last_name}`
+  const initial     = displayName.charAt(0).toUpperCase()
+  const href        = `/providers/${provider.user_id}` + (context ? `?context=${encodeURIComponent(context)}` : '')
+  const location    = provider.islands?.[0] ?? null
+  const category    = provider.categories?.[0] ?? null
+
+  return (
+    <Link
+      href={href}
+      onMouseEnter={() => onHover?.(provider.user_id)}
+      onMouseLeave={() => onHover?.(null)}
+      className="group block w-[248px] shrink-0"
+    >
+      {/* Photo / avatar area */}
+      <div className={`relative aspect-[4/3] overflow-hidden rounded-2xl bg-surface transition-all duration-200 ${
+        isSelected ? 'ring-2 ring-primary shadow-md' : 'group-hover:shadow-md'
+      }`}>
+        {provider.avatar_url ? (
+          <img
+            src={provider.avatar_url}
+            alt={displayName}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/[0.10] to-primary/[0.20]">
+            <span className="text-6xl font-bold text-primary/25 select-none">{initial}</span>
+          </div>
+        )}
+
+        {/* Verified chip */}
+        <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1 rounded-full bg-white/90 backdrop-blur-sm px-2 py-0.5 shadow-sm">
+          <BadgeCheck size={11} className="text-primary" />
+          <span className="text-[11px] font-semibold text-primary">Verified</span>
+        </div>
+      </div>
+
+      {/* Info */}
+      <div className="mt-3 px-0.5 space-y-0.5">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-sm font-semibold text-dark truncate leading-snug">{displayName}</p>
+          {provider.rating_average > 0 && (
+            <span className="flex shrink-0 items-center gap-0.5 text-xs font-semibold text-dark">
+              <Star size={11} className="fill-dark stroke-dark" />
+              {provider.rating_average.toFixed(1)}
+            </span>
+          )}
+        </div>
+
+        {category && (
+          <p className="text-xs text-muted capitalize">{category}</p>
+        )}
+
+        {location && (
+          <p className="text-xs text-muted">{location}</p>
+        )}
+
+        {provider.rating_count > 0 && (
+          <p className="text-xs text-muted">{provider.rating_count} review{provider.rating_count !== 1 ? 's' : ''}</p>
+        )}
+
+        {provider.hourly_rate > 0 && (
+          <p className="text-sm font-semibold text-dark pt-1">
+            <span className="font-normal text-muted text-xs">From </span>£{provider.hourly_rate}/hr
+          </p>
+        )}
       </div>
     </Link>
   )
