@@ -65,7 +65,7 @@ function SystemMessageCard({ msg, conversationId, isProvider }: { msg: any; conv
 export default function ConversationPage() {
   const { conversationId } = useParams<{ conversationId: string }>()
   const router = useRouter()
-  const { user, session } = useAuth()
+  const { user } = useAuth()
 
   const [messages, setMessages]     = useState<any[]>([])
   const [text, setText]             = useState('')
@@ -74,7 +74,8 @@ export default function ConversationPage() {
   const [conversation, setConversation] = useState<any>(null)
   const [otherParty, setOtherParty] = useState<{ name: string } | null>(null)
   const [offer, setOffer]           = useState<any>(null)
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const bottomRef  = useRef<HTMLDivElement>(null)
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
 
   const activeRole = (user as any)?.user_metadata?.active_role as string | undefined
   const isProvider = activeRole === 'provider'
@@ -130,33 +131,35 @@ export default function ConversationPage() {
     fetchOffer()
   }, [conversationId, isProvider])
 
-  // ── Real-time: messages + offer changes ───────────────────────────────────
+  // ── Real-time: messages (broadcast) + offer changes (postgres_changes) ──────
   useEffect(() => {
-    if (!conversationId || !session?.access_token) return
+    if (!conversationId) return
 
-    // Ensure the realtime WS carries the authenticated JWT before subscribing
-    supabase.realtime.setAuth(session.access_token)
+    const channel = supabase.channel(`conv:${conversationId}`)
+    channelRef.current = channel
 
-    const channel = supabase
-      .channel(`conv:${conversationId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
-        (payload) => setMessages((prev) =>
-          prev.some(m => m.id === payload.new.id) ? prev : [...prev, payload.new]
-        ),
-      )
+    channel
+      // Incoming messages via Broadcast (bypasses RLS filtering entirely)
+      .on('broadcast', { event: 'new_message' }, ({ payload }) => {
+        setMessages((prev) =>
+          prev.some((m) => m.id === payload.id) ? prev : [...prev, payload]
+        )
+      })
+      // Offer changes still use postgres_changes (re-fetch on event, payload not needed)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'job_offers', filter: `conversation_id=eq.${conversationId}` },
         () => {
-          // Re-fetch via server API on any offer change (RLS blocks payload.new for client)
           fetchOffer()
         },
       )
       .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [conversationId, session?.access_token])
+
+    return () => {
+      supabase.removeChannel(channel)
+      channelRef.current = null
+    }
+  }, [conversationId])
 
   // Auto-scroll
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
@@ -177,7 +180,15 @@ export default function ConversationPage() {
       .insert({ conversation_id: conversationId, sender_id: user.id, message_text: content, message_type: 'text' })
       .select()
       .single()
-    if (data) setMessages((m) => [...m, data])
+    if (data) {
+      setMessages((m) => [...m, data])
+      // Push to the other party in real-time via Broadcast
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'new_message',
+        payload: data,
+      })
+    }
     await supabase.from('conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conversationId)
     setSending(false)
   }
