@@ -128,9 +128,9 @@ export default function ProviderDashboard() {
   const MOCK_JOB = {
     scheduled_date: mockDateStr,
     scheduled_time_start: '09:00:00',
-    service: { title: 'Boiler Service & Safety Check' },
+    service: { title: 'Toilet Installation' },
     customer_profile: { first_name: 'James', last_name: 'Taylor', profile_image_url: null },
-    base_amount: 9500,
+    base_amount: 7500,
     status: 'accepted',
     is_emergency: false,
   }
@@ -309,44 +309,26 @@ export default function ProviderDashboard() {
             </div>
 
             {upcoming.length === 0 ? (
-              <div>
-                {/* Mock preview row */}
-                <div className="relative select-none px-5 py-4">
-                  {/* Sample watermark */}
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <span className="rotate-[-12deg] rounded-lg border-2 border-dashed border-gray-200 px-4 py-1 text-xs font-bold uppercase tracking-widest text-gray-200">
-                      Sample preview
+              <div className="flex items-center gap-4 px-5 py-4">
+                {dateBlock(MOCK_JOB.scheduled_date, false)}
+                <Avatar cp={MOCK_JOB.customer_profile} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold text-gray-900">{MOCK_JOB.service.title}</p>
+                  <div className="mt-0.5 flex items-center gap-2.5 text-xs text-gray-400">
+                    <span>James Taylor</span>
+                    <span className="text-gray-200">·</span>
+                    <span className="flex items-center gap-1">
+                      <Clock size={10} />{formatTime(MOCK_JOB.scheduled_time_start)}
                     </span>
                   </div>
-                  {/* Mock card — same markup as a real row, dimmed */}
-                  <div className="flex items-center gap-4 opacity-30">
-                    {dateBlock(MOCK_JOB.scheduled_date, false)}
-                    <Avatar cp={MOCK_JOB.customer_profile} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold text-gray-900">{MOCK_JOB.service.title}</p>
-                      <div className="mt-0.5 flex items-center gap-2.5 text-xs text-gray-400">
-                        <span>James Taylor</span>
-                        <span className="text-gray-200">·</span>
-                        <span className="flex items-center gap-1">
-                          <Clock size={10} />{formatTime(MOCK_JOB.scheduled_time_start)}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1.5">
-                      <StatusBadge status="accepted" />
-                      <p className="text-xs font-semibold text-gray-500">
-                        {formatCurrency(MOCK_JOB.base_amount / 100)}
-                      </p>
-                    </div>
-                    <ChevronRight size={14} className="shrink-0 text-gray-200" />
-                  </div>
                 </div>
-                {/* Caption */}
-                <div className="border-t border-dashed border-gray-100 px-5 py-3 text-center">
-                  <p className="text-[11px] text-gray-400">
-                    Accepted bookings will appear here — <Link href="/provider/bookings" className="text-primary hover:underline">view all requests</Link>
+                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                  <StatusBadge status="accepted" />
+                  <p className="text-xs font-semibold text-gray-500">
+                    {formatCurrency(MOCK_JOB.base_amount / 100)}
                   </p>
                 </div>
+                <ChevronRight size={14} className="shrink-0 text-gray-200" />
               </div>
             ) : (
               <div className="divide-y divide-gray-50">

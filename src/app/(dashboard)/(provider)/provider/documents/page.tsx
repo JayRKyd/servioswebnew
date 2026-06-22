@@ -6,7 +6,7 @@ import { formatDate } from '@/lib/utils'
 import {
   Shield, Award, CreditCard, BadgeCheck, FileText, File,
   Upload, X, AlertTriangle, CheckCircle2, Clock, Lock,
-  Eye, ImageIcon, Star,
+  Eye, ImageIcon,
 } from 'lucide-react'
 
 const DOC_TYPES = ['insurance', 'license', 'certification', 'id', 'contract', 'other']
@@ -213,6 +213,8 @@ export default function ProviderDocumentsPage() {
         <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
           verifiedCount === REQUIRED_TYPES.length
             ? 'bg-green-100 text-green-700'
+            : verifiedCount === 0
+            ? 'bg-red-100 text-red-700'
             : 'bg-amber-100 text-amber-700'
         }`}>
           {verifiedCount}/{REQUIRED_TYPES.length} required verified
@@ -283,7 +285,7 @@ export default function ProviderDocumentsPage() {
             {DOC_GUIDE[form.type] && (
               <div className="rounded-xl border border-primary/10 bg-primary/[0.04] p-3 space-y-2">
                 <div className="flex items-center gap-1.5">
-                  <Star size={11} className="text-primary shrink-0" />
+                  <span className="inline-block h-[11px] w-[11px] shrink-0" />
                   <p className="text-[11px] font-semibold text-primary uppercase tracking-wider">What this unlocks</p>
                 </div>
                 <p className="text-xs text-gray-600 leading-relaxed">{DOC_GUIDE[form.type].unlocks}</p>
