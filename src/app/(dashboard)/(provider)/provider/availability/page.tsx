@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/auth'
+import { useAuth } from '@/hooks/useAuth'
 import { Plus, X } from 'lucide-react'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -39,6 +40,7 @@ const BUFFER_OPTIONS = [
 ]
 
 export default function AvailabilityPage() {
+  const { user } = useAuth()
   const [schedule, setSchedule] = useState<WeekSchedule>(DEFAULT)
   const [emergency, setEmergency] = useState(false)
   const [bufferMinutes, setBufferMinutes] = useState(0)
@@ -49,13 +51,12 @@ export default function AvailabilityPage() {
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
+    if (!user) return
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
       const { data } = await supabase
         .from('provider_availability')
         .select('*')
-        .eq('provider_id', user.id)
+        .eq('provider_id', user!.id)
         .maybeSingle()
 
       if (data) {
@@ -78,7 +79,7 @@ export default function AvailabilityPage() {
       setLoading(false)
     }
     load()
-  }, [])
+  }, [user?.id])
 
   function toggle(key: string) {
     setSchedule(p => ({ ...p, [key]: { ...p[key], enabled: !p[key].enabled } }))
@@ -100,11 +101,10 @@ export default function AvailabilityPage() {
   }
 
   async function handleSave() {
+    if (!user) return
     setSaving(true)
     setSaved(false)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
       const payload: Record<string, unknown> = {
         provider_id: user.id,
         emergency_available: emergency,

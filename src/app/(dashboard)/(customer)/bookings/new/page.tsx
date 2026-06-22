@@ -8,6 +8,41 @@ export default function NewBookingPage() {
   return <Suspense fallback={<div className="flex h-64 items-center justify-center text-gray-400">Loading…</div>}><NewBookingForm /></Suspense>
 }
 
+const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+
+function timeToMinutes(t: string) {
+  const [h, m] = t.split(':').map(Number)
+  return h * 60 + m
+}
+
+function checkAvailability(availability: any, dateStr: string, timeStr: string): string | null {
+  if (!availability) return null
+  const date = new Date(dateStr)
+  const dayKey = DAY_KEYS[date.getDay()]
+
+  if (availability.blocked_dates?.includes(dateStr)) return 'This date is blocked — the provider is unavailable.'
+  if (!availability[`${dayKey}_enabled`]) return `The provider does not work on ${dayKey.charAt(0).toUpperCase() + dayKey.slice(1)}s.`
+
+  if (timeStr) {
+    const slotMins = timeToMinutes(timeStr)
+    const startMins = timeToMinutes(availability[`${dayKey}_start`] ?? '09:00')
+    const endMins = timeToMinutes(availability[`${dayKey}_end`] ?? '17:00')
+
+    if (slotMins < startMins || slotMins >= endMins)
+      return `The provider is only available ${availability[`${dayKey}_start`]} – ${availability[`${dayKey}_end`]} on this day.`
+
+    const breakStart = availability[`${dayKey}_break_start`]
+    const breakEnd = availability[`${dayKey}_break_end`]
+    if (breakStart && breakEnd) {
+      const bStartMins = timeToMinutes(breakStart)
+      const bEndMins = timeToMinutes(breakEnd)
+      if (slotMins >= bStartMins && slotMins < bEndMins)
+        return `The provider is on a break ${breakStart} – ${breakEnd}. Please choose a different time.`
+    }
+  }
+  return null
+}
+
 function NewBookingForm() {
   const { user } = useAuth()
   const router = useRouter()
@@ -24,30 +59,47 @@ function NewBookingForm() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [photos, setPhotos] = useState<File[]>([])
+  const [providerAvailability, setProviderAvailability] = useState<any>(null)
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null)
 
   useEffect(() => {
     const providerId = searchParams.get('provider')
     if (providerId) {
-      // Load only services this specific provider offers
+      // Load provider's services and availability in parallel
       supabase.from('provider_profiles').select('id').eq('user_id', providerId).single()
         .then(async ({ data: pp }) => {
           if (!pp) return
-          const { data } = await supabase
-            .from('provider_services')
-            .select('service:services(id, title, base_price, service_categories(name))')
-            .eq('provider_id', pp.id).eq('is_active', true)
-          setServices((data ?? []).map((d: any) => d.service).filter(Boolean))
+          const [{ data: svcData }, { data: avail }] = await Promise.all([
+            supabase.from('provider_services')
+              .select('service:services(id, title, base_price, service_categories(name))')
+              .eq('provider_id', pp.id).eq('is_active', true),
+            supabase.from('provider_availability')
+              .select('*').eq('provider_id', providerId).maybeSingle(),
+          ])
+          setServices((svcData ?? []).map((d: any) => d.service).filter(Boolean))
+          if (avail) setProviderAvailability(avail)
         })
     } else {
       supabase.from('services').select('id, title, base_price, service_categories(name)').eq('is_active', true).order('title').then(({ data }) => setServices(data ?? []))
     }
   }, [])
 
-  function set(key: string, value: any) { setForm(f => ({ ...f, [key]: value })) }
+  function set(key: string, value: any) {
+    setForm(f => {
+      const updated = { ...f, [key]: value }
+      if ((key === 'scheduled_date' || key === 'scheduled_time_start') && providerAvailability) {
+        const date = key === 'scheduled_date' ? value : updated.scheduled_date
+        const time = key === 'scheduled_time_start' ? value : updated.scheduled_time_start
+        if (date) setAvailabilityError(checkAvailability(providerAvailability, date, time))
+      }
+      return updated
+    })
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!user) return
+    if (availabilityError) return
     setSubmitting(true)
     setError(null)
 
@@ -147,7 +199,13 @@ function NewBookingForm() {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
           <input required type="time" value={form.scheduled_time_start} onChange={e => set('scheduled_time_start', e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+            className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary ${availabilityError ? 'border-red-400' : 'border-gray-300'}`} />
+          {availabilityError && (
+            <p className="mt-1.5 text-xs text-red-600">{availabilityError}</p>
+          )}
+          {providerAvailability && !availabilityError && form.scheduled_date && form.scheduled_time_start && (
+            <p className="mt-1.5 text-xs text-green-600">✓ This slot is within the provider's working hours.</p>
+          )}
         </div>
 
         <div>
@@ -185,7 +243,7 @@ function NewBookingForm() {
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <button type="submit" disabled={submitting}
+        <button type="submit" disabled={submitting || !!availabilityError}
           className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50">
           {submitting ? 'Submitting…' : 'Submit Booking Request'}
         </button>

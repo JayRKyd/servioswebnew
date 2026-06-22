@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/auth'
+import { useAuth } from '@/hooks/useAuth'
 
 const TRADE_ICONS: Record<string, string> = {
   plumber: '🔧', electrician: '⚡', ac_hvac: '❄️', carpenter: '🪚',
@@ -10,6 +11,7 @@ const TRADE_ICONS: Record<string, string> = {
 }
 
 export default function SetupTradePage() {
+  const { user } = useAuth()
   const router = useRouter()
   const [trades, setTrades] = useState<{ value: string; label: string }[]>([])
   const [selected, setSelected] = useState<string | null>(null)
@@ -21,10 +23,9 @@ export default function SetupTradePage() {
   }, [])
 
   async function handleNext() {
-    if (!selected) return
+    if (!selected || !user) return
     setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    await supabase.from('provider_profiles').update({ trade_category: selected, onboarding_step: 'services' }).eq('user_id', user!.id)
+    await supabase.from('provider_profiles').update({ trade_category: selected, onboarding_step: 'services' }).eq('user_id', user.id)
     router.push('/provider/setup/services')
     setSaving(false)
   }
