@@ -123,10 +123,7 @@ function LocationSearch({
     : allOptions
 
   return (
-    <div
-      className="-mx-10 -mt-14 lg:-mx-12 lg:-mt-16 flex"
-      style={{ height: 'calc(100vh - 4rem)' }}
-    >
+    <div className="fixed top-[64px] left-0 lg:left-[220px] right-0 bottom-0 z-40 flex">
       {/* LEFT PANEL */}
       <div className="hidden lg:flex w-[280px] xl:w-[340px] shrink-0 flex-col bg-gradient-to-br from-primary to-primary/80 px-8 py-10">
         {/* Back */}
@@ -351,10 +348,7 @@ function WizardStep({
   const canContinue = isMulti ? multiAnswers.length > 0 : singleAnswer !== ''
 
   return (
-    <div
-      className="-mx-10 -mt-14 lg:-mx-12 lg:-mt-16 flex"
-      style={{ height: 'calc(100vh - 4rem)' }}
-    >
+    <div className="fixed top-[64px] left-0 lg:left-[220px] right-0 bottom-0 z-40 flex">
       {/* LEFT PANEL */}
       <div className="hidden lg:flex w-[280px] xl:w-[340px] shrink-0 flex-col bg-gradient-to-br from-primary to-primary/80 px-8 py-10">
         {/* Back */}
@@ -601,11 +595,7 @@ function BookPageInner() {
   // ── Wizard screens ────────────────────────────────────────────────────────
 
   if (category && isLocationStep) {
-    return (
-      <div className="py-8 px-4">
-        <LocationSearch stepIndex={stepIndex} totalSteps={totalSteps} onSelect={handleLocationSelect} onBack={handleBack} />
-      </div>
-    )
+    return <LocationSearch stepIndex={stepIndex} totalSteps={totalSteps} onSelect={handleLocationSelect} onBack={handleBack} />
   }
 
   if (category && step) {
@@ -613,18 +603,16 @@ function BookPageInner() {
     const currentSingle = singles[step.id] ?? ''
     const currentMulti  = multis[step.id] ?? []
     return (
-      <div className="py-8 px-4">
-        <WizardStep
-          category={category} step={step} stepIndex={stepIndex} totalSteps={totalSteps}
-          singleAnswer={currentSingle} multiAnswers={currentMulti}
-          otherTexts={Object.fromEntries(Object.entries(otherTexts).filter(([k]) => k.startsWith(step.id + '.')).map(([k, v]) => [k.replace(step.id + '.', ''), v]))}
-          onSingleSelect={val => handleSingleSelect(step.id, val)}
-          onMultiToggle={val => handleMultiToggle(step.id, val)}
-          onOtherChange={(optVal, text) => handleOtherChange(step.id, optVal, text)}
-          onContinue={handleContinue}
-          onBack={handleBack}
-        />
-      </div>
+      <WizardStep
+        category={category} step={step} stepIndex={stepIndex} totalSteps={totalSteps}
+        singleAnswer={currentSingle} multiAnswers={currentMulti}
+        otherTexts={Object.fromEntries(Object.entries(otherTexts).filter(([k]) => k.startsWith(step.id + '.')).map(([k, v]) => [k.replace(step.id + '.', ''), v]))}
+        onSingleSelect={val => handleSingleSelect(step.id, val)}
+        onMultiToggle={val => handleMultiToggle(step.id, val)}
+        onOtherChange={(optVal, text) => handleOtherChange(step.id, optVal, text)}
+        onContinue={handleContinue}
+        onBack={handleBack}
+      />
     )
   }
 
