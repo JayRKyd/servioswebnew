@@ -2,7 +2,7 @@
 import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Droplets, Zap, Wind, Paintbrush, Hammer, Sparkles, Leaf, Home, Bug, Shield, Wrench, Star, BadgeCheck } from 'lucide-react'
+import { ArrowLeft, Droplets, Zap, Wind, Paintbrush, Hammer, Sparkles, Leaf, Home, Bug, Shield, Wrench, Star, BadgeCheck, MapPin } from 'lucide-react'
 import { supabase } from '@/lib/auth'
 import { titleCase } from '@/lib/utils'
 import {
@@ -121,64 +121,128 @@ function LocationSearch({
   const filtered = query.trim()
     ? allOptions.filter(o => o.label.toLowerCase().includes(query.toLowerCase()))
     : allOptions
-  const progress = ((stepIndex + 1) / totalSteps) * 100
 
   return (
-    <div className="mx-auto max-w-xl space-y-6">
-      <div className="space-y-3">
-        <button onClick={onBack} className="flex items-center gap-1.5 text-[13px] text-muted hover:text-dark transition-colors">
+    <div
+      className="-mx-10 -mt-14 lg:-mx-12 lg:-mt-16 flex"
+      style={{ height: 'calc(100vh - 4rem)' }}
+    >
+      {/* LEFT PANEL */}
+      <div className="hidden lg:flex w-[280px] xl:w-[340px] shrink-0 flex-col bg-gradient-to-br from-primary to-primary/80 px-8 py-10">
+        {/* Back */}
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1.5 text-[13px] text-white/70 hover:text-white transition-colors w-fit"
+        >
           <ArrowLeft size={14} /> Back
         </button>
-        <div className="space-y-2">
-          <div className="flex justify-between text-[11.5px]">
-            <span className="font-semibold text-primary uppercase tracking-wide">Location</span>
-            <span className="text-muted">Step {stepIndex + 1} of {totalSteps}</span>
+
+        {/* Center content */}
+        <div className="flex flex-1 flex-col justify-center gap-4">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15">
+            <MapPin size={28} className="text-white" />
           </div>
-          <div className="h-1 w-full rounded-full bg-[#f0f0f0]">
-            <div className="h-1 rounded-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }} />
+          <div>
+            <p className="text-2xl font-bold text-white">Location</p>
+            <p className="text-sm text-white/60 mt-2 leading-relaxed">
+              We'll show you providers in your area
+            </p>
           </div>
         </div>
-      </div>
 
-      <div>
-        <h2 className="text-[1.5rem] font-bold text-dark tracking-[-0.02em]">{LOCATION_STEP.question}</h2>
-        <p className="mt-1 text-[13.5px] text-muted">{LOCATION_STEP.hint}</p>
-      </div>
-
-      <div className="relative">
-        <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-gray-400">
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-          </svg>
-        </span>
-        <input
-          autoFocus type="text" value={query} onChange={e => setQuery(e.target.value)}
-          placeholder="Search city…"
-          className="w-full rounded-xl border border-border bg-[#fafbfa] py-3.5 pl-10 pr-4 text-[14px] text-dark placeholder-gray-400 outline-none focus:bg-white focus:border-primary/30 focus:ring-2 focus:ring-primary/10 transition-all"
-        />
-      </div>
-
-      {filtered.length > 0 ? (
-        <div className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
-          {filtered.map((opt, i) => (
-            <button
-              key={opt.value}
-              onMouseDown={e => { e.preventDefault(); onSelect(opt.value) }}
-              className={'flex w-full items-center gap-3 px-4 py-3.5 text-left text-[13.5px] transition hover:bg-primary/[0.04] ' + (i < filtered.length - 1 ? 'border-b border-border' : '')}
-            >
-              <span className="text-primary">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 21c-4.418 0-8-5.373-8-9a8 8 0 1 1 16 0c0 3.627-3.582 9-8 9z" />
-                  <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
-                </svg>
-              </span>
-              <span className="font-medium text-dark">{opt.label}</span>
-            </button>
+        {/* Step indicator pills */}
+        <div className="flex items-center gap-1.5">
+          {Array.from({ length: totalSteps }).map((_, i) => (
+            <div
+              key={i}
+              className={
+                'rounded-full transition-all ' +
+                (i === stepIndex
+                  ? 'w-8 h-1.5 bg-white'
+                  : i < stepIndex
+                  ? 'w-3 h-1.5 bg-white/50'
+                  : 'w-3 h-1.5 bg-white/25')
+              }
+            />
           ))}
         </div>
-      ) : (
-        <p className="text-center text-[13px] text-muted">No locations found</p>
-      )}
+      </div>
+
+      {/* RIGHT PANEL */}
+      <div className="flex-1 flex flex-col bg-white overflow-hidden">
+        {/* Thin progress bar */}
+        <div className="h-0.5 w-full bg-gray-100 shrink-0">
+          <div
+            className="h-full bg-primary transition-all duration-300"
+            style={{ width: `${((stepIndex + 1) / totalSteps) * 100}%` }}
+          />
+        </div>
+
+        {/* Mobile-only header */}
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 lg:hidden shrink-0">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1.5 text-[13px] text-gray-500 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeft size={14} />
+          </button>
+          <span className="text-[13px] text-gray-500">
+            Location · Step {stepIndex + 1} of {totalSteps}
+          </span>
+        </div>
+
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto px-8 lg:px-16 py-10">
+          <div className="max-w-xl">
+            {/* Step label — desktop only */}
+            <p className="hidden lg:block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
+              Location
+            </p>
+
+            {/* Question */}
+            <h2 className="text-2xl lg:text-[2rem] font-bold text-gray-900 tracking-tight leading-tight mb-2">
+              Where do you need the service?
+            </h2>
+
+            {/* Hint */}
+            <p className="text-sm text-gray-500 mb-8 leading-relaxed">
+              We'll show you providers in your area
+            </p>
+
+            {/* Search input */}
+            <div className="relative mb-6">
+              <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-gray-400">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+                </svg>
+              </span>
+              <input
+                autoFocus type="text" value={query} onChange={e => setQuery(e.target.value)}
+                placeholder="Search city…"
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3.5 pl-10 pr-4 text-[14px] text-gray-900 placeholder-gray-400 outline-none focus:bg-white focus:border-primary/30 focus:ring-2 focus:ring-primary/10 transition-all"
+              />
+            </div>
+
+            {/* Results */}
+            {filtered.length > 0 ? (
+              <div className="space-y-2.5">
+                {filtered.map(opt => (
+                  <button
+                    key={opt.value}
+                    onMouseDown={e => { e.preventDefault(); onSelect(opt.value) }}
+                    className="flex w-full items-center gap-3 rounded-xl border border-gray-200 px-5 py-4 text-left text-[14px] transition-all hover:border-primary/40 hover:bg-primary/[0.04]"
+                  >
+                    <MapPin size={16} className="text-primary shrink-0" />
+                    <span className="font-medium text-gray-800">{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-[13px] text-gray-400">No locations found</p>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -193,17 +257,31 @@ function RadioRow({ opt, selected, otherText, onSelect, onOtherChange }: {
     <div>
       <button
         onClick={onSelect}
-        className={'flex w-full items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition-all ' + (selected ? 'border-primary/40 bg-primary/[0.05] shadow-sm' : 'border-border bg-white hover:border-primary/20 hover:bg-[#fafbfa]')}
+        className={
+          'flex w-full items-center gap-3 rounded-xl border px-5 py-4 text-left transition-all ' +
+          (selected
+            ? 'border-primary bg-primary/[0.04] shadow-sm'
+            : 'border-gray-200 bg-white hover:border-primary/40 hover:bg-primary/[0.02]')
+        }
       >
-        <span className={'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition ' + (selected ? 'border-primary bg-primary' : 'border-gray-300')}>
+        {/* Custom radio circle */}
+        <span
+          className={
+            'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition ' +
+            (selected ? 'border-primary bg-primary' : 'border-gray-300')
+          }
+        >
           {selected && <span className="h-2 w-2 rounded-full bg-white" />}
         </span>
-        <span className={'text-[13.5px] font-medium ' + (selected ? 'text-dark' : 'text-dark/80')}>{opt.label}</span>
+        <span className="text-[14px] font-medium text-gray-800">{opt.label}</span>
       </button>
       {selected && opt.allowText && (
         <div className="mt-1.5 px-1">
-          <input autoFocus type="text" value={otherText} onChange={e => onOtherChange(e.target.value)} placeholder="Please describe…"
-            className="w-full rounded-xl border border-primary/30 bg-white px-3.5 py-3 text-[13.5px] text-dark placeholder-gray-400 outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all" />
+          <input
+            autoFocus type="text" value={otherText} onChange={e => onOtherChange(e.target.value)}
+            placeholder="Please describe…"
+            className="w-full rounded-xl border border-primary/30 bg-white px-3.5 py-3 text-[13.5px] text-gray-900 placeholder-gray-400 outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all"
+          />
         </div>
       )}
     </div>
@@ -220,21 +298,35 @@ function CheckboxRow({ opt, checked, otherText, onToggle, onOtherChange }: {
     <div>
       <button
         onClick={onToggle}
-        className={'flex w-full items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition-all ' + (checked ? 'border-primary/40 bg-primary/[0.05] shadow-sm' : 'border-border bg-white hover:border-primary/20 hover:bg-[#fafbfa]')}
+        className={
+          'flex w-full items-center gap-3 rounded-xl border px-5 py-4 text-left transition-all ' +
+          (checked
+            ? 'border-primary bg-primary/[0.04] shadow-sm'
+            : 'border-gray-200 bg-white hover:border-primary/40 hover:bg-primary/[0.02]')
+        }
       >
-        <span className={'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition ' + (checked ? 'border-primary bg-primary' : 'border-gray-300')}>
+        {/* Custom rounded-md checkbox */}
+        <span
+          className={
+            'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition ' +
+            (checked ? 'border-primary bg-primary' : 'border-gray-300')
+          }
+        >
           {checked && (
             <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5}>
               <path d="M2 6l3 3 5-5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           )}
         </span>
-        <span className={'text-[13.5px] font-medium ' + (checked ? 'text-dark' : 'text-dark/80')}>{opt.label}</span>
+        <span className="text-[14px] font-medium text-gray-800">{opt.label}</span>
       </button>
       {checked && opt.allowText && (
         <div className="mt-1.5 px-1">
-          <input autoFocus type="text" value={otherText} onChange={e => onOtherChange(e.target.value)} placeholder="Please describe…"
-            className="w-full rounded-xl border border-primary/30 bg-white px-3.5 py-3 text-[13.5px] text-dark placeholder-gray-400 outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all" />
+          <input
+            autoFocus type="text" value={otherText} onChange={e => onOtherChange(e.target.value)}
+            placeholder="Please describe…"
+            className="w-full rounded-xl border border-primary/30 bg-white px-3.5 py-3 text-[13.5px] text-gray-900 placeholder-gray-400 outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all"
+          />
         </div>
       )}
     </div>
@@ -256,54 +348,136 @@ function WizardStep({
   const meta = CATEGORY_META[category]
   const Icon = CATEGORY_ICONS[category] ?? Wrench
   const isMulti = step.type === 'multi'
-  const progress = ((stepIndex + 1) / totalSteps) * 100
   const canContinue = isMulti ? multiAnswers.length > 0 : singleAnswer !== ''
 
   return (
-    <div className="mx-auto max-w-xl space-y-6">
-      <div className="space-y-3">
-        <button onClick={onBack} className="flex items-center gap-1.5 text-[13px] text-muted hover:text-dark transition-colors">
+    <div
+      className="-mx-10 -mt-14 lg:-mx-12 lg:-mt-16 flex"
+      style={{ height: 'calc(100vh - 4rem)' }}
+    >
+      {/* LEFT PANEL */}
+      <div className="hidden lg:flex w-[280px] xl:w-[340px] shrink-0 flex-col bg-gradient-to-br from-primary to-primary/80 px-8 py-10">
+        {/* Back */}
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1.5 text-[13px] text-white/70 hover:text-white transition-colors w-fit"
+        >
           <ArrowLeft size={14} /> Back
         </button>
-        <div className="space-y-2">
-          <div className="flex justify-between text-[11.5px]">
-            <span className={`flex items-center gap-1.5 font-semibold uppercase tracking-wide ${meta?.accent ?? 'text-primary'}`}>
-              <Icon size={12} />{meta?.label}
-            </span>
-            <span className="text-muted">Step {stepIndex + 1} of {totalSteps}</span>
+
+        {/* Center content */}
+        <div className="flex flex-1 flex-col justify-center gap-4">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15">
+            <Icon size={28} className="text-white" />
           </div>
-          <div className="h-1 w-full rounded-full bg-[#f0f0f0]">
-            <div className="h-1 rounded-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }} />
+          <div>
+            <p className="text-2xl font-bold text-white">{meta?.label ?? category}</p>
+            <p className="text-sm text-white/60 mt-2 leading-relaxed">
+              {step.hint ?? 'Tell us a bit more so we can match you with the right pro.'}
+            </p>
           </div>
+        </div>
+
+        {/* Step indicator pills */}
+        <div className="flex items-center gap-1.5">
+          {Array.from({ length: totalSteps }).map((_, i) => (
+            <div
+              key={i}
+              className={
+                'rounded-full transition-all ' +
+                (i === stepIndex
+                  ? 'w-8 h-1.5 bg-white'
+                  : i < stepIndex
+                  ? 'w-3 h-1.5 bg-white/50'
+                  : 'w-3 h-1.5 bg-white/25')
+              }
+            />
+          ))}
         </div>
       </div>
 
-      <div>
-        <h2 className="text-[1.5rem] font-bold text-dark tracking-[-0.02em]">{step.question}</h2>
-        {step.hint && <p className="mt-1 text-[13.5px] text-muted">{step.hint}</p>}
-      </div>
+      {/* RIGHT PANEL */}
+      <div className="flex-1 flex flex-col bg-white overflow-hidden">
+        {/* Thin progress bar */}
+        <div className="h-0.5 w-full bg-gray-100 shrink-0">
+          <div
+            className="h-full bg-primary transition-all duration-300"
+            style={{ width: `${((stepIndex + 1) / totalSteps) * 100}%` }}
+          />
+        </div>
 
-      <div className="space-y-2">
-        {isMulti
-          ? step.options.map(opt => (
-              <CheckboxRow key={opt.value} opt={opt} checked={multiAnswers.includes(opt.value)}
-                otherText={otherTexts[opt.value] ?? ''} onToggle={() => onMultiToggle(opt.value)}
-                onOtherChange={v => onOtherChange(opt.value, v)} />
-            ))
-          : step.options.map(opt => (
-              <RadioRow key={opt.value} opt={opt} selected={singleAnswer === opt.value}
-                otherText={otherTexts[opt.value] ?? ''} onSelect={() => onSingleSelect(opt.value)}
-                onOtherChange={v => onOtherChange(opt.value, v)} />
-            ))
-        }
-      </div>
+        {/* Mobile-only header */}
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 lg:hidden shrink-0">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1.5 text-[13px] text-gray-500 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeft size={14} />
+          </button>
+          <span className="text-[13px] text-gray-500">
+            {meta?.label ?? category} · Step {stepIndex + 1} of {totalSteps}
+          </span>
+        </div>
 
-      {(isMulti || (singleAnswer && step.options.find(o => o.value === singleAnswer)?.allowText)) && (
-        <button onClick={onContinue} disabled={!canContinue}
-          className={'w-full rounded-xl py-3.5 text-[14px] font-semibold transition-all ' + (canContinue ? 'bg-primary text-white hover:bg-primary-dark' : 'bg-[#f0f0f0] text-gray-400 cursor-not-allowed')}>
-          Continue
-        </button>
-      )}
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto px-8 lg:px-16 py-10">
+          <div className="max-w-xl">
+            {/* Step label — desktop only */}
+            <p className="hidden lg:block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
+              {meta?.label ?? category} · Step {stepIndex + 1} of {totalSteps}
+            </p>
+
+            {/* Question */}
+            <h2 className="text-2xl lg:text-[2rem] font-bold text-gray-900 tracking-tight leading-tight mb-2">
+              {step.question}
+            </h2>
+
+            {/* Hint */}
+            {step.hint && (
+              <p className="text-sm text-gray-500 mb-8 leading-relaxed">{step.hint}</p>
+            )}
+            {!step.hint && <div className="mb-8" />}
+
+            {/* Options */}
+            <div className="space-y-2.5">
+              {isMulti
+                ? step.options.map(opt => (
+                    <CheckboxRow
+                      key={opt.value} opt={opt} checked={multiAnswers.includes(opt.value)}
+                      otherText={otherTexts[opt.value] ?? ''} onToggle={() => onMultiToggle(opt.value)}
+                      onOtherChange={v => onOtherChange(opt.value, v)}
+                    />
+                  ))
+                : step.options.map(opt => (
+                    <RadioRow
+                      key={opt.value} opt={opt} selected={singleAnswer === opt.value}
+                      otherText={otherTexts[opt.value] ?? ''} onSelect={() => onSingleSelect(opt.value)}
+                      onOtherChange={v => onOtherChange(opt.value, v)}
+                    />
+                  ))
+              }
+            </div>
+          </div>
+        </div>
+
+        {/* Footer — multi or allowText single */}
+        {(isMulti || (singleAnswer && step.options.find(o => o.value === singleAnswer)?.allowText)) && (
+          <div className="shrink-0 border-t border-gray-100 px-8 lg:px-16 py-5">
+            <button
+              onClick={onContinue}
+              disabled={!canContinue}
+              className={
+                'w-full rounded-xl py-3.5 text-[14px] font-semibold transition-all ' +
+                (canContinue
+                  ? 'bg-primary text-white hover:bg-primary-dark'
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed')
+              }
+            >
+              Continue
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
