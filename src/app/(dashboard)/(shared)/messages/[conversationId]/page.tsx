@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useSmartReplies } from '@/hooks/useSmartReplies'
 import { SmartReplySuggestions } from '@/components/shared/SmartReplySuggestions'
 import { formatCurrency, titleCase } from '@/lib/utils'
+import { useMessageEvents } from '@/components/providers/MessagesRealtimeProvider'
 
 function normaliseName(raw: string): string {
   return raw.split(' ').map(w => titleCase(w)).join(' ')
@@ -65,7 +66,7 @@ function SystemMessageCard({ msg, conversationId, isProvider }: { msg: any; conv
 export default function ConversationPage() {
   const { conversationId } = useParams<{ conversationId: string }>()
   const router = useRouter()
-  const { user, session } = useAuth()
+  const { user } = useAuth()
 
   const [messages, setMessages]     = useState<any[]>([])
   const [text, setText]             = useState('')
@@ -75,7 +76,6 @@ export default function ConversationPage() {
   const [otherParty, setOtherParty] = useState<{ name: string } | null>(null)
   const [offer, setOffer]           = useState<any>(null)
   const bottomRef  = useRef<HTMLDivElement>(null)
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
 
   const activeRole = (user as any)?.user_metadata?.active_role as string | undefined
   const isProvider = activeRole === 'provider'
@@ -147,43 +147,26 @@ export default function ConversationPage() {
     if (!loading) markRead()
   }, [loading, conversationId, user?.id])
 
-  // ── Real-time: messages + offer changes (postgres_changes) ──────────────────
+  // ── Real-time: offer changes via postgres_changes ─────────────────────────
   useEffect(() => {
-    if (!conversationId || !session?.access_token) return
-
-    // Ensure the realtime WS carries the authenticated JWT so RLS allows delivery
-    supabase.realtime.setAuth(session.access_token)
-
-    const channel = supabase.channel(`conv:${conversationId}`)
-    channelRef.current = channel
-
-    channel
-      // Incoming messages via postgres_changes (RLS lets participants read them)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
-        (payload: any) => {
-          const msg = payload.new as any
-          setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]))
-          // Keep this conversation marked read while it's open
-          if (msg.sender_id !== user?.id) markRead()
-        },
-      )
-      // Offer changes still use postgres_changes (re-fetch on event, payload not needed)
+    if (!conversationId) return
+    const channel = supabase
+      .channel(`conv:${conversationId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'job_offers', filter: `conversation_id=eq.${conversationId}` },
-        () => {
-          fetchOffer()
-        },
+        () => { fetchOffer() },
       )
       .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [conversationId])
 
-    return () => {
-      supabase.removeChannel(channel)
-      channelRef.current = null
-    }
-  }, [conversationId, session?.access_token, user?.id])
+  // ── Real-time: incoming messages via shared broadcast provider ─────────────
+  useMessageEvents((msg) => {
+    if (msg.conversation_id !== conversationId) return
+    setMessages((prev) => prev.some(m => m.id === msg.id) ? prev : [...prev, msg])
+    if (msg.sender_id !== user?.id) markRead()
+  })
 
   // Auto-scroll
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])

@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/auth'
 import { useAuth } from './useAuth'
+import { useMessageEvents } from '@/components/providers/MessagesRealtimeProvider'
 
 const ROLE_COLUMN: Record<string, string> = {
   provider: 'provider_id',
@@ -11,7 +12,7 @@ const ROLE_COLUMN: Record<string, string> = {
 }
 
 export function useUnreadMessages() {
-  const { user, session, activeRole } = useAuth()
+  const { user, activeRole } = useAuth()
   const [unreadIds, setUnreadIds] = useState<Set<string>>(new Set())
   const convIdsRef = useRef<Set<string>>(new Set())
 
@@ -75,32 +76,22 @@ export function useUnreadMessages() {
 
   useEffect(() => { compute() }, [compute])
 
-  // Realtime: keep the unread set live
+  // Realtime: keep the unread set live via broadcast provider
+  useMessageEvents((msg) => {
+    if (msg.message_type !== 'text') return
+    if (msg.sender_id === user?.id) return
+    if (convIdsRef.current.size > 0 && !convIdsRef.current.has(msg.conversation_id)) return
+    setUnreadIds((prev: Set<string>) => {
+      if (prev.has(msg.conversation_id)) return prev
+      return new Set([...prev, msg.conversation_id])
+    })
+  })
+
+  // Read markers (this user) → clear unread, syncs across devices/tabs
   useEffect(() => {
-    if (!user?.id || !session?.access_token) return
-
-    supabase.realtime.setAuth(session.access_token)
-
+    if (!user?.id) return
     const channel = supabase
       .channel(`unread:${user.id}`)
-      // New messages → mark their conversation unread (RLS only delivers my convs)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        (payload: any) => {
-          const msg = payload.new as any
-          if (msg.message_type !== 'text') return
-          if (msg.sender_id === user.id) return
-          if (convIdsRef.current.size > 0 && !convIdsRef.current.has(msg.conversation_id)) return
-          setUnreadIds((prev: Set<string>) => {
-            if (prev.has(msg.conversation_id)) return prev
-            const next = new Set(prev)
-            next.add(msg.conversation_id)
-            return next
-          })
-        },
-      )
-      // Read markers (this user) → clear unread, syncs across devices/tabs
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'conversation_reads', filter: `user_id=eq.${user.id}` },
@@ -116,9 +107,8 @@ export function useUnreadMessages() {
         },
       )
       .subscribe()
-
     return () => { supabase.removeChannel(channel) }
-  }, [user?.id, session?.access_token])
+  }, [user?.id])
 
   const markConversationRead = useCallback(async (conversationId: string) => {
     if (!user) return

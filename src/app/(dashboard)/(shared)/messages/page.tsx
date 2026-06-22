@@ -6,6 +6,7 @@ import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
 import { titleCase } from '@/lib/utils'
 import { Search, Plus, MessageSquare, X } from 'lucide-react'
+import { useMessageEvents } from '@/components/providers/MessagesRealtimeProvider'
 
 // ── Time formatting ────────────────────────────────────────────────────────────
 function formatConversationTime(iso: string | null): string {
@@ -51,7 +52,7 @@ function avatarColour(name: string): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function MessagesPage() {
-  const { user, session } = useAuth()
+  const { user } = useAuth()
   const router   = useRouter()
 
   const [conversations, setConversations] = useState<any[]>([])
@@ -175,18 +176,12 @@ export default function MessagesPage() {
     load()
   }, [user?.id])
 
-  // ── Real-time: keep list live ─────────────────────────────────────────────
+  // ── Real-time: conversation updates via postgres_changes ────────────────────
   useEffect(() => {
-    if (!user?.id || !role || !session?.access_token) return
-
-    // Ensure the realtime WS carries the authenticated JWT before subscribing
-    supabase.realtime.setAuth(session.access_token)
-
+    if (!user?.id || !role) return
     const col = role === 'provider' ? 'provider_id' : 'customer_id'
-
     const channel = supabase
       .channel(`convlist:${user.id}`)
-      // conversations UPDATE → re-sort by last_message_at
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'conversations', filter: `${col}=eq.${user.id}` },
@@ -203,30 +198,25 @@ export default function MessagesPage() {
           })
         },
       )
-      // messages INSERT → update preview text + timestamp for the matching conversation
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        (payload) => {
-          const msg = payload.new as any
-          if (msg.message_type !== 'text') return
-          setConversations(prev =>
-            prev.map(c =>
-              c.id === msg.conversation_id
-                ? { ...c, lastMsg: msg.message_text, last_message_at: msg.created_at, unread: msg.sender_id !== user.id }
-                : c
-            ).sort((a, b) => {
-              if (!a.last_message_at) return 1
-              if (!b.last_message_at) return -1
-              return new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
-            })
-          )
-        },
-      )
       .subscribe()
-
     return () => { supabase.removeChannel(channel) }
-  }, [user?.id, role, session?.access_token])
+  }, [user?.id, role])
+
+  // ── Real-time: incoming messages → update preview + re-sort ─────────────────
+  useMessageEvents((msg) => {
+    if (msg.message_type !== 'text') return
+    setConversations(prev =>
+      prev.map(c =>
+        c.id === msg.conversation_id
+          ? { ...c, lastMsg: msg.message_text, last_message_at: msg.created_at, unread: msg.sender_id !== user?.id }
+          : c
+      ).sort((a, b) => {
+        if (!a.last_message_at) return 1
+        if (!b.last_message_at) return -1
+        return new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+      })
+    )
+  })
 
   // ── Provider search (new message) ────────────────────────────────────────
   useEffect(() => {
