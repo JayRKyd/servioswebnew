@@ -158,7 +158,7 @@ export function ProviderMap({
             .setHTML(
               `<div style="font-family:sans-serif;padding:4px 2px;min-width:140px">
                 <p style="font-weight:700;font-size:13px;margin:0 0 2px">${props.name}</p>
-                <p style="font-size:12px;color:#6b7280;margin:0">★ ${Number(props.rating).toFixed(1)} · USD ${props.price}/hr</p>
+                <p style="font-size:12px;color:#6b7280;margin:0">★ ${Number(props.rating).toFixed(1)} · £${props.price}/hr</p>
               </div>`
             )
             .addTo(map)

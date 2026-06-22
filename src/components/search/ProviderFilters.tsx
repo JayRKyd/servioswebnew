@@ -93,7 +93,7 @@ export function ProviderFilters({
       {/* Max hourly rate */}
       <div className="space-y-2">
         <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">
-          Max rate: {filters.maxPrice < 1000 ? 'USD ' + filters.maxPrice + '/hr' : 'Any'}
+          Max rate: {filters.maxPrice < 1000 ? '£' + filters.maxPrice + '/hr' : 'Any'}
         </label>
         <input
           type="range" min="0" max="1000" step="25"
@@ -102,7 +102,7 @@ export function ProviderFilters({
           className="w-full accent-blue-600"
         />
         <div className="flex justify-between text-xs text-gray-400">
-          <span>USD 0</span><span>USD 1000+</span>
+          <span>£0</span><span>£1000+</span>
         </div>
       </div>
 
