@@ -1,15 +1,16 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/auth'
 import { useProfileIds } from '@/hooks/useProfileIds'
 import { formatTime } from '@/lib/utils'
-import { MapPin, Clock, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
+import { MapPin, Clock, ChevronLeft, ChevronRight, CalendarDays, ChevronDown } from 'lucide-react'
 
 function daysInMonth(year: number, month: number) { return new Date(year, month + 1, 0).getDate() }
 function firstDayOfMonth(year: number, month: number) { return new Date(year, month, 1).getDay() }
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
+const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 const DAY_HEADERS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 
 interface MonthEvent {
@@ -28,6 +29,20 @@ export default function ProviderCalendarPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedBookings, setSelectedBookings] = useState<any[]>([])
   const [loadingDay, setLoadingDay] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerYear, setPickerYear] = useState(now.getFullYear())
+  const pickerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!pickerOpen) return
+    function handleClick(e: MouseEvent) {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setPickerOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [pickerOpen])
 
   const eventMap = new Map<string, MonthEvent[]>()
   for (const e of monthEvents) {
@@ -83,6 +98,11 @@ export default function ProviderCalendarPage() {
     setSelectedDate(todayStr)
     selectDay(todayStr)
   }
+  function jumpTo(m: number, y: number) {
+    setMonth(m)
+    setYear(y)
+    setPickerOpen(false)
+  }
 
   return (
     <div className="flex flex-col gap-4" style={{ height: 'calc(100vh - 7rem)' }}>
@@ -104,9 +124,55 @@ export default function ProviderCalendarPage() {
               <ChevronRight size={16} className="text-gray-500" />
             </button>
           </div>
-          <h1 className="text-lg font-semibold text-gray-900 tracking-tight">
-            {MONTHS[month]} <span className="text-gray-400 font-normal">{year}</span>
-          </h1>
+          {/* Clickable month/year → picker popover */}
+          <div className="relative" ref={pickerRef}>
+            <button
+              onClick={() => { setPickerYear(year); setPickerOpen(v => !v) }}
+              className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-lg font-semibold text-gray-900 tracking-tight hover:bg-gray-100 transition-colors"
+            >
+              {MONTHS[month]} <span className="text-gray-400 font-normal">{year}</span>
+              <ChevronDown size={15} className={`text-gray-400 transition-transform ${pickerOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {pickerOpen && (
+              <div className="absolute left-0 top-full z-50 mt-2 w-64 rounded-2xl bg-white p-4 shadow-xl ring-1 ring-gray-100">
+                {/* Year row */}
+                <div className="mb-3 flex items-center justify-between">
+                  <button onClick={() => setPickerYear(y => y - 1)} className="rounded-lg p-1.5 hover:bg-gray-100">
+                    <ChevronLeft size={15} className="text-gray-500" />
+                  </button>
+                  <span className="text-sm font-semibold text-gray-900">{pickerYear}</span>
+                  <button onClick={() => setPickerYear(y => y + 1)} className="rounded-lg p-1.5 hover:bg-gray-100">
+                    <ChevronRight size={15} className="text-gray-500" />
+                  </button>
+                </div>
+
+                {/* Month grid */}
+                <div className="grid grid-cols-4 gap-1">
+                  {MONTH_SHORT.map((m, i) => {
+                    const isCurrent = i === month && pickerYear === year
+                    const isToday = i === now.getMonth() && pickerYear === now.getFullYear()
+                    return (
+                      <button
+                        key={m}
+                        onClick={() => jumpTo(i, pickerYear)}
+                        className={[
+                          'rounded-lg py-1.5 text-xs font-medium transition-colors',
+                          isCurrent
+                            ? 'bg-primary text-white'
+                            : isToday
+                            ? 'ring-2 ring-primary text-primary'
+                            : 'text-gray-600 hover:bg-gray-100',
+                        ].join(' ')}
+                      >
+                        {m}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-4 text-xs text-gray-400">
