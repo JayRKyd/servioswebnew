@@ -5,7 +5,7 @@ import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
 import {
   Star, BadgeCheck, MapPin, Share2, MoreHorizontal,
-  ArrowUpDown, Crown, Pencil, Check, X, Plus,
+  ArrowUpDown, Crown, Pencil, Check, X, Plus, Camera,
 } from 'lucide-react'
 
 /* ─── helpers ─── */
@@ -247,6 +247,8 @@ export default function ProviderProfilePage() {
   const [bioExpanded, setBioExpanded] = useState(false)
   const [cityEditing, setCityEditing] = useState(false)
   const [cityDraft, setCityDraft] = useState('')
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const avatarRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!user) return
@@ -274,6 +276,19 @@ export default function ProviderProfilePage() {
     }
     setProfile((p: any) => ({ ...p, [field]: value }))
     return true
+  }
+
+  async function uploadAvatar(file: File) {
+    if (!user) return
+    setAvatarUploading(true)
+    const ext = file.name.split('.').pop() ?? 'jpg'
+    const path = `${user.id}/${Date.now()}.${ext}`
+    const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true, contentType: file.type })
+    if (!upErr) {
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path)
+      await save('profile_image_url', publicUrl)
+    }
+    setAvatarUploading(false)
   }
 
   if (loading) return <div className="flex h-40 items-center justify-center text-gray-400">Loading…</div>
@@ -408,13 +423,31 @@ export default function ProviderProfilePage() {
           <div className="flex items-start gap-5">
 
             {/* Avatar */}
-            <div className="relative shrink-0">
+            <div className="relative shrink-0 group/av">
               <div className="h-[84px] w-[84px] rounded-full bg-primary flex items-center justify-center text-white text-3xl font-bold overflow-hidden ring-2 ring-gray-100">
                 {profile.profile_image_url
                   ? <img src={profile.profile_image_url} alt="" className="h-full w-full object-cover" />
                   : initials}
               </div>
               <span className="absolute bottom-1 left-1 h-3.5 w-3.5 rounded-full bg-green-400 ring-2 ring-white" />
+              {/* Upload overlay */}
+              <button
+                onClick={() => avatarRef.current?.click()}
+                disabled={avatarUploading}
+                className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover/av:opacity-100 transition-opacity disabled:cursor-wait"
+                title="Change photo"
+              >
+                {avatarUploading
+                  ? <div className="h-5 w-5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                  : <Camera size={20} className="text-white" />}
+              </button>
+              <input
+                ref={avatarRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); e.target.value = '' }}
+              />
             </div>
 
             {/* Name block */}
