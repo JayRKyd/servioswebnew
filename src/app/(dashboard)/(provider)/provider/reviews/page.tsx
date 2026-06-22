@@ -45,16 +45,25 @@ export default function ProviderReviewsPage() {
       <h1 className="text-2xl font-bold text-gray-900">Reviews</h1>
 
       {/* Summary */}
-      <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100 flex items-center gap-6">
-        <div className="text-center">
-          <p className="text-4xl font-bold text-gray-900">{reviews.length > 0 ? avgRating.toFixed(1) : '—'}</p>
-          {reviews.length > 0 && <Stars rating={avgRating} />}
-          <p className="text-xs text-gray-400 mt-1">{reviews.length} review{reviews.length !== 1 ? 's' : ''}</p>
-        </div>
-        {reviews.length === 0 && (
-          <div>
-            <p className="font-medium text-gray-700">No reviews yet</p>
-            <p className="text-sm text-gray-400 mt-1">Reviews appear here after customers confirm a completed job. Complete your first booking to start building your reputation.</p>
+      <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100 flex items-start gap-6">
+        {reviews.length > 0 ? (
+          <div className="text-center shrink-0">
+            <p className="text-4xl font-bold text-gray-900">{avgRating.toFixed(1)}</p>
+            <Stars rating={avgRating} />
+            <p className="text-xs text-gray-400 mt-1">{reviews.length} review{reviews.length !== 1 ? 's' : ''}</p>
+          </div>
+        ) : (
+          <div className="flex items-start gap-4 w-full">
+            <div className="shrink-0 rounded-2xl bg-gray-50 p-4">
+              <span className="text-3xl text-gray-200">★</span>
+            </div>
+            <div>
+              <p className="font-semibold text-gray-700">Not enough data yet</p>
+              <p className="text-sm text-gray-400 mt-1 leading-relaxed">
+                Reviews appear here after customers confirm a completed job.<br />
+                Complete your first booking to start building your reputation.
+              </p>
+            </div>
           </div>
         )}
       </div>

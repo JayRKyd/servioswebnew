@@ -160,6 +160,7 @@ export default function ProviderAnalyticsPage() {
       icon: <TrendingUp size={15} />,
       iconBg: 'bg-purple-50 text-purple-600',
       progress: bookings.length > 0 ? completion : null,
+      sub: bookings.length === 0 ? 'Complete a booking to see this' : undefined,
     },
     {
       label: 'Total Revenue',
@@ -167,7 +168,7 @@ export default function ProviderAnalyticsPage() {
       display: completed.length > 0 ? formatCurrency(totalRev / 100) : '—',
       icon: <PoundSterling size={15} />,
       iconBg: 'bg-emerald-50 text-emerald-600',
-      sub: completed.length > 0 ? `avg ${formatCurrency(totalRev / completed.length / 100)} / job` : undefined,
+      sub: completed.length > 0 ? `avg ${formatCurrency(totalRev / completed.length / 100)} / job` : 'Earn from completed jobs',
     },
     {
       label: 'Avg Rating',
@@ -176,7 +177,7 @@ export default function ProviderAnalyticsPage() {
       icon: <Star size={15} />,
       iconBg: 'bg-amber-50 text-amber-500',
       stars: avgRating > 0,
-      sub: avgRating > 0 ? undefined : 'No reviews yet',
+      sub: avgRating > 0 ? undefined : 'Complete a job to earn reviews',
     },
     {
       label: 'Total Reviews',
@@ -206,7 +207,11 @@ export default function ProviderAnalyticsPage() {
               <div className={`rounded-xl p-1.5 ${card.iconBg}`}>{card.icon}</div>
             </div>
 
-            <p className="text-3xl font-bold tracking-tight text-gray-900">{card.display}</p>
+            {card.display === '—' ? (
+              <p className="text-sm font-semibold text-gray-300">Not enough data yet</p>
+            ) : (
+              <p className="text-3xl font-bold tracking-tight text-gray-900">{card.display}</p>
+            )}
 
             {'stars' in card && card.stars && (
               <div className="mt-2">
