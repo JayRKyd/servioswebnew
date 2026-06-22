@@ -355,18 +355,31 @@ export default function MessagesPage() {
               const time   = formatConversationTime(c.last_message_at)
               const isNew  = c.last_message_at && (Date.now() - new Date(c.last_message_at).getTime()) < 86400000
               const serviceTag = c.booking?.service?.title ?? c.booking?.booking_number ?? null
+              // For customer conversations, link avatar to provider public profile
+              const profileHref = role === 'customer' && c.provider_id ? `/providers/${c.provider_id}` : null
 
               return (
-                <Link key={c.id} href={'/messages/' + c.id}
-                  className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-gray-50/70">
+                <div key={c.id}
+                  className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-gray-50/70 cursor-pointer"
+                  onClick={() => router.push('/messages/' + c.id)}
+                >
 
-                  {/* Avatar */}
-                  <div className="relative shrink-0">
-                    <div className={`flex h-12 w-12 items-center justify-center overflow-hidden rounded-full text-sm font-bold ${colour}`}>
-                      {c.resolvedAvatar
-                        ? <img src={c.resolvedAvatar} alt={name} className="h-12 w-12 object-cover" />
-                        : ini}
-                    </div>
+                  {/* Avatar — links to provider profile for customers */}
+                  <div className="relative shrink-0" onClick={profileHref ? e => e.stopPropagation() : undefined}>
+                    {profileHref ? (
+                      <Link href={profileHref} title={`View ${name}'s profile`}
+                        className={`flex h-12 w-12 items-center justify-center overflow-hidden rounded-full text-sm font-bold ${colour} hover:opacity-80 transition-opacity`}>
+                        {c.resolvedAvatar
+                          ? <img src={c.resolvedAvatar} alt={name} className="h-12 w-12 object-cover" />
+                          : ini}
+                      </Link>
+                    ) : (
+                      <div className={`flex h-12 w-12 items-center justify-center overflow-hidden rounded-full text-sm font-bold ${colour}`}>
+                        {c.resolvedAvatar
+                          ? <img src={c.resolvedAvatar} alt={name} className="h-12 w-12 object-cover" />
+                          : ini}
+                      </div>
+                    )}
                     {/* Online / recent dot */}
                     {isNew && (
                       <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-green-400" />

@@ -424,7 +424,7 @@ function CustomerProviderProfileInner() {
 
           {/* Provider card */}
           <div className="flex items-center gap-4">
-            <Link href={`/providers/${provider.user_id}`} className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full ring-1 ring-gray-100 hover:opacity-90 transition-opacity">
+            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full ring-1 ring-gray-100">
               {provider.profile_image_url ? (
                 <img src={provider.profile_image_url} alt={displayName} className="h-full w-full object-cover" />
               ) : (
@@ -437,11 +437,9 @@ function CustomerProviderProfileInner() {
                   <BadgeCheck size={11} className="text-white" />
                 </div>
               )}
-            </Link>
+            </div>
             <div>
-              <Link href={`/providers/${provider.user_id}`} className="font-semibold text-dark hover:underline">
-                {displayName}
-              </Link>
+              <p className="font-semibold text-dark">{displayName}</p>
               {memberSince && (
                 <p className="text-sm text-muted">Member since {memberSince}</p>
               )}
