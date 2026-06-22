@@ -159,6 +159,55 @@ export default function MessagesPage() {
     load()
   }, [user?.id])
 
+  // ── Real-time: keep list live ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!user?.id || !role) return
+    const col = role === 'provider' ? 'provider_id' : 'customer_id'
+
+    const channel = supabase
+      .channel(`convlist:${user.id}`)
+      // conversations UPDATE → re-sort by last_message_at
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'conversations', filter: `${col}=eq.${user.id}` },
+        (payload) => {
+          setConversations(prev => {
+            const updated = prev.map(c =>
+              c.id === payload.new.id ? { ...c, last_message_at: payload.new.last_message_at } : c
+            )
+            return [...updated].sort((a, b) => {
+              if (!a.last_message_at) return 1
+              if (!b.last_message_at) return -1
+              return new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+            })
+          })
+        },
+      )
+      // messages INSERT → update preview text + timestamp for the matching conversation
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload) => {
+          const msg = payload.new as any
+          if (msg.message_type !== 'text') return
+          setConversations(prev =>
+            prev.map(c =>
+              c.id === msg.conversation_id
+                ? { ...c, lastMsg: msg.message_text, last_message_at: msg.created_at }
+                : c
+            ).sort((a, b) => {
+              if (!a.last_message_at) return 1
+              if (!b.last_message_at) return -1
+              return new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+            })
+          )
+        },
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [user?.id, role])
+
   // ── Provider search (new message) ────────────────────────────────────────
   useEffect(() => {
     if (!showSearch) return

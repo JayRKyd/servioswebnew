@@ -138,7 +138,9 @@ export default function ConversationPage() {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
-        (payload) => setMessages((prev) => [...prev, payload.new]),
+        (payload) => setMessages((prev) =>
+          prev.some(m => m.id === payload.new.id) ? prev : [...prev, payload.new]
+        ),
       )
       .on(
         'postgres_changes',
