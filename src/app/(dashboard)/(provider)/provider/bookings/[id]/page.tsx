@@ -2,13 +2,13 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/auth'
-import { formatDate, formatCurrency, formatTime } from '@/lib/utils'
+import { formatDate, formatCurrency, formatTime, titleCase } from '@/lib/utils'
 import { apiClient } from '@/lib/api-client'
 import { BookingPhotos } from '@/components/shared/BookingPhotos'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { JobOfferPanel } from '@/components/shared/JobOfferPanel'
 import { MilestoneTracker } from '@/components/shared/MilestoneTracker'
-import { MessageCircle, Lock, CheckCircle2 } from 'lucide-react'
+import { MessageCircle, Lock, CheckCircle2, BadgeCheck, Star } from 'lucide-react'
 
 export default function ProviderBookingDetailPage() {
   const { id } = useParams()
@@ -25,7 +25,7 @@ export default function ProviderBookingDetailPage() {
     async function load() {
       const { data: bk } = await supabase
         .from('bookings')
-        .select('*, service:services(title, duration_minutes), customer_profile:customer_profiles(id, user_id, first_name, last_name, profile_image_url), provider_profile:provider_profiles(id, user_id)')
+        .select('*, service:services(title, duration_minutes), customer_profile:customer_profiles(id, user_id, first_name, last_name, profile_image_url, identity_verified, rating_average, total_jobs_completed), provider_profile:provider_profiles(id, user_id)')
         .eq('id', id)
         .single()
 
@@ -157,9 +157,13 @@ export default function ProviderBookingDetailPage() {
           <div>
             <h1 className="text-xl font-bold text-gray-900">
               {booking.service?.title ?? 'Booking'}
-              {cp ? ` — ${cp.first_name} ${cp.last_name}` : ''}
+              {cp ? ` — ${titleCase(cp.first_name)} ${titleCase(cp.last_name)}` : ''}
             </h1>
-            <p className="text-xs text-gray-400 mt-0.5">Job &quot;{booking.service?.title ?? 'Booking'}&quot;</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {booking.booking_number ? `#${String(booking.booking_number).slice(-3)}` : ''}
+              {booking.booking_number && booking.scheduled_date ? ' · ' : ''}
+              {booking.scheduled_date ? formatDate(booking.scheduled_date) : ''}
+            </p>
           </div>
         </div>
 
@@ -190,7 +194,25 @@ export default function ProviderBookingDetailPage() {
                   ) : (
                     <div className="h-7 w-7 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold shrink-0">{initials}</div>
                   )}
-                  <span className="text-sm font-semibold text-gray-900">{cp.first_name} {cp.last_name}</span>
+                  <div>
+                    <span className="text-sm font-semibold text-gray-900">{titleCase(cp.first_name)} {titleCase(cp.last_name)}</span>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {cp.rating_average != null && (
+                        <span className="flex items-center gap-0.5 text-xs text-amber-500 font-medium">
+                          <Star size={10} className="fill-amber-400 stroke-amber-400" />
+                          {Number(cp.rating_average).toFixed(1)}
+                        </span>
+                      )}
+                      {cp.total_jobs_completed != null && cp.total_jobs_completed > 0 && (
+                        <span className="text-xs text-gray-400">{cp.total_jobs_completed} job{cp.total_jobs_completed !== 1 ? 's' : ''}</span>
+                      )}
+                      {cp.identity_verified && (
+                        <span className="flex items-center gap-0.5 text-xs text-primary font-medium">
+                          <BadgeCheck size={11} className="shrink-0" /> Verified
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
