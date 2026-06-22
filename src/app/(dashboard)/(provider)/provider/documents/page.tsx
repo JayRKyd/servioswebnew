@@ -62,6 +62,7 @@ function expiryStatus(expiry: string | null): 'expired' | 'soon' | 'ok' | null {
 
 export default function ProviderDocumentsPage() {
   const { user } = useAuth()
+  const [profileId, setProfileId] = useState<string | null>(null)
   const [docs, setDocs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -74,14 +75,22 @@ export default function ProviderDocumentsPage() {
 
   useEffect(() => {
     if (!user) return
-    fetchDocs()
+    supabase.from('provider_profiles').select('id').eq('user_id', user.id).single()
+      .then(({ data }) => {
+        if (data?.id) {
+          setProfileId(data.id)
+          fetchDocs(data.id)
+        } else {
+          setLoading(false)
+        }
+      })
   }, [user?.id])
 
-  async function fetchDocs() {
+  async function fetchDocs(pid: string) {
     const { data } = await supabase
       .from('provider_documents')
       .select('*')
-      .eq('provider_id', user!.id)
+      .eq('provider_id', pid)
       .order('created_at', { ascending: false })
     setDocs(data ?? [])
     setLoading(false)
@@ -89,15 +98,13 @@ export default function ProviderDocumentsPage() {
 
   async function handleUpload(e: React.FormEvent) {
     e.preventDefault()
-    if (!user || !form.title) return
+    if (!user || !form.title || !profileId) return
     setUploading(true)
     setError(null)
     setSuccess(false)
 
     try {
-      const { data: profile, error: profileErr } = await supabase
-        .from('provider_profiles').select('id').eq('user_id', user.id).single()
-      if (profileErr || !profile) throw new Error('Provider profile not found')
+      const profile = { id: profileId }
 
       let file_url: string | null = null
       let storage_path: string | null = null
@@ -129,7 +136,7 @@ export default function ProviderDocumentsPage() {
       if (fileRef.current) fileRef.current.value = ''
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)
-      await fetchDocs()
+      await fetchDocs(profileId)
     } catch (err: any) {
       setError(err.message)
     } finally {
