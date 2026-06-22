@@ -10,7 +10,7 @@ declare global {
 }
 
 const DEFAULT_CENTER: [number, number] = [-0.1276, 51.5074]
-const DEFAULT_ZOOM = 11
+const DEFAULT_ZOOM = 12
 
 function loadMapbox(): Promise<any> {
   if (window.mapboxgl) return Promise.resolve(window.mapboxgl)

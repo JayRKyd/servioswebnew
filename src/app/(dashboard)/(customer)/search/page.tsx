@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic'
 import { useSearchParams } from 'next/navigation'
 import { useProviderSearch } from '@/hooks/useProviderSearch'
 import { useGeolocation } from '@/hooks/useGeolocation'
-import { AirbnbProviderCard } from '@/components/search/ProviderCard'
+import { AirbnbProviderCard, ProviderCard } from '@/components/search/ProviderCard'
 import {
   ChevronLeft, ChevronRight, Search, SlidersHorizontal, Map as MapIcon, X, MapPin,
 } from 'lucide-react'
@@ -264,6 +264,10 @@ function SearchPageInner() {
   const [showFilters, setShowFilters] = useState(false)
   const [selectedId, setSelectedId]   = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
+  const [currentMapBounds, setCurrentMapBounds] = useState<{
+    ne: { lat: number; lng: number }
+    sw: { lat: number; lng: number }
+  } | null>(null)
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   const ITEMS_PER_PAGE = 6
@@ -289,12 +293,26 @@ function SearchPageInner() {
 
   const handleRequestLocation = useCallback(() => requestLocation(), [requestLocation])
   const handleBoundsChange    = useCallback(
-    (ne: { lat: number; lng: number }, sw: { lat: number; lng: number }) => setMapViewport(ne, sw),
+    (ne: { lat: number; lng: number }, sw: { lat: number; lng: number }) => {
+      setCurrentMapBounds({ ne, sw })
+      setMapViewport(ne, sw)
+    },
     [setMapViewport]
   )
 
   function openMap()  { setShowMap(true) }
-  function closeMap() { setShowMap(false); clearMapViewport() }
+  function closeMap() { setShowMap(false); setCurrentMapBounds(null); clearMapViewport() }
+
+  function isInMapBounds(p: ProviderHit): boolean {
+    if (!currentMapBounds || !p._geoloc) return true
+    const { ne, sw } = currentMapBounds
+    return (
+      p._geoloc.lat <= ne.lat &&
+      p._geoloc.lat >= sw.lat &&
+      p._geoloc.lng <= ne.lng &&
+      p._geoloc.lng >= sw.lng
+    )
+  }
 
   function scrollRow(cat: string, dir: 'left' | 'right') {
     rowRefs.current[cat]?.scrollBy({ left: dir === 'right' ? 536 : -536, behavior: 'smooth' })
@@ -326,7 +344,11 @@ function SearchPageInner() {
   const usingMock = results.length === 0
   const providerCount = total > 0 ? total : displayProviders.length
 
-  // Grid mode (single category selected)
+  // Map mode: split providers into in-viewport vs outside
+  const inBoundsProviders  = showMap ? displayProviders.filter(p => isInMapBounds(p))  : displayProviders
+  const outBoundsProviders = showMap ? displayProviders.filter(p => !isInMapBounds(p)) : []
+
+  // Grid mode (single category selected, no map)
   const totalPages       = Math.ceil(displayProviders.length / ITEMS_PER_PAGE)
   const paginatedProviders = displayProviders.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
@@ -421,16 +443,6 @@ function SearchPageInner() {
           style={{ scrollbarWidth: 'none' }}
         >
 
-          {showMap && (
-            <div className="shrink-0 rounded-xl bg-white border border-gray-100 px-4 py-2.5 flex items-center justify-between shadow-sm">
-              <p className="text-sm font-semibold text-dark">
-                {loading
-                  ? 'Searching this area…'
-                  : `${displayProviders.length} provider${displayProviders.length !== 1 ? 's' : ''} in this area`}
-              </p>
-              {loading && <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />}
-            </div>
-          )}
           {context && (
             <div className="shrink-0 rounded-xl bg-primary/[0.06] px-4 py-2.5 text-xs text-primary ring-1 ring-primary/10">
               Showing providers matched to your job details.
@@ -445,8 +457,57 @@ function SearchPageInner() {
             <p className="shrink-0 text-sm text-red-500">{error}</p>
           )}
 
-          {/* ── All tab: horizontal scroll rows per category ── */}
-          {!filters.category && (
+          {/* ── MAP MODE: flat sorted list — in-area first, then outside ── */}
+          {showMap && (
+            <div className="shrink-0 space-y-3">
+              {/* "X in this area" header */}
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-dark">
+                  {loading
+                    ? 'Searching this area…'
+                    : inBoundsProviders.length > 0
+                      ? `${inBoundsProviders.length} provider${inBoundsProviders.length !== 1 ? 's' : ''} in this area`
+                      : 'No providers in this area — try zooming out'}
+                </p>
+                {loading && <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />}
+              </div>
+
+              {/* In-bounds providers */}
+              {inBoundsProviders.map(p => (
+                <ProviderCard
+                  key={p.user_id}
+                  provider={p}
+                  isSelected={selectedId === p.user_id}
+                  onHover={setSelectedId}
+                  context={context}
+                />
+              ))}
+
+              {/* Divider + out-of-bounds */}
+              {outBoundsProviders.length > 0 && (
+                <>
+                  <div className="flex items-center gap-3 py-1">
+                    <div className="flex-1 border-t border-gray-200" />
+                    <p className="shrink-0 text-xs font-semibold text-muted">More providers outside this area</p>
+                    <div className="flex-1 border-t border-gray-200" />
+                  </div>
+                  {outBoundsProviders.map(p => (
+                    <div key={p.user_id} className="opacity-60">
+                      <ProviderCard
+                        provider={p}
+                        isSelected={selectedId === p.user_id}
+                        onHover={setSelectedId}
+                        context={context}
+                      />
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ── NORMAL MODE: All tab — horizontal scroll rows per category ── */}
+          {!showMap && !filters.category && (
             <>
               {Array.from(grouped.entries()).map(([category, providers]) => (
                 <section key={category} className="shrink-0 space-y-3">
@@ -503,10 +564,9 @@ function SearchPageInner() {
             </>
           )}
 
-          {/* ── Single category: grid + pagination ── */}
-          {filters.category && (
+          {/* ── NORMAL MODE: Single category — grid + pagination ── */}
+          {!showMap && filters.category && (
             <div className="shrink-0 space-y-5">
-              {/* Header */}
               <div>
                 <h2 className="text-base font-bold text-dark">{filters.category}</h2>
                 <p className="text-xs text-muted mt-0.5">
@@ -514,7 +574,6 @@ function SearchPageInner() {
                 </p>
               </div>
 
-              {/* Grid */}
               {paginatedProviders.length > 0 ? (
                 <div className="grid grid-cols-2 gap-5 lg:grid-cols-3 xl:grid-cols-4">
                   {paginatedProviders.map(p => (
