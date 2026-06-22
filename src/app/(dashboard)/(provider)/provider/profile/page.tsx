@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import {
   Star, BadgeCheck, MapPin, Share2, MoreHorizontal,
   ArrowUpDown, Crown, Pencil, Check, X, Plus, Camera,
+  ImageIcon, Trash2, ChevronLeft, ChevronRight, ExternalLink,
 } from 'lucide-react'
 
 /* ─── helpers ─── */
@@ -249,6 +250,10 @@ export default function ProviderProfilePage() {
   const [cityDraft, setCityDraft] = useState('')
   const [avatarUploading, setAvatarUploading] = useState(false)
   const avatarRef = useRef<HTMLInputElement>(null)
+  const [portfolioPhotos, setPortfolioPhotos] = useState<any[]>([])
+  const [portfolioUploading, setPortfolioUploading] = useState(false)
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
+  const portfolioInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!user) return
@@ -260,6 +265,15 @@ export default function ProviderProfilePage() {
       setProfile(p)
       setLatestReview(r)
       setLoading(false)
+      if (p?.id) {
+        supabase
+          .from('provider_portfolio_photos')
+          .select('*')
+          .eq('provider_id', p.id)
+          .order('sort_order', { ascending: true })
+          .order('created_at', { ascending: true })
+          .then(({ data }) => setPortfolioPhotos(data ?? []))
+      }
     })
   }, [user?.id])
 
@@ -289,6 +303,36 @@ export default function ProviderProfilePage() {
       await save('profile_image_url', publicUrl)
     }
     setAvatarUploading(false)
+  }
+
+  async function uploadPortfolioPhoto(file: File) {
+    if (!user || !profile?.id) return
+    setPortfolioUploading(true)
+    const ext = file.name.split('.').pop() ?? 'jpg'
+    const path = `${user.id}/${Date.now()}.${ext}`
+    const { error: upErr } = await supabase.storage
+      .from('portfolio')
+      .upload(path, file, { upsert: false, contentType: file.type })
+    if (!upErr) {
+      const { data: { publicUrl } } = supabase.storage.from('portfolio').getPublicUrl(path)
+      const { data: row } = await supabase
+        .from('provider_portfolio_photos')
+        .insert({ provider_id: profile.id, url: publicUrl, sort_order: portfolioPhotos.length })
+        .select()
+        .single()
+      if (row) setPortfolioPhotos(prev => [...prev, row])
+    }
+    setPortfolioUploading(false)
+  }
+
+  async function deletePortfolioPhoto(photo: any) {
+    await supabase.from('provider_portfolio_photos').delete().eq('id', photo.id)
+    setPortfolioPhotos(prev => prev.filter(p => p.id !== photo.id))
+    if (lightboxIdx !== null) {
+      const newPhotos = portfolioPhotos.filter(p => p.id !== photo.id)
+      if (newPhotos.length === 0) setLightboxIdx(null)
+      else setLightboxIdx(i => Math.min(i ?? 0, newPhotos.length - 1))
+    }
   }
 
   if (loading) return <div className="flex h-40 items-center justify-center text-gray-400">Loading…</div>
@@ -453,7 +497,13 @@ export default function ProviderProfilePage() {
             {/* Name block */}
             <div className="flex-1 min-w-0 pt-1">
               <div className="flex items-center gap-2">
-                <h2 className="text-[1.375rem] font-bold text-gray-900 leading-tight">{displayName}</h2>
+                {user ? (
+                  <Link href={`/providers/${user.id}`} target="_blank" className="text-[1.375rem] font-bold text-gray-900 leading-tight hover:underline">
+                    {displayName}
+                  </Link>
+                ) : (
+                  <h2 className="text-[1.375rem] font-bold text-gray-900 leading-tight">{displayName}</h2>
+                )}
                 {profile.identity_verified && <BadgeCheck size={21} className="text-primary shrink-0" />}
               </div>
 
@@ -545,6 +595,15 @@ export default function ProviderProfilePage() {
               <button className="flex items-center gap-1 text-sm font-medium text-primary hover:underline">
                 Share <Share2 size={13} />
               </button>
+              {user && (
+                <Link
+                  href={`/providers/${user.id}`}
+                  target="_blank"
+                  className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-primary transition-colors"
+                >
+                  View public profile <ExternalLink size={11} />
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -754,9 +813,133 @@ export default function ProviderProfilePage() {
                 <p className="text-sm text-gray-400 italic border-t border-gray-100 pt-5">No reviews yet.</p>
               )}
             </div>
+
+            {/* ── PORTFOLIO ── */}
+            <div className="border-t border-gray-100 pt-7">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-bold text-gray-900">Portfolio</h3>
+                <button
+                  onClick={() => portfolioInputRef.current?.click()}
+                  disabled={portfolioUploading}
+                  className="flex items-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-500 hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
+                >
+                  {portfolioUploading
+                    ? <div className="h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                    : <Plus size={13} />}
+                  {portfolioUploading ? 'Uploading…' : 'Add photo'}
+                </button>
+                <input
+                  ref={portfolioInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) uploadPortfolioPhoto(f); e.target.value = '' }}
+                />
+              </div>
+
+              {portfolioPhotos.length === 0 ? (
+                <button
+                  onClick={() => portfolioInputRef.current?.click()}
+                  className="flex h-32 w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 text-gray-300 hover:border-primary/40 hover:text-primary/40 transition-colors"
+                >
+                  <ImageIcon size={28} />
+                  <span className="text-xs">Upload your work photos</span>
+                </button>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  {portfolioPhotos.map((photo, idx) => (
+                    <div key={photo.id} className="group relative aspect-square overflow-hidden rounded-xl bg-gray-100 cursor-pointer">
+                      <img
+                        src={photo.url}
+                        alt={photo.caption ?? ''}
+                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                        onClick={() => setLightboxIdx(idx)}
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors rounded-xl" onClick={() => setLightboxIdx(idx)} />
+                      <button
+                        onClick={e => { e.stopPropagation(); deletePortfolioPhoto(photo) }}
+                        className="absolute top-1.5 right-1.5 h-6 w-6 flex items-center justify-center rounded-full bg-white/80 text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                        title="Delete photo"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  ))}
+                  {/* Upload tile */}
+                  <button
+                    onClick={() => portfolioInputRef.current?.click()}
+                    disabled={portfolioUploading}
+                    className="aspect-square flex flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-gray-200 text-gray-300 hover:border-primary/40 hover:text-primary/40 transition-colors disabled:opacity-50"
+                  >
+                    <Plus size={20} />
+                    <span className="text-[10px]">Add</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
           </main>
         </div>
       </div>
+
+      {/* ── LIGHTBOX ── */}
+      {lightboxIdx !== null && portfolioPhotos.length > 0 && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setLightboxIdx(null)}
+        >
+          {/* Prev */}
+          {portfolioPhotos.length > 1 && (
+            <button
+              onClick={e => { e.stopPropagation(); setLightboxIdx(i => ((i ?? 0) - 1 + portfolioPhotos.length) % portfolioPhotos.length) }}
+              className="absolute left-4 h-10 w-10 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/25 transition-colors"
+            >
+              <ChevronLeft size={22} />
+            </button>
+          )}
+
+          {/* Image */}
+          <div className="relative max-w-3xl max-h-[80vh] mx-16" onClick={e => e.stopPropagation()}>
+            <img
+              src={portfolioPhotos[lightboxIdx].url}
+              alt={portfolioPhotos[lightboxIdx].caption ?? ''}
+              className="max-w-full max-h-[75vh] rounded-2xl object-contain shadow-2xl"
+            />
+            {portfolioPhotos[lightboxIdx].caption && (
+              <p className="mt-3 text-center text-sm text-white/80">{portfolioPhotos[lightboxIdx].caption}</p>
+            )}
+            <button
+              onClick={() => deletePortfolioPhoto(portfolioPhotos[lightboxIdx])}
+              className="absolute top-3 right-3 flex items-center gap-1.5 rounded-lg bg-red-500/80 px-2.5 py-1.5 text-xs text-white hover:bg-red-500 transition-colors"
+            >
+              <Trash2 size={11} /> Delete
+            </button>
+          </div>
+
+          {/* Next */}
+          {portfolioPhotos.length > 1 && (
+            <button
+              onClick={e => { e.stopPropagation(); setLightboxIdx(i => ((i ?? 0) + 1) % portfolioPhotos.length) }}
+              className="absolute right-4 h-10 w-10 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/25 transition-colors"
+            >
+              <ChevronRight size={22} />
+            </button>
+          )}
+
+          {/* Close */}
+          <button
+            onClick={() => setLightboxIdx(null)}
+            className="absolute top-4 right-4 h-8 w-8 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/25 transition-colors"
+          >
+            <X size={16} />
+          </button>
+
+          {/* Counter */}
+          <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-white/60">
+            {lightboxIdx + 1} / {portfolioPhotos.length}
+          </p>
+        </div>
+      )}
     </div>
   )
 }

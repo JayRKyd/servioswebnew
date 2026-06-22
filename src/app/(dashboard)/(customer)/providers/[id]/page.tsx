@@ -1,14 +1,20 @@
 'use client'
-import { Suspense, useEffect, useState, useRef } from 'react'
+import { Suspense, useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/auth'
 import { formatDate, formatCurrency, titleCase } from '@/lib/utils'
 import {
   Star, BadgeCheck, MapPin, Clock, MessageSquare, CalendarCheck,
-  Shield, ChevronLeft, ChevronRight, Zap,
+  Shield, ChevronLeft, ChevronRight, Zap, X, Grid2X2,
 } from 'lucide-react'
 import { CATEGORY_META } from '@/lib/service-questions'
+
+interface PortfolioPhoto {
+  id: string
+  url: string
+  caption: string | null
+}
 
 interface ProviderProfile {
   id: string
@@ -62,15 +68,20 @@ function CustomerProviderProfileInner() {
   const searchParams = useSearchParams()
   const context      = searchParams.get('context') ?? ''
 
-  const [provider, setProvider]   = useState<ProviderProfile | null>(null)
-  const [services, setServices]   = useState<ProviderService[]>([])
-  const [reviews, setReviews]     = useState<Review[]>([])
-  const [loading, setLoading]     = useState(true)
-  const [messaging, setMessaging] = useState(false)
+  const [provider, setProvider]         = useState<ProviderProfile | null>(null)
+  const [services, setServices]         = useState<ProviderService[]>([])
+  const [reviews, setReviews]           = useState<Review[]>([])
+  const [portfolioPhotos, setPortfolioPhotos] = useState<PortfolioPhoto[]>([])
+  const [loading, setLoading]           = useState(true)
+  const [messaging, setMessaging]       = useState(false)
+  const [prefetchedConvId, setPrefetchedConvId]     = useState<string | null>(null)
+  const [prefetchedCustomerId, setPrefetchedCustomerId] = useState<string | null>(null)
   const [bioExpanded, setBioExpanded]         = useState(false)
   const [showAllReviews, setShowAllReviews]   = useState(false)
   const [stickyVisible, setStickyVisible]     = useState(false)
   const [activeNav, setActiveNav]             = useState('about')
+  const [showPhotoGallery, setShowPhotoGallery] = useState(false)
+  const [lightboxIdx, setLightboxIdx]           = useState<number | null>(null)
 
   const galleryRef  = useRef<HTMLDivElement>(null)
   const aboutRef    = useRef<HTMLDivElement>(null)
@@ -89,21 +100,61 @@ function CustomerProviderProfileInner() {
       if (!pp) { setLoading(false); return }
       setProvider(pp)
 
-      const [{ data: svcs }, { data: revs }] = await Promise.all([
+      const [{ data: svcs }, { data: revs }, { data: photos }] = await Promise.all([
         supabase.from('provider_services')
           .select('id, service:services(title, description, base_price)')
           .eq('provider_id', pp.id).eq('is_active', true).limit(12),
         supabase.from('reviews')
           .select('id, rating, review_text, created_at, reviewer:customer_profiles(first_name, last_name)')
           .eq('reviewee_id', pp.id).order('created_at', { ascending: false }).limit(20),
+        supabase.from('provider_portfolio_photos')
+          .select('id, url, caption')
+          .eq('provider_id', pp.id)
+          .order('sort_order', { ascending: true })
+          .order('created_at', { ascending: true })
+          .limit(20),
       ])
 
       setServices((svcs ?? []) as any)
       setReviews((revs ?? []) as any)
+      setPortfolioPhotos((photos ?? []) as PortfolioPhoto[])
       setLoading(false)
     }
     load()
   }, [id])
+
+  // Pre-fetch customer profile + any existing conversation so Message navigates instantly
+  useEffect(() => {
+    if (!provider) return
+    async function prefetch() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: cp } = await supabase.from('customer_profiles').select('id').eq('user_id', user.id).maybeSingle()
+      if (!cp) return
+      setPrefetchedCustomerId(cp.id)
+      const { data: existing } = await supabase.from('conversations').select('id')
+        .eq('customer_id', cp.id).eq('provider_id', provider.id).is('booking_id', null).maybeSingle()
+      if (existing) setPrefetchedConvId(existing.id)
+    }
+    prefetch()
+  }, [provider])
+
+  // Keyboard nav for lightbox
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (lightboxIdx === null) {
+      if (e.key === 'Escape') setShowPhotoGallery(false)
+      return
+    }
+    if (e.key === 'Escape')      setLightboxIdx(null)
+    if (e.key === 'ArrowRight')  setLightboxIdx(i => i !== null ? Math.min(i + 1, portfolioPhotos.length - 1) : null)
+    if (e.key === 'ArrowLeft')   setLightboxIdx(i => i !== null ? Math.max(i - 1, 0) : null)
+  }, [lightboxIdx, portfolioPhotos.length])
+
+  useEffect(() => {
+    if (!showPhotoGallery) return
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [showPhotoGallery, handleKeyDown])
 
   // Sticky nav detection — uses getBoundingClientRect (viewport-relative), works in any scroll container
   useEffect(() => {
@@ -125,19 +176,32 @@ function CustomerProviderProfileInner() {
   }
 
   async function handleMessage() {
+    if (!provider) return
     setMessaging(true)
+
+    // Use pre-fetched conversation if available — near-instant navigation
+    if (prefetchedConvId) {
+      router.push(`/messages/${prefetchedConvId}`)
+      return
+    }
+
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
-    const { data: cp } = await supabase.from('customer_profiles').select('id').eq('user_id', user.id).maybeSingle()
-    if (!cp || !provider) { setMessaging(false); return }
 
+    const customerId = prefetchedCustomerId ?? (
+      await supabase.from('customer_profiles').select('id').eq('user_id', user.id).maybeSingle()
+    ).data?.id
+
+    if (!customerId) { setMessaging(false); return }
+
+    // Check again in case pre-fetch hadn't finished
     const { data: existing } = await supabase.from('conversations').select('id')
-      .eq('customer_id', cp.id).eq('provider_id', provider.id).is('booking_id', null).maybeSingle()
+      .eq('customer_id', customerId).eq('provider_id', provider.id).is('booking_id', null).maybeSingle()
 
     if (existing) { router.push(`/messages/${existing.id}`); return }
 
     const { data: conv } = await supabase.from('conversations').insert({
-      customer_id: cp.id, provider_id: provider.id,
+      customer_id: customerId, provider_id: provider.id,
       conversation_type: 'direct', status: 'active',
     }).select('id').single()
     setMessaging(false)
@@ -276,21 +340,45 @@ function CustomerProviderProfileInner() {
             )}
           </div>
 
-          {/* Smaller slots */}
-          <div className="overflow-hidden bg-gradient-to-br from-primary/[0.08] to-primary/[0.16]" />
-          <div className="overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200" />
-          <div className="overflow-hidden bg-gradient-to-br from-primary/[0.05] to-primary/[0.12]" />
+          {/* Smaller slots — filled with portfolio photos if available */}
+          {[0, 1, 2].map((idx) => {
+            const photo = portfolioPhotos[idx]
+            const fallbacks = [
+              'from-primary/[0.08] to-primary/[0.16]',
+              'from-gray-100 to-gray-200',
+              'from-primary/[0.05] to-primary/[0.12]',
+            ]
+            return (
+              <div
+                key={idx}
+                className={`overflow-hidden ${photo ? 'cursor-pointer' : ''}`}
+                onClick={photo ? () => { setShowPhotoGallery(true); setLightboxIdx(idx) } : undefined}
+              >
+                {photo ? (
+                  <img src={photo.url} alt={photo.caption ?? ''} className="h-full w-full object-cover hover:scale-105 transition-transform duration-300" />
+                ) : (
+                  <div className={`h-full w-full bg-gradient-to-br ${fallbacks[idx]}`} />
+                )}
+              </div>
+            )
+          })}
 
           {/* Bottom-right: "Show all" button */}
-          <div className="relative overflow-hidden bg-gradient-to-br from-gray-50 to-gray-150">
+          <div
+            className={`relative overflow-hidden ${portfolioPhotos[3] ? 'cursor-pointer' : ''}`}
+            onClick={portfolioPhotos[3] ? () => { setShowPhotoGallery(true); setLightboxIdx(3) } : undefined}
+          >
+            {portfolioPhotos[3] ? (
+              <img src={portfolioPhotos[3].url} alt={portfolioPhotos[3].caption ?? ''} className="h-full w-full object-cover hover:scale-105 transition-transform duration-300" />
+            ) : (
+              <div className="h-full w-full bg-gradient-to-br from-gray-50 to-gray-150" />
+            )}
             <div className="absolute bottom-3 right-3">
-              <button className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-dark shadow-md hover:shadow-lg transition-shadow ring-1 ring-gray-200">
-                <span className="grid grid-cols-2 gap-0.5 w-3 h-3">
-                  <span className="bg-dark rounded-[1px]" />
-                  <span className="bg-dark rounded-[1px]" />
-                  <span className="bg-dark rounded-[1px]" />
-                  <span className="bg-dark rounded-[1px]" />
-                </span>
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowPhotoGallery(true); setLightboxIdx(null) }}
+                className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-dark shadow-md hover:shadow-lg transition-shadow ring-1 ring-gray-200"
+              >
+                <Grid2X2 size={12} />
                 Show all photos
               </button>
             </div>
@@ -343,7 +431,7 @@ function CustomerProviderProfileInner() {
 
           {/* Provider card */}
           <div className="flex items-center gap-4">
-            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full ring-1 ring-gray-100">
+            <Link href={`/providers/${provider.user_id}`} className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full ring-1 ring-gray-100 hover:opacity-90 transition-opacity">
               {provider.profile_image_url ? (
                 <img src={provider.profile_image_url} alt={displayName} className="h-full w-full object-cover" />
               ) : (
@@ -356,9 +444,11 @@ function CustomerProviderProfileInner() {
                   <BadgeCheck size={11} className="text-white" />
                 </div>
               )}
-            </div>
+            </Link>
             <div>
-              <p className="font-semibold text-dark">{displayName}</p>
+              <Link href={`/providers/${provider.user_id}`} className="font-semibold text-dark hover:underline">
+                {displayName}
+              </Link>
               {memberSince && (
                 <p className="text-sm text-muted">Member since {memberSince}</p>
               )}
@@ -518,6 +608,119 @@ function CustomerProviderProfileInner() {
             )}
           </div>
         </div>
+
+        {/* ── Photo gallery modal ── */}
+        {showPhotoGallery && (
+          <div className="fixed inset-0 z-50 flex flex-col bg-white">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 shrink-0">
+              <p className="text-sm font-semibold text-dark">
+                {portfolioPhotos.length > 0
+                  ? `${portfolioPhotos.length} photo${portfolioPhotos.length !== 1 ? 's' : ''} · ${displayName}`
+                  : `${displayName} · Portfolio`}
+              </p>
+              <button
+                onClick={() => { setShowPhotoGallery(false); setLightboxIdx(null) }}
+                className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {portfolioPhotos.length === 0 ? (
+              /* Empty state */
+              <div className="flex flex-1 items-center justify-center">
+                <div className="text-center space-y-2">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
+                    <Grid2X2 size={24} className="text-muted" />
+                  </div>
+                  <p className="text-sm font-semibold text-dark">No photos yet</p>
+                  <p className="text-xs text-muted">This provider hasn't uploaded portfolio photos.</p>
+                </div>
+              </div>
+            ) : lightboxIdx !== null ? (
+              /* Lightbox view */
+              <div className="flex flex-1 flex-col bg-black overflow-hidden">
+                {/* Lightbox nav bar */}
+                <div className="flex items-center justify-between px-6 py-3 shrink-0">
+                  <button
+                    onClick={() => setLightboxIdx(null)}
+                    className="flex items-center gap-2 text-sm font-semibold text-white/80 hover:text-white transition-colors"
+                  >
+                    <ChevronLeft size={16} /> All photos
+                  </button>
+                  <p className="text-sm text-white/60">{lightboxIdx + 1} / {portfolioPhotos.length}</p>
+                  <button
+                    onClick={() => { setShowPhotoGallery(false); setLightboxIdx(null) }}
+                    className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-white/10 transition-colors"
+                  >
+                    <X size={18} className="text-white" />
+                  </button>
+                </div>
+
+                {/* Photo */}
+                <div className="relative flex flex-1 items-center justify-center px-4 overflow-hidden">
+                  <img
+                    key={lightboxIdx}
+                    src={portfolioPhotos[lightboxIdx].url}
+                    alt={portfolioPhotos[lightboxIdx].caption ?? ''}
+                    className="max-h-full max-w-full object-contain select-none"
+                  />
+
+                  {/* Prev */}
+                  {lightboxIdx > 0 && (
+                    <button
+                      onClick={() => setLightboxIdx(i => i !== null ? i - 1 : null)}
+                      className="absolute left-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                    >
+                      <ChevronLeft size={20} className="text-white" />
+                    </button>
+                  )}
+                  {/* Next */}
+                  {lightboxIdx < portfolioPhotos.length - 1 && (
+                    <button
+                      onClick={() => setLightboxIdx(i => i !== null ? i + 1 : null)}
+                      className="absolute right-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                    >
+                      <ChevronRight size={20} className="text-white" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Caption */}
+                {portfolioPhotos[lightboxIdx].caption && (
+                  <div className="shrink-0 px-6 py-4 text-center">
+                    <p className="text-sm text-white/70">{portfolioPhotos[lightboxIdx].caption}</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Grid view */
+              <div className="flex-1 overflow-y-auto">
+                <div className="grid grid-cols-1 gap-1 sm:grid-cols-2 md:grid-cols-3 p-1">
+                  {portfolioPhotos.map((photo, idx) => (
+                    <button
+                      key={photo.id}
+                      onClick={() => setLightboxIdx(idx)}
+                      className="group relative aspect-square overflow-hidden bg-gray-100 focus:outline-none"
+                    >
+                      <img
+                        src={photo.url}
+                        alt={photo.caption ?? ''}
+                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                      {photo.caption && (
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <p className="text-xs text-white line-clamp-2">{photo.caption}</p>
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── Right: sticky booking sidebar ── */}
         <div className="w-full lg:w-[360px] shrink-0 lg:sticky lg:top-20">
