@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import type { ProviderHit } from '@/hooks/useProviderSearch'
 
 // mapbox-gl is loaded as a plain script tag from /public — zero bundler involvement.
@@ -47,11 +47,13 @@ export function ProviderMap({
   providers: ProviderHit[]
   selectedId: string | null
   onSelect: (id: string | null) => void
-  onBoundsChange: (lat: number, lng: number, radiusMetres: number) => void
+  onBoundsChange: (ne: { lat: number; lng: number }, sw: { lat: number; lng: number }) => void
 }) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const mapRef       = useRef<any>(null)
-  const popupRef     = useRef<any>(null)
+  const containerRef      = useRef<HTMLDivElement>(null)
+  const mapRef            = useRef<any>(null)
+  const popupRef          = useRef<any>(null)
+  const onBoundsChangeRef = useRef(onBoundsChange)
+  useEffect(() => { onBoundsChangeRef.current = onBoundsChange }, [onBoundsChange])
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
@@ -170,6 +172,24 @@ export function ProviderMap({
         map.on('mouseleave', 'provider-points', () => { map.getCanvas().style.cursor = '' })
         map.on('mouseenter', 'clusters', () => { map.getCanvas().style.cursor = 'pointer' })
         map.on('mouseleave', 'clusters', () => { map.getCanvas().style.cursor = '' })
+
+        // Emit viewport bounds → drives Algolia insideBoundingBox filter
+        function emitBounds() {
+          const b = map.getBounds()
+          onBoundsChangeRef.current(
+            { lat: b.getNorthEast().lat, lng: b.getNorthEast().lng },
+            { lat: b.getSouthWest().lat, lng: b.getSouthWest().lng }
+          )
+        }
+
+        let debounceTimer: ReturnType<typeof setTimeout>
+        map.on('moveend', () => {
+          clearTimeout(debounceTimer)
+          debounceTimer = setTimeout(emitBounds, 250)
+        })
+
+        // Fire initial bounds so the list filters immediately to the London viewport
+        emitBounds()
 
         syncProviders(map, providers)
       })

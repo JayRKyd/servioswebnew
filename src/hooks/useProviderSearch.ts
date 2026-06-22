@@ -28,7 +28,8 @@ export type SearchFilters = {
   sortBy: 'rating' | 'price_asc' | 'price_desc' | 'distance'
   aroundLat?: number
   aroundLng?: number
-  aroundRadius?: number // metres
+  aroundRadius?: number // metres — used for user geolocation ranking
+  insideBoundingBox?: string // "neLat,neLng,swLat,swLng" — used when map is visible
 }
 
 const DEFAULT_FILTERS: SearchFilters = {
@@ -82,10 +83,15 @@ export function useProviderSearch() {
       getRankingInfo: true,
     }
 
+    if (f.insideBoundingBox) {
+      // Map-driven filter: restrict results to the visible map viewport
+      params.insideBoundingBox = f.insideBoundingBox
+    }
+
     if (f.aroundLat != null && f.aroundLng != null) {
+      // User geolocation: used for distance ranking (works alongside insideBoundingBox)
       params.aroundLatLng = `${f.aroundLat},${f.aroundLng}`
-      const radius = f.aroundRadius ?? 50000
-      params.aroundRadius = radius > 0 ? radius : 50000
+      params.aroundRadius = f.insideBoundingBox ? 'all' : (f.aroundRadius ?? 50000)
     }
 
     const { hits, nbHits } = await searchClient.searchForHits<ProviderHit>({
@@ -142,5 +148,13 @@ export function useProviderSearch() {
     setFilters((prev) => ({ ...prev, aroundLat: lat, aroundLng: lng, aroundRadius: radiusMetres }))
   }
 
-  return { query, setQuery, filters, updateFilter, setMapBounds, results, total, loading, error }
+  function setMapViewport(ne: { lat: number; lng: number }, sw: { lat: number; lng: number }) {
+    setFilters((prev) => ({ ...prev, insideBoundingBox: `${ne.lat},${ne.lng},${sw.lat},${sw.lng}` }))
+  }
+
+  function clearMapViewport() {
+    setFilters((prev) => ({ ...prev, insideBoundingBox: undefined }))
+  }
+
+  return { query, setQuery, filters, updateFilter, setMapBounds, setMapViewport, clearMapViewport, results, total, loading, error }
 }
