@@ -412,7 +412,7 @@ export default function MessagesPage() {
                       <span className="flex h-2.5 w-2.5 rounded-full bg-primary" />
                     </div>
                   )}
-                </Link>
+                </div>
               )
             })}
           </div>
