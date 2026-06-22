@@ -5,8 +5,8 @@ import { useAuth } from '@/hooks/useAuth'
 import { formatDate } from '@/lib/utils'
 import {
   Shield, Award, CreditCard, BadgeCheck, FileText, File,
-  Upload, X, AlertTriangle, CheckCircle2, Clock, ChevronRight,
-  Eye,
+  Upload, X, AlertTriangle, CheckCircle2, Clock, Lock,
+  Eye, ImageIcon, Star,
 } from 'lucide-react'
 
 const DOC_TYPES = ['insurance', 'license', 'certification', 'id', 'contract', 'other']
@@ -47,6 +47,44 @@ const DOC_META: Record<string, { label: string; icon: React.ReactNode; hint: str
     icon: <File size={16} />,
     hint: 'Any other supporting document.',
     color: 'text-gray-600 bg-gray-100',
+  },
+}
+
+// What to upload, examples, and what each doc unlocks
+const DOC_GUIDE: Record<string, {
+  examples: string[]
+  accepts: string
+  unlocks: string
+}> = {
+  insurance: {
+    examples: ['Public Liability Certificate', 'Employer\'s Liability Policy', 'Professional Indemnity Certificate'],
+    accepts: 'Certificate PDF or photo of your policy schedule',
+    unlocks: 'Required to accept any paid booking on Servios',
+  },
+  license: {
+    examples: ['Gas Safe Certificate', 'NICEIC Registration Card', 'Trade Licence', 'CORGI Certificate'],
+    accepts: 'Clear photo or scan of your registration card or certificate',
+    unlocks: 'Displays your trade badge on your public profile',
+  },
+  id: {
+    examples: ['UK Passport (photo page)', 'UK Driving Licence (front)', 'National Identity Card'],
+    accepts: 'Clear colour photo — all four corners visible, no glare',
+    unlocks: 'Required for identity verification and fraud prevention',
+  },
+  certification: {
+    examples: ['NVQ / City & Guilds Certificate', 'CSCS Card', 'CHAS Accreditation', 'Safe Contractor'],
+    accepts: 'Photo or PDF of your qualification or accreditation certificate',
+    unlocks: 'Shown as a credential on your profile to build customer trust',
+  },
+  contract: {
+    examples: ['Signed Terms of Service', 'Subcontractor Agreement', 'Client Contract Template'],
+    accepts: 'Signed PDF or scanned copy',
+    unlocks: 'Stored for reference — may be required for some landlord jobs',
+  },
+  other: {
+    examples: ['DBS Check Certificate', 'Training Record', 'Award or Commendation'],
+    accepts: 'PDF, JPG, or PNG — any relevant supporting document',
+    unlocks: 'Adds supporting evidence to your verified provider profile',
   },
 }
 
@@ -241,6 +279,28 @@ export default function ProviderDocumentsPage() {
               )}
             </div>
 
+            {/* What this document unlocks */}
+            {DOC_GUIDE[form.type] && (
+              <div className="rounded-xl border border-primary/10 bg-primary/[0.04] p-3 space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <Star size={11} className="text-primary shrink-0" />
+                  <p className="text-[11px] font-semibold text-primary uppercase tracking-wider">What this unlocks</p>
+                </div>
+                <p className="text-xs text-gray-600 leading-relaxed">{DOC_GUIDE[form.type].unlocks}</p>
+                <div className="pt-1 border-t border-primary/10">
+                  <p className="text-[11px] font-semibold text-gray-500 mb-1">Accepted examples</p>
+                  <ul className="space-y-0.5">
+                    {DOC_GUIDE[form.type].examples.map(ex => (
+                      <li key={ex} className="flex items-center gap-1.5 text-xs text-gray-500">
+                        <span className="h-1 w-1 rounded-full bg-gray-300 shrink-0" />
+                        {ex}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+
             {/* Title */}
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-gray-500 uppercase tracking-wider">Title</label>
@@ -269,7 +329,7 @@ export default function ProviderDocumentsPage() {
             {/* File drop zone */}
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                File <span className="normal-case font-normal text-gray-400">(optional — PDF or image)</span>
+                File <span className="normal-case font-normal text-gray-400">(optional)</span>
               </label>
               <input
                 ref={fileRef}
@@ -299,19 +359,51 @@ export default function ProviderDocumentsPage() {
                   onDragOver={e => { e.preventDefault(); setDragging(true) }}
                   onDragLeave={() => setDragging(false)}
                   onDrop={handleDrop}
-                  className={`flex w-full flex-col items-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors ${
+                  className={`group relative flex w-full flex-col items-center gap-3 overflow-hidden rounded-xl border-2 border-dashed px-4 py-7 text-center transition-all ${
                     dragging
-                      ? 'border-primary bg-primary/5 text-primary'
-                      : 'border-gray-200 text-gray-400 hover:border-primary hover:text-primary'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-gray-200 hover:border-primary/50 hover:bg-gray-50/60'
                   }`}
                 >
-                  <Upload size={20} />
+                  {/* Upload icon */}
+                  <div className={`rounded-2xl p-3 transition-colors ${dragging ? 'bg-primary/10' : 'bg-gray-100 group-hover:bg-primary/10'}`}>
+                    <Upload size={20} className={`transition-colors ${dragging ? 'text-primary' : 'text-gray-400 group-hover:text-primary'}`} />
+                  </div>
+
                   <div>
-                    <p className="text-sm font-medium">Drop file here or click to browse</p>
-                    <p className="text-xs text-gray-300 mt-0.5">PDF, JPG, PNG up to 10MB</p>
+                    <p className={`text-sm font-semibold transition-colors ${dragging ? 'text-primary' : 'text-gray-600 group-hover:text-gray-900'}`}>
+                      {dragging ? 'Drop to upload' : 'Drag & drop or click to browse'}
+                    </p>
+                    {DOC_GUIDE[form.type] && (
+                      <p className="mt-0.5 text-xs text-gray-400 leading-relaxed px-2">
+                        {DOC_GUIDE[form.type].accepts}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Accepted format chips */}
+                  <div className="flex items-center gap-2">
+                    {[
+                      { label: 'PDF', icon: <FileText size={10} /> },
+                      { label: 'JPG', icon: <ImageIcon size={10} /> },
+                      { label: 'PNG', icon: <ImageIcon size={10} /> },
+                    ].map(f => (
+                      <span key={f.label} className="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-gray-500">
+                        {f.icon} {f.label}
+                      </span>
+                    ))}
+                    <span className="text-[10px] text-gray-300">· max 10 MB</span>
                   </div>
                 </button>
               )}
+            </div>
+
+            {/* Security note */}
+            <div className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2">
+              <Lock size={11} className="text-gray-400 shrink-0" />
+              <p className="text-[11px] text-gray-400 leading-relaxed">
+                Encrypted and stored securely. Reviewed only by Servios staff — never shared with customers.
+              </p>
             </div>
 
             {error && (
