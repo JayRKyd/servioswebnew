@@ -51,6 +51,16 @@ export default function ProviderCalendarPage() {
     eventMap.set(e.scheduled_date, arr)
   }
 
+  // Auto-load today's bookings on first mount
+  const didAutoLoad = useRef(false)
+  useEffect(() => {
+    if (providerId && !didAutoLoad.current) {
+      didAutoLoad.current = true
+      selectDay(todayStr)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [providerId])
+
   useEffect(() => {
     if (!providerId) return
     const from = `${year}-${String(month + 1).padStart(2, '0')}-01`
@@ -226,7 +236,7 @@ export default function ProviderCalendarPage() {
                   key={day}
                   onClick={() => selectDay(dateStr)}
                   className={[
-                    'flex flex-col items-start p-2 text-left transition-colors group focus:outline-none',
+                    'relative flex flex-col items-start p-2 text-left transition-colors group focus:outline-none',
                     isSelected
                       ? 'bg-primary/[0.06] ring-inset ring-2 ring-primary/40'
                       : isWeekend
@@ -249,6 +259,18 @@ export default function ProviderCalendarPage() {
                   >
                     {day}
                   </span>
+
+                  {/* Booking count badge — top-right corner */}
+                  {events.length > 0 && (
+                    <span className={[
+                      'absolute top-1.5 right-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums',
+                      events.length > 1
+                        ? 'bg-primary text-white'
+                        : 'bg-primary/15 text-primary',
+                    ].join(' ')}>
+                      {events.length}
+                    </span>
+                  )}
 
                   {/* Event pills */}
                   <div className="flex w-full flex-col gap-0.5">
@@ -319,6 +341,16 @@ export default function ProviderCalendarPage() {
                       const customerName = cp
                         ? `${cp.first_name ?? ''} ${cp.last_name ?? ''}`.trim()
                         : 'Customer'
+                      const addr = !b.service_address
+                        ? null
+                        : typeof b.service_address === 'string'
+                        ? b.service_address
+                        : [
+                            b.service_address?.line1,
+                            b.service_address?.line2,
+                            b.service_address?.city,
+                            b.service_address?.postcode,
+                          ].filter(Boolean).join(', ')
                       return (
                         <Link
                           key={b.id}
@@ -326,27 +358,30 @@ export default function ProviderCalendarPage() {
                           className="group flex items-start gap-3 rounded-xl border border-gray-100 p-3 transition hover:border-primary/30 hover:bg-primary/[0.04]"
                         >
                           {/* Avatar */}
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-xs font-bold text-white">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-xs font-bold text-white ring-2 ring-white">
                             {cp?.profile_image_url
-                              ? <img src={cp.profile_image_url} alt="" className="h-9 w-9 object-cover" />
+                              ? <img src={cp.profile_image_url} alt={customerName} className="h-10 w-10 object-cover" />
                               : initials}
                           </div>
 
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold text-gray-900">{b.service?.title ?? 'Job'}</p>
-                            <p className="truncate text-xs text-gray-500">{customerName}</p>
+                            <p className="truncate text-xs font-medium text-gray-600">{customerName}</p>
                             {b.scheduled_time_start && (
-                              <p className="mt-1 flex items-center gap-1 text-xs font-medium text-primary">
+                              <p className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-primary">
                                 <Clock size={10} />
                                 {formatTime(b.scheduled_time_start)}
                               </p>
                             )}
-                            {b.service_address && (
-                              <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-gray-400">
-                                <MapPin size={10} />
-                                {typeof b.service_address === 'string'
-                                  ? b.service_address
-                                  : b.service_address?.line1 ?? ''}
+                            {addr ? (
+                              <p className="mt-0.5 flex items-start gap-1 text-xs text-gray-400 leading-tight">
+                                <MapPin size={10} className="mt-px shrink-0" />
+                                <span className="line-clamp-2">{addr}</span>
+                              </p>
+                            ) : (
+                              <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-300 italic">
+                                <MapPin size={10} className="shrink-0" />
+                                No address on file
                               </p>
                             )}
                           </div>
