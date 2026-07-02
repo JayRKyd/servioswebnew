@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { apiClient } from '@/lib/api-client'
 import { formatCurrency } from '@/lib/utils'
+import { UKDateInput } from '@/components/shared/UKDateInput'
 
 interface MilestoneRow {
   title:       string
@@ -174,10 +175,9 @@ export default function EditOfferPage() {
                   className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-7 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
-              <input
-                type="date"
+              <UKDateInput
                 value={m.due_date}
-                onChange={(e) => updateMilestone(i, 'due_date', e.target.value)}
+                onChange={(v) => updateMilestone(i, 'due_date', v)}
                 className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>

@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
 import { formatDate } from '@/lib/utils'
+import { UKDateInput } from '@/components/shared/UKDateInput'
 import {
   Shield, Award, CreditCard, BadgeCheck, FileText, File,
   Upload, X, AlertTriangle, CheckCircle2, Clock, Lock,
@@ -320,10 +321,9 @@ export default function ProviderDocumentsPage() {
               <label className="mb-1.5 block text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Expiry Date <span className="normal-case font-normal text-gray-400">(optional)</span>
               </label>
-              <input
-                type="date"
+              <UKDateInput
                 value={form.expiry_date}
-                onChange={e => setForm(f => ({ ...f, expiry_date: e.target.value }))}
+                onChange={v => setForm(f => ({ ...f, expiry_date: v }))}
                 className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>

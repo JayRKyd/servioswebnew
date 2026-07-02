@@ -81,6 +81,7 @@ function CustomerProviderProfileInner() {
   const [activeNav, setActiveNav]             = useState('about')
   const [showPhotoGallery, setShowPhotoGallery] = useState(false)
   const [lightboxIdx, setLightboxIdx]           = useState<number | null>(null)
+  const [verifiedDocs, setVerifiedDocs]         = useState<{ document_type: string; title: string | null }[]>([])
 
   const galleryRef  = useRef<HTMLDivElement>(null)
   const aboutRef    = useRef<HTMLDivElement>(null)
@@ -92,30 +93,35 @@ function CustomerProviderProfileInner() {
     async function load() {
       const { data: pp } = await supabase
         .from('provider_profiles')
-        .select('id, user_id, first_name, last_name, business_name, bio, trade_category, hourly_rate, rating_average, total_reviews, verification_status, identity_verified, service_areas, profile_image_url, created_at')
+        .select('id, user_id, first_name, last_name, business_name, bio, trade_category, hourly_rate, rating_average, total_reviews, verification_status, identity_verified, service_areas, profile_image_url, avg_response_hours, created_at')
         .eq('user_id', id as string)
         .maybeSingle()
 
       if (!pp) { setLoading(false); return }
       setProvider(pp)
 
-      const [{ data: svcs }, { data: revs }, { data: photos }] = await Promise.all([
+      const [{ data: svcs }, { data: revs }, { data: photos }, { data: docs }] = await Promise.all([
         supabase.from('provider_services')
           .select('id, service:services(title, description, base_price)')
           .eq('provider_id', pp.id).eq('is_active', true).limit(12),
         supabase.from('reviews')
           .select('id, rating, review_text, created_at')
-          .eq('reviewee_id', pp.id).order('created_at', { ascending: false }).limit(20),
+          .eq('reviewee_id', pp.user_id).order('created_at', { ascending: false }).limit(20),
         supabase.from('provider_portfolio_photos')
           .select('id, url, caption')
           .eq('provider_id', pp.id)
           .order('sort_order', { ascending: true })
           .order('created_at', { ascending: true })
           .limit(20),
+        supabase.from('provider_documents')
+          .select('document_type, title')
+          .eq('provider_id', pp.id)
+          .eq('status', 'verified'),
       ])
 
       setServices((svcs ?? []) as any)
       setReviews((revs ?? []) as any)
+      setVerifiedDocs((docs ?? []) as any)
       setPortfolioPhotos((photos ?? []) as PortfolioPhoto[])
       setLoading(false)
     }
@@ -240,15 +246,25 @@ function CustomerProviderProfileInner() {
       title: 'Identity verified',
       desc: 'This provider has confirmed their identity with Servios.',
     },
-    provider.verification_status === 'verified' && {
-      icon: <Shield size={24} className="text-primary" />,
-      title: 'Documents verified',
-      desc: 'Qualifications and insurance documents have been reviewed.',
-    },
-    {
+    ...(verifiedDocs.length > 0
+      ? verifiedDocs.map(doc => ({
+          icon: <Shield size={24} className="text-primary" />,
+          title: doc.title ?? doc.document_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+          desc: 'This document has been reviewed and verified by Servios.',
+        }))
+      : provider.verification_status === 'verified'
+        ? [{
+            icon: <Shield size={24} className="text-primary" />,
+            title: 'Documents verified',
+            desc: 'Qualifications and insurance documents have been reviewed.',
+          }]
+        : []),
+    provider.avg_response_hours != null && {
       icon: <Zap size={24} className="text-primary" />,
-      title: 'Fast response',
-      desc: 'Typically responds within an hour of a message or booking request.',
+      title: provider.avg_response_hours <= 1 ? 'Fast response' : `Responds within ${provider.avg_response_hours} hrs`,
+      desc: provider.avg_response_hours <= 1
+        ? 'Typically responds within an hour of a message or booking request.'
+        : `Average response time is ${provider.avg_response_hours} hours.`,
     },
     memberSince && {
       icon: <Clock size={24} className="text-primary" />,
@@ -336,11 +352,6 @@ function CustomerProviderProfileInner() {
           {/* Smaller slots — filled with portfolio photos if available */}
           {[0, 1, 2].map((idx) => {
             const photo = portfolioPhotos[idx]
-            const fallbacks = [
-              'from-primary/[0.08] to-primary/[0.16]',
-              'from-gray-100 to-gray-200',
-              'from-primary/[0.05] to-primary/[0.12]',
-            ]
             return (
               <div
                 key={idx}
@@ -350,7 +361,9 @@ function CustomerProviderProfileInner() {
                 {photo ? (
                   <img src={photo.url} alt={photo.caption ?? ''} className="h-full w-full object-cover hover:scale-105 transition-transform duration-300" />
                 ) : (
-                  <div className={`h-full w-full bg-gradient-to-br ${fallbacks[idx]}`} />
+                  <div className="flex h-full w-full items-center justify-center bg-gray-50">
+                    <p className="text-xs text-gray-400">No photos yet</p>
+                  </div>
                 )}
               </div>
             )
@@ -364,7 +377,9 @@ function CustomerProviderProfileInner() {
             {portfolioPhotos[3] ? (
               <img src={portfolioPhotos[3].url} alt={portfolioPhotos[3].caption ?? ''} className="h-full w-full object-cover hover:scale-105 transition-transform duration-300" />
             ) : (
-              <div className="h-full w-full bg-gradient-to-br from-gray-50 to-gray-150" />
+              <div className="flex h-full w-full items-center justify-center bg-gray-50">
+                <p className="text-xs text-gray-400">No photos yet</p>
+              </div>
             )}
             <div className="absolute bottom-3 right-3">
               <button

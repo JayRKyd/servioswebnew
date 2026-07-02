@@ -173,7 +173,7 @@ export default function ConversationPage() {
 
   // Smart replies
   const lastIncoming = messages.filter((m) => m.sender_id !== user?.id && m.message_type === 'text').at(-1)
-  const suggestions  = useSmartReplies(lastIncoming ? { lastMessage: lastIncoming.message_text } : null)
+  const suggestions  = useSmartReplies(lastIncoming ? { lastMessage: lastIncoming.message_text, senderRole: activeRole } : null)
 
   // ── Send ──────────────────────────────────────────────────────────────────
   async function handleSend(e: React.FormEvent) {

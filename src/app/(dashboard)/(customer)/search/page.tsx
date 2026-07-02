@@ -15,56 +15,6 @@ const ProviderMap = dynamic(
   { ssr: false, loading: () => <div className="h-full w-full rounded-2xl bg-gray-100" /> }
 )
 
-// ─── Mock providers — 8 per category, with London _geoloc for map ─────────────
-// Coords are approximate per-area with slight scatter so markers don't overlap
-const MOCK_PROVIDERS: ProviderHit[] = [
-  // Plumbing
-  { objectID: 'p1', user_id: 'p1', first_name: 'James',   last_name: 'Taylor',   business_name: '',                bio: 'Experienced plumber. 12+ years residential & commercial.',    islands: ['Central London'], hourly_rate: 75, rating_average: 4.9, rating_count: 28, categories: ['Plumbing'],   avatar_url: null, _geoloc: { lat: 51.5074, lng: -0.1278 } },
-  { objectID: 'p2', user_id: 'p2', first_name: 'Ryan',    last_name: 'Hughes',   business_name: 'Hughes Plumbing', bio: 'Specialist in boiler installs and bathroom refits.',           islands: ['North London'],   hourly_rate: 65, rating_average: 4.7, rating_count: 16, categories: ['Plumbing'],   avatar_url: null, _geoloc: { lat: 51.5510, lng: -0.1050 } },
-  { objectID: 'p3', user_id: 'p3', first_name: 'Tom',     last_name: 'Patel',    business_name: '',                bio: 'Emergency plumber available 7 days. No call-out charge.',     islands: ['South London'],   hourly_rate: 80, rating_average: 4.8, rating_count: 33, categories: ['Plumbing'],   avatar_url: null, _geoloc: { lat: 51.4615, lng: -0.1160 } },
-  { objectID: 'p4', user_id: 'p4', first_name: 'Sarah',   last_name: 'Evans',    business_name: '',                bio: 'Domestic plumbing and drainage specialist.',                  islands: ['East London'],    hourly_rate: 70, rating_average: 4.5, rating_count: 8,  categories: ['Plumbing'],   avatar_url: null, _geoloc: { lat: 51.5194, lng: -0.0554 } },
-  { objectID: 'p5', user_id: 'p5', first_name: 'Marcus',  last_name: 'Webb',     business_name: 'Webb & Sons',     bio: 'Full bathroom fit-outs and wet room conversions.',            islands: ['West London'],    hourly_rate: 85, rating_average: 4.8, rating_count: 20, categories: ['Plumbing'],   avatar_url: null, _geoloc: { lat: 51.5095, lng: -0.2340 } },
-  { objectID: 'p6', user_id: 'p6', first_name: 'Lisa',    last_name: 'Thornton', business_name: '',                bio: 'Reliable same-day plumber. Leaks, taps, and radiators.',      islands: ['North London'],   hourly_rate: 60, rating_average: 4.6, rating_count: 11, categories: ['Plumbing'],   avatar_url: null, _geoloc: { lat: 51.5480, lng: -0.0920 } },
-  { objectID: 'p7', user_id: 'p7', first_name: 'Danny',   last_name: 'Okafor',   business_name: 'Okafor Plumbing', bio: 'Commercial plumbing contracts and planned maintenance.',       islands: ['Central London'], hourly_rate: 72, rating_average: 4.7, rating_count: 24, categories: ['Plumbing'],   avatar_url: null, _geoloc: { lat: 51.5130, lng: -0.1100 } },
-  { objectID: 'p8', user_id: 'p8', first_name: 'Priya',   last_name: 'Shah',     business_name: '',                bio: 'Water softeners, filter systems, and pressure problems.',     islands: ['South London'],   hourly_rate: 68, rating_average: 4.5, rating_count: 6,  categories: ['Plumbing'],   avatar_url: null, _geoloc: { lat: 51.4680, lng: -0.1220 } },
-  // Electrical
-  { objectID: 'e1', user_id: 'e1', first_name: 'Mike',    last_name: 'Chen',     business_name: 'Chen Electrics',  bio: 'Fully qualified. NICEIC approved contractor.',                islands: ['South London'],   hourly_rate: 85, rating_average: 5.0, rating_count: 41, categories: ['Electrical'], avatar_url: null, _geoloc: { lat: 51.4640, lng: -0.1080 } },
-  { objectID: 'e2', user_id: 'e2', first_name: 'David',   last_name: 'Wright',   business_name: '',                bio: 'EV charger installation and smart home wiring expert.',       islands: ['West London'],    hourly_rate: 75, rating_average: 4.6, rating_count: 19, categories: ['Electrical'], avatar_url: null, _geoloc: { lat: 51.5060, lng: -0.2200 } },
-  { objectID: 'e3', user_id: 'e3', first_name: 'Anna',    last_name: 'Simmons',  business_name: 'Simmons Electric',bio: 'Commercial and domestic electrical. 18th Edition certified.', islands: ['Central London'], hourly_rate: 90, rating_average: 4.8, rating_count: 27, categories: ['Electrical'], avatar_url: null, _geoloc: { lat: 51.5000, lng: -0.1350 } },
-  { objectID: 'e4', user_id: 'e4', first_name: 'Ben',     last_name: 'Murphy',   business_name: '',                bio: 'Fuse board upgrades and rewiring specialists.',               islands: ['North London'],   hourly_rate: 70, rating_average: 4.4, rating_count: 11, categories: ['Electrical'], avatar_url: null, _geoloc: { lat: 51.5600, lng: -0.0850 } },
-  { objectID: 'e5', user_id: 'e5', first_name: 'Sam',     last_name: 'Bridges',  business_name: 'Bridges Electrical',bio: 'PAT testing, periodic inspections, and full rewires.',      islands: ['East London'],    hourly_rate: 80, rating_average: 4.7, rating_count: 18, categories: ['Electrical'], avatar_url: null, _geoloc: { lat: 51.5280, lng: -0.0400 } },
-  { objectID: 'e6', user_id: 'e6', first_name: 'Jade',    last_name: 'Osei',     business_name: '',                bio: 'Solar panel installation and battery storage systems.',       islands: ['South London'],   hourly_rate: 95, rating_average: 4.9, rating_count: 30, categories: ['Electrical'], avatar_url: null, _geoloc: { lat: 51.4550, lng: -0.0980 } },
-  { objectID: 'e7', user_id: 'e7', first_name: 'Connor',  last_name: 'Walsh',    business_name: '',                bio: 'Smart lighting, CCTV, and alarm installations.',             islands: ['West London'],    hourly_rate: 78, rating_average: 4.5, rating_count: 9,  categories: ['Electrical'], avatar_url: null, _geoloc: { lat: 51.5150, lng: -0.2480 } },
-  { objectID: 'e8', user_id: 'e8', first_name: 'Aisha',   last_name: 'Malik',    business_name: 'Malik Electrics', bio: 'Landlord certificates and emergency fault finding.',          islands: ['North London'],   hourly_rate: 72, rating_average: 4.6, rating_count: 15, categories: ['Electrical'], avatar_url: null, _geoloc: { lat: 51.5440, lng: -0.1150 } },
-  // Cleaning
-  { objectID: 'c1', user_id: 'c1', first_name: 'Sarah',   last_name: 'Mitchell', business_name: 'CleanPro Ltd',    bio: 'Professional deep-cleaning and end-of-tenancy specialists.',  islands: ['North London'],   hourly_rate: 38, rating_average: 4.7, rating_count: 14, categories: ['Cleaning'],   avatar_url: null, _geoloc: { lat: 51.5520, lng: -0.1200 } },
-  { objectID: 'c2', user_id: 'c2', first_name: 'Maria',   last_name: 'Costa',    business_name: '',                bio: '5-star rated domestic cleaner. Weekly and one-off bookings.',  islands: ['Central London'], hourly_rate: 35, rating_average: 4.9, rating_count: 52, categories: ['Cleaning'],   avatar_url: null, _geoloc: { lat: 51.5050, lng: -0.0900 } },
-  { objectID: 'c3', user_id: 'c3', first_name: 'Emily',   last_name: 'Park',     business_name: 'Sparkle Clean',   bio: 'Office and commercial cleaning. Flexible scheduling.',         islands: ['East London'],    hourly_rate: 40, rating_average: 4.6, rating_count: 23, categories: ['Cleaning'],   avatar_url: null, _geoloc: { lat: 51.5100, lng: -0.0650 } },
-  { objectID: 'c4', user_id: 'c4', first_name: 'Jake',    last_name: 'Williams', business_name: '',                bio: 'Carpet and upholstery deep clean specialist.',                islands: ['South London'],   hourly_rate: 32, rating_average: 4.3, rating_count: 7,  categories: ['Cleaning'],   avatar_url: null, _geoloc: { lat: 51.4720, lng: -0.1350 } },
-  { objectID: 'c5', user_id: 'c5', first_name: 'Oliver',  last_name: 'Grant',    business_name: 'Grant Cleaning',  bio: 'Post-construction and builders clean. Fully insured.',         islands: ['West London'],    hourly_rate: 45, rating_average: 4.8, rating_count: 19, categories: ['Cleaning'],   avatar_url: null, _geoloc: { lat: 51.5030, lng: -0.2600 } },
-  { objectID: 'c6', user_id: 'c6', first_name: 'Fatima',  last_name: 'Al-Hassan',business_name: '',                bio: 'Eco-friendly products. Regular domestic cleans from £30.',    islands: ['North London'],   hourly_rate: 30, rating_average: 4.7, rating_count: 38, categories: ['Cleaning'],   avatar_url: null, _geoloc: { lat: 51.5580, lng: -0.0780 } },
-  { objectID: 'c7', user_id: 'c7', first_name: 'Ben',     last_name: 'Carter',   business_name: 'Carter & Co',    bio: 'Move-in / move-out cleans with full checklists provided.',    islands: ['Central London'], hourly_rate: 42, rating_average: 4.5, rating_count: 10, categories: ['Cleaning'],   avatar_url: null, _geoloc: { lat: 51.5110, lng: -0.1420 } },
-  { objectID: 'c8', user_id: 'c8', first_name: 'Zara',    last_name: 'Singh',    business_name: '',                bio: 'Holiday let turnarounds and Airbnb cleaning specialist.',     islands: ['South London'],   hourly_rate: 36, rating_average: 4.6, rating_count: 17, categories: ['Cleaning'],   avatar_url: null, _geoloc: { lat: 51.4580, lng: -0.1290 } },
-  // Painting
-  { objectID: 'pa1', user_id: 'pa1', first_name: 'Emma',   last_name: 'Clarke',   business_name: '',               bio: 'Interior and exterior painting. Neat and reliable.',          islands: ['East London'],    hourly_rate: 50, rating_average: 4.6, rating_count: 9,  categories: ['Painting'],   avatar_url: null, _geoloc: { lat: 51.5240, lng: -0.0480 } },
-  { objectID: 'pa2', user_id: 'pa2', first_name: 'Carlos', last_name: 'Mendez',   business_name: 'CM Decorators',  bio: 'Decorating specialists. Feature walls and wallpaper.',        islands: ['North London'],   hourly_rate: 55, rating_average: 4.8, rating_count: 31, categories: ['Painting'],   avatar_url: null, _geoloc: { lat: 51.5460, lng: -0.1300 } },
-  { objectID: 'pa3', user_id: 'pa3', first_name: 'Lucy',   last_name: 'Thompson', business_name: '',               bio: 'Fine brush work and colour consultations included.',          islands: ['West London'],    hourly_rate: 45, rating_average: 4.5, rating_count: 12, categories: ['Painting'],   avatar_url: null, _geoloc: { lat: 51.5080, lng: -0.2100 } },
-  { objectID: 'pa4', user_id: 'pa4', first_name: 'Oliver', last_name: 'Nash',     business_name: 'Nash & Co',      bio: 'Commercial painter. Large-scale projects welcome.',           islands: ['Central London'], hourly_rate: 60, rating_average: 4.7, rating_count: 18, categories: ['Painting'],   avatar_url: null, _geoloc: { lat: 51.5020, lng: -0.1200 } },
-  { objectID: 'pa5', user_id: 'pa5', first_name: 'Harry',  last_name: 'Nguyen',   business_name: '',               bio: 'Spray finishing and lacquer specialist. Furniture too.',      islands: ['South London'],   hourly_rate: 58, rating_average: 4.9, rating_count: 22, categories: ['Painting'],   avatar_url: null, _geoloc: { lat: 51.4650, lng: -0.1050 } },
-  { objectID: 'pa6', user_id: 'pa6', first_name: 'Elena',  last_name: 'Vasquez',  business_name: 'Vasquez Decor',  bio: 'Bespoke murals, faux finishes, and period property work.',    islands: ['East London'],    hourly_rate: 65, rating_average: 4.7, rating_count: 14, categories: ['Painting'],   avatar_url: null, _geoloc: { lat: 51.5160, lng: -0.0720 } },
-  { objectID: 'pa7', user_id: 'pa7', first_name: 'Felix',  last_name: 'Morton',   business_name: '',               bio: 'Fast turnaround exterior masonry and render painting.',       islands: ['North London'],   hourly_rate: 48, rating_average: 4.4, rating_count: 8,  categories: ['Painting'],   avatar_url: null, _geoloc: { lat: 51.5540, lng: -0.0680 } },
-  { objectID: 'pa8', user_id: 'pa8', first_name: 'Nadia',  last_name: 'Khan',     business_name: 'Khan Interiors', bio: 'Colour consulting and full room makeovers. Free quotes.',     islands: ['West London'],    hourly_rate: 52, rating_average: 4.6, rating_count: 16, categories: ['Painting'],   avatar_url: null, _geoloc: { lat: 51.5040, lng: -0.2440 } },
-  // HVAC
-  { objectID: 'h1', user_id: 'h1', first_name: 'David',   last_name: 'Brown',    business_name: 'Brown HVAC',      bio: 'Heating, ventilation and AC installation & servicing.',      islands: ['West London'],    hourly_rate: 90, rating_average: 4.8, rating_count: 22, categories: ['HVAC'],       avatar_url: null, _geoloc: { lat: 51.5120, lng: -0.2560 } },
-  { objectID: 'h2', user_id: 'h2', first_name: 'Sophie',  last_name: 'Lee',      business_name: '',                bio: 'Gas Safe registered. Boiler service and repair.',            islands: ['South London'],   hourly_rate: 85, rating_average: 4.9, rating_count: 35, categories: ['HVAC'],       avatar_url: null, _geoloc: { lat: 51.4700, lng: -0.1020 } },
-  { objectID: 'h3', user_id: 'h3', first_name: 'Mark',    last_name: 'Stevens',  business_name: 'Stevens Climate', bio: 'Air conditioning units — supply, fit, and maintain.',        islands: ['Central London'], hourly_rate: 95, rating_average: 4.6, rating_count: 14, categories: ['HVAC'],       avatar_url: null, _geoloc: { lat: 51.5090, lng: -0.0980 } },
-  { objectID: 'h4', user_id: 'h4', first_name: 'Hannah',  last_name: 'Davis',    business_name: '',                bio: 'Underfloor heating and smart thermostat specialist.',         islands: ['North London'],   hourly_rate: 80, rating_average: 4.5, rating_count: 9,  categories: ['HVAC'],       avatar_url: null, _geoloc: { lat: 51.5620, lng: -0.1140 } },
-  { objectID: 'h5', user_id: 'h5', first_name: 'James',   last_name: "O'Brien",  business_name: "O'Brien Climate", bio: 'Commercial HVAC contracts. Preventive maintenance plans.',    islands: ['East London'],    hourly_rate: 100, rating_average: 4.8, rating_count: 17, categories: ['HVAC'],      avatar_url: null, _geoloc: { lat: 51.5300, lng: -0.0320 } },
-  { objectID: 'h6', user_id: 'h6', first_name: 'Amy',     last_name: 'Chen',     business_name: '',                bio: 'Heat pump installs and renewable energy heating systems.',   islands: ['West London'],    hourly_rate: 92, rating_average: 4.9, rating_count: 28, categories: ['HVAC'],       avatar_url: null, _geoloc: { lat: 51.5070, lng: -0.2700 } },
-  { objectID: 'h7', user_id: 'h7', first_name: 'Ryan',    last_name: 'Okafor',   business_name: 'Okafor HVAC',     bio: 'Emergency call-out for boiler breakdowns and gas leaks.',    islands: ['South London'],   hourly_rate: 88, rating_average: 4.7, rating_count: 13, categories: ['HVAC'],       avatar_url: null, _geoloc: { lat: 51.4530, lng: -0.1400 } },
-  { objectID: 'h8', user_id: 'h8', first_name: 'Charlotte',last_name: 'King',    business_name: '',                bio: 'Domestic boiler servicing and annual safety certificates.',   islands: ['Central London'], hourly_rate: 78, rating_average: 4.5, rating_count: 11, categories: ['HVAC'],       avatar_url: null, _geoloc: { lat: 51.5170, lng: -0.0820 } },
-]
-
 const CATEGORY_ORDER = ['Plumbing', 'Electrical', 'Cleaning', 'Painting', 'HVAC']
 const AREAS = ['', 'Central London', 'North London', 'South London', 'East London', 'West London']
 const SORT_OPTIONS = [
@@ -318,15 +268,7 @@ function SearchPageInner() {
     rowRefs.current[cat]?.scrollBy({ left: dir === 'right' ? 536 : -536, behavior: 'smooth' })
   }
 
-  const displayProviders: ProviderHit[] = useMemo(() => {
-    if (results.length > 0) return results
-    if (filters.category) {
-      return MOCK_PROVIDERS.filter(p =>
-        p.categories[0]?.toLowerCase() === filters.category.toLowerCase()
-      )
-    }
-    return MOCK_PROVIDERS
-  }, [results, filters.category])
+  const displayProviders: ProviderHit[] = results
 
   const grouped = useMemo(() => {
     const map = new Map<string, ProviderHit[]>()
@@ -341,7 +283,6 @@ function SearchPageInner() {
     return map
   }, [displayProviders, filters.category])
 
-  const usingMock = results.length === 0
   const providerCount = total > 0 ? total : displayProviders.length
 
   // Map mode: split providers into in-viewport vs outside
@@ -448,12 +389,7 @@ function SearchPageInner() {
               Showing providers matched to your job details.
             </div>
           )}
-          {usingMock && !context && !showMap && (
-            <div className="shrink-0 rounded-xl bg-surface px-4 py-2.5 text-xs text-muted ring-1 ring-gray-100">
-              Showing featured providers — connect your search index to see live results.
-            </div>
-          )}
-          {error && !usingMock && (
+          {error && (
             <p className="shrink-0 text-sm text-red-500">{error}</p>
           )}
 

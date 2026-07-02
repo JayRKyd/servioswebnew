@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { formatCurrency } from '@/lib/utils'
+import { UKDateInput } from '@/components/shared/UKDateInput'
 
 interface Milestone {
   id: string
@@ -116,10 +117,9 @@ export function MilestoneTracker({ milestones, isProvider, onStatusChange, onEdi
                     </div>
                     <div className="flex-1">
                       <label className="block text-xs font-medium text-gray-500 mb-1">Due date</label>
-                      <input
-                        type="date"
+                      <UKDateInput
                         value={editForm.due_date}
-                        onChange={e => setEditForm(f => ({ ...f, due_date: e.target.value }))}
+                        onChange={v => setEditForm(f => ({ ...f, due_date: v }))}
                         className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                     </div>

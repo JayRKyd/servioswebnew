@@ -128,9 +128,9 @@ export default function ProviderDashboard() {
   const MOCK_JOB = {
     scheduled_date: mockDateStr,
     scheduled_time_start: '09:00:00',
-    service: { title: 'Toilet Installation' },
-    customer_profile: { first_name: 'James', last_name: 'Taylor', profile_image_url: null },
-    base_amount: 7500,
+    service: { title: 'Bathroom Tap Repair' },
+    customer_profile: { first_name: 'Marcus', last_name: 'Reid', profile_image_url: null },
+    base_amount: 8500,
     status: 'accepted',
     is_emergency: false,
   }

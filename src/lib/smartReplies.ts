@@ -88,6 +88,55 @@ const STATUS_SUGGESTIONS: Record<string, string[]> = {
   completed: ["Thanks for the great work!", "I'll release payment now.", "Will leave a review shortly."],
 }
 
+// Customer-specific overrides: replies a customer sends TO a provider
+const CUSTOMER_RULES: SuggestionRule[] = [
+  // Provider greeting
+  {
+    keywords: /\b(hello|hi|hey|good morning|good afternoon|good evening)\b/i,
+    suggestions: ["Hi! Yes, I need help with this.", "Hello! Thanks for getting back to me.", "Hi there! Happy to discuss."],
+  },
+  // Provider asking for details / clarification
+  {
+    keywords: /\?(.*)?$/,
+    suggestions: ["Yes, that's right.", "It's at my property in London.", "I'm available from Monday onwards."],
+  },
+  // Provider says they're on the way / arriving
+  {
+    keywords: /\b(on my way|heading over|en route|be there|arriving|almost there)\b/i,
+    suggestions: ["Great, I'll be home!", "Perfect, the door will be open.", "Thanks for the heads up."],
+  },
+  // Provider mentions job completion
+  {
+    keywords: /\b(done|finished|complete|completed|all done|job done|wrapped up)\b/i,
+    suggestions: ["Thanks for the great work!", "I'll release payment now.", "Will leave a review shortly."],
+  },
+  // Provider sends a quote / price
+  {
+    keywords: /\b(quote|price|cost|estimate|charge|fee|rate)\b/i,
+    suggestions: ["That works for me, let's go ahead.", "Can you break down the costs?", "Thanks, I'll confirm shortly."],
+  },
+  // Provider mentions scheduling
+  {
+    keywords: /\b(schedule|reschedule|time|date|appointment|available|availability|when)\b/i,
+    suggestions: ["That time works for me.", "Can we do a different day?", "I'll confirm by tomorrow."],
+  },
+  // Provider asks for photos
+  {
+    keywords: /\b(photo|picture|image|before|after|pic)\b/i,
+    suggestions: ["I'll send photos now.", "Here are the photos — let me know if you need more.", "The issue is visible in the last photo."],
+  },
+  // Provider thanks customer
+  {
+    keywords: /\b(thank you|thanks|appreciate|grateful)\b/i,
+    suggestions: ["You're welcome!", "Happy to!", "Looking forward to it."],
+  },
+  // Provider running late
+  {
+    keywords: /\b(running late|delayed|stuck|traffic|sorry for|behind schedule)\b/i,
+    suggestions: ["No worries, take your time.", "Thanks for letting me know.", "Okay, I'll be here."],
+  },
+]
+
 /**
  * Returns up to 3 smart reply suggestions given the last received message.
  * Falls back to a small set of generic suggestions if no rules match.
@@ -95,18 +144,20 @@ const STATUS_SUGGESTIONS: Record<string, string[]> = {
  * Future: replace this function body with a fetch to /api/v1/smart-reply
  * that calls the Claude API. The returned `string[]` shape stays the same.
  */
-export function generateSuggestions({ lastMessage, bookingStatus }: SmartReplyContext): string[] {
+export function generateSuggestions({ lastMessage, bookingStatus, senderRole }: SmartReplyContext): string[] {
+  const isCustomer = senderRole === 'customer'
+  const rules = isCustomer ? CUSTOMER_RULES : RULES
   const matched: string[] = []
 
-  for (const rule of RULES) {
+  for (const rule of rules) {
     if (rule.keywords.test(lastMessage)) {
       matched.push(...rule.suggestions)
       if (matched.length >= 4) break
     }
   }
 
-  // Mix in booking-status suggestions if relevant
-  if (bookingStatus && STATUS_SUGGESTIONS[bookingStatus] && matched.length < 3) {
+  // Mix in booking-status suggestions if relevant (provider only)
+  if (!isCustomer && bookingStatus && STATUS_SUGGESTIONS[bookingStatus] && matched.length < 3) {
     matched.push(...STATUS_SUGGESTIONS[bookingStatus])
   }
 
@@ -115,5 +166,7 @@ export function generateSuggestions({ lastMessage, bookingStatus }: SmartReplyCo
   if (unique.length >= 2) return unique.slice(0, 3)
 
   // Generic fallback
-  return ["Thanks!", "Got it.", "I'll follow up shortly."]
+  return isCustomer
+    ? ["Yes, that sounds good.", "Happy to proceed.", "I'll get back to you shortly."]
+    : ["Thanks!", "Got it.", "I'll follow up shortly."]
 }

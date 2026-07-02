@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import {
   Star, BadgeCheck, MapPin, Share2, MoreHorizontal,
   ArrowUpDown, Crown, Pencil, Check, X, Plus, Camera,
-  ImageIcon, Trash2, ChevronLeft, ChevronRight, ExternalLink,
+  ImageIcon, Trash2, ChevronLeft, ChevronRight, ExternalLink, CheckCircle2,
 } from 'lucide-react'
 
 /* ─── helpers ─── */
@@ -254,6 +254,7 @@ export default function ProviderProfilePage() {
   const [portfolioUploading, setPortfolioUploading] = useState(false)
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
   const portfolioInputRef = useRef<HTMLInputElement>(null)
+  const [linkCopied, setLinkCopied] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -432,12 +433,26 @@ export default function ProviderProfilePage() {
                   <div className="h-1.5 w-full rounded-full bg-gray-100">
                     <div className={`h-1.5 rounded-full transition-all duration-700 ${barColour}`} style={{ width: `${completionPct}%` }} />
                   </div>
-                  <p className="mt-1 text-right text-[10px] font-medium text-gray-400">{100 - completionPct}% to go</p>
+                  <p className="mt-1 text-right text-[10px] font-medium text-gray-400">{completionPct}% complete</p>
                 </div>
               </div>
 
-              {pending.length > 0 && (
+              {/* Completed items */}
+              {COMPLETION_ITEMS.filter(i => i.done).length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-3">
+                  {COMPLETION_ITEMS.filter(i => i.done).map(item => (
+                    <span key={item.key}
+                      className="inline-flex items-center gap-1 rounded-full bg-primary/[0.08] px-2.5 py-0.5 text-[11px] text-primary">
+                      <CheckCircle2 size={9} className="shrink-0" />
+                      {item.label}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Pending items */}
+              {pending.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
                   {pending.map(item => (
                     <span key={item.key}
                       className="inline-flex items-center gap-1 rounded-full border border-dashed border-gray-300 bg-gray-50 px-2.5 py-0.5 text-[11px] text-gray-500">
@@ -592,8 +607,16 @@ export default function ProviderProfilePage() {
               <button className="h-8 w-8 flex items-center justify-center rounded-full border border-gray-300 text-gray-500 hover:bg-gray-50">
                 <MoreHorizontal size={16} />
               </button>
-              <button className="flex items-center gap-1 text-sm font-medium text-primary hover:underline">
-                Share <Share2 size={13} />
+              <button
+                onClick={() => {
+                  if (!user) return
+                  navigator.clipboard.writeText(window.location.origin + '/providers/' + user.id)
+                  setLinkCopied(true)
+                  setTimeout(() => setLinkCopied(false), 2000)
+                }}
+                className="flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+              >
+                {linkCopied ? 'Link copied!' : <><Share2 size={13} /> Share</>}
               </button>
               {user && (
                 <Link
@@ -601,7 +624,7 @@ export default function ProviderProfilePage() {
                   target="_blank"
                   className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-primary transition-colors"
                 >
-                  View public profile <ExternalLink size={11} />
+                  Preview as customer <ExternalLink size={11} />
                 </Link>
               )}
             </div>

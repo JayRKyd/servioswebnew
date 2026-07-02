@@ -289,7 +289,7 @@ export default function CustomerDashboard() {
             </div>
             <p className="text-sm font-medium text-gray-500">No bookings yet</p>
             <Link href="/book"
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark transition-colors">
               Book your first service
             </Link>
           </div>

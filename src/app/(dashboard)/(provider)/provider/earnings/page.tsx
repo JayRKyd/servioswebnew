@@ -21,7 +21,7 @@ export default function ProviderEarningsPage() {
   const { providerId } = useProfileIds()
   const [bookings, setBookings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [period, setPeriod] = useState('all')
+  const [period, setPeriod] = useState('month')
 
   useEffect(() => {
     if (!providerId) return

@@ -319,7 +319,7 @@ export default function ProviderBookingDetailPage() {
             <button onClick={() => updateStatus('rejected')} disabled={acting} className="flex-1 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">Reject</button>
           </>}
           {booking.status === 'accepted' && (
-            <button onClick={() => updateStatus('in_progress')} disabled={acting} className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">Mark In Progress</button>
+            <button onClick={() => updateStatus('in_progress')} disabled={acting} className="rounded-lg bg-primary px-5 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50">Mark In Progress</button>
           )}
           {booking.status === 'in_progress' && (
             <button

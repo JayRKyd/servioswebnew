@@ -10,7 +10,7 @@ import { Briefcase, CheckCircle, TrendingUp, PoundSterling, Star, MessageSquare 
 /* ── Line chart ── */
 function LineChart({ data }: { data: { label: string; jobs: number }[] }) {
   const W = 600, H = 120
-  const PAD = { t: 12, r: 8, b: 28, l: 8 }
+  const PAD = { t: 12, r: 40, b: 28, l: 8 }
   const cW = W - PAD.l - PAD.r
   const cH = H - PAD.t - PAD.b
   const max = Math.max(...data.map(d => d.jobs), 1)

@@ -3,6 +3,7 @@ import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/auth'
 import { useProfileIds } from '@/hooks/useProfileIds'
+import { UKDateInput } from '@/components/shared/UKDateInput'
 
 export default function NewTenantPage() {
   return <Suspense fallback={null}><NewTenantForm /></Suspense>
@@ -51,8 +52,8 @@ function NewTenantForm() {
         </div>
         <div><label className="block text-sm font-medium text-gray-700 mb-1">Unit Number</label><input value={form.unit_number} onChange={e => set('unit_number', e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" /></div>
         <div className="grid grid-cols-2 gap-4">
-          <div><label className="block text-sm font-medium text-gray-700 mb-1">Lease Start</label><input type="date" value={form.lease_start} onChange={e => set('lease_start', e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" /></div>
-          <div><label className="block text-sm font-medium text-gray-700 mb-1">Lease End</label><input type="date" value={form.lease_end} onChange={e => set('lease_end', e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" /></div>
+          <div><label className="block text-sm font-medium text-gray-700 mb-1">Lease Start</label><UKDateInput value={form.lease_start} onChange={v => set('lease_start', v)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" /></div>
+          <div><label className="block text-sm font-medium text-gray-700 mb-1">Lease End</label><UKDateInput value={form.lease_end} onChange={v => set('lease_end', v)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" /></div>
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button type="submit" disabled={saving} className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50">{saving ? 'Saving…' : 'Add Tenant'}</button>

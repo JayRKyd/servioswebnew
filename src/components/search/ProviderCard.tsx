@@ -1,6 +1,34 @@
+'use client'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { BadgeCheck, Star } from 'lucide-react'
+import { BadgeCheck, Star, Bookmark } from 'lucide-react'
 import type { ProviderHit } from '@/hooks/useProviderSearch'
+
+const BOOKMARKS_KEY = 'servios_bookmarks'
+
+function useBookmark(userId: string) {
+  const [bookmarked, setBookmarked] = useState(false)
+
+  useEffect(() => {
+    const raw = localStorage.getItem(BOOKMARKS_KEY)
+    const list: string[] = raw ? JSON.parse(raw) : []
+    setBookmarked(list.includes(userId))
+  }, [userId])
+
+  function toggle(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    const raw = localStorage.getItem(BOOKMARKS_KEY)
+    const list: string[] = raw ? JSON.parse(raw) : []
+    const next = list.includes(userId)
+      ? list.filter(id => id !== userId)
+      : [...list, userId]
+    localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(next))
+    setBookmarked(next.includes(userId))
+  }
+
+  return { bookmarked, toggle }
+}
 
 function Stars({ rating }: { rating: number }) {
   const full = Math.round(rating)
@@ -124,6 +152,7 @@ export function AirbnbProviderCard({
   const href        = `/providers/${provider.user_id}` + (context ? `?context=${encodeURIComponent(context)}` : '')
   const location    = provider.islands?.[0] ?? null
   const category    = provider.categories?.[0] ?? null
+  const { bookmarked, toggle } = useBookmark(provider.user_id)
 
   return (
     <Link
@@ -143,8 +172,9 @@ export function AirbnbProviderCard({
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/[0.10] to-primary/[0.20]">
-            <span className="text-6xl font-bold text-primary/25 select-none">{initial}</span>
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gray-100">
+            <span className="text-3xl font-bold text-gray-400 select-none">{initial}</span>
+            <span className="text-[11px] text-gray-400 font-medium truncate max-w-[80%] text-center">{displayName}</span>
           </div>
         )}
 
@@ -153,6 +183,18 @@ export function AirbnbProviderCard({
           <BadgeCheck size={11} className="text-primary" />
           <span className="text-[11px] font-semibold text-primary">Verified</span>
         </div>
+
+        {/* Bookmark button */}
+        <button
+          onClick={toggle}
+          aria-label={bookmarked ? 'Remove bookmark' : 'Bookmark provider'}
+          className="absolute top-2.5 right-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 backdrop-blur-sm shadow-sm transition-colors hover:bg-white"
+        >
+          <Bookmark
+            size={13}
+            className={bookmarked ? 'fill-primary stroke-primary' : 'stroke-gray-500'}
+          />
+        </button>
       </div>
 
       {/* Info */}
@@ -181,7 +223,7 @@ export function AirbnbProviderCard({
 
         {provider.hourly_rate > 0 && (
           <p className="text-sm font-semibold text-dark pt-1">
-            <span className="font-normal text-muted text-xs">From </span>£{provider.hourly_rate}/hr
+            £{provider.hourly_rate}/hr
           </p>
         )}
       </div>

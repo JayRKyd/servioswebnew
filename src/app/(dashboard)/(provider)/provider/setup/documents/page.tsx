@@ -2,6 +2,7 @@
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/auth'
+import { UKDateInput } from '@/components/shared/UKDateInput'
 
 const DOC_TYPES = [
   { value: 'id',            label: 'Government ID',       required: true },
@@ -109,7 +110,7 @@ export default function SetupDocumentsPage() {
               </div>
 
               {!uploaded && (
-                <input type="date" value={expiry[doc.value] ?? ''} onChange={(e) => setExpiry((prev) => ({ ...prev, [doc.value]: e.target.value }))}
+                <UKDateInput value={expiry[doc.value] ?? ''} onChange={(v) => setExpiry((prev) => ({ ...prev, [doc.value]: v }))}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   placeholder="Expiry date (optional)" />
               )}

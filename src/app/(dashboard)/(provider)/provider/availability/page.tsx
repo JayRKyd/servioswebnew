@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
 import { Plus, X, Zap, Clock, CalendarOff, CheckCircle } from 'lucide-react'
+import { UKDateInput } from '@/components/shared/UKDateInput'
 
 const DAYS  = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
 const KEYS  = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
@@ -309,10 +310,9 @@ export default function AvailabilityPage() {
 
         <div className="px-5 py-4 space-y-4">
           <div className="flex gap-2">
-            <input
-              type="date"
+            <UKDateInput
               value={newBlockedDate}
-              onChange={e => setNewBlockedDate(e.target.value)}
+              onChange={setNewBlockedDate}
               min={new Date().toISOString().split('T')[0]}
               className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary"
             />

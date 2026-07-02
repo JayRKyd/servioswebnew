@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
+import { UKDateInput } from '@/components/shared/UKDateInput'
 
 type Property = { id: string; address: string }
 type Service = { id: string; name: string; category: string }
@@ -175,11 +176,10 @@ export default function NewQuoteRequestPage() {
         {/* Scheduled date */}
         <div className="space-y-1">
           <label className="block text-sm font-medium text-gray-700">Preferred date</label>
-          <input
-            type="date"
+          <UKDateInput
             value={scheduledDate}
             min={new Date().toISOString().split('T')[0]}
-            onChange={(e) => setScheduledDate(e.target.value)}
+            onChange={setScheduledDate}
             className="w-48 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
