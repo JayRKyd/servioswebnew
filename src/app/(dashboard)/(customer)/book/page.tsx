@@ -2,7 +2,8 @@
 import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Droplets, Zap, Wind, Paintbrush, Hammer, Sparkles, Leaf, Home, Bug, Shield, Wrench, Star, BadgeCheck, MapPin } from 'lucide-react'
+import { ArrowLeft, Droplets, Zap, Wind, Paintbrush, Hammer, Sparkles, Leaf, Home, Bug, Shield, Wrench, Star, BadgeCheck, MapPin, Bookmark } from 'lucide-react'
+import { useBookmark } from '@/components/search/ProviderCard'
 import { supabase } from '@/lib/auth'
 import { titleCase } from '@/lib/utils'
 import { usePortfolioThumbs } from '@/hooks/usePortfolioThumbs'
@@ -33,6 +34,7 @@ function ProviderBrowseCard({ provider, photoUrl }: { provider: any; photoUrl?: 
   const initial = displayName.charAt(0).toUpperCase()
   const meta = provider.trade_category ? CATEGORY_META[provider.trade_category] : null
   const cardImage = provider.profile_image_url || photoUrl || null
+  const { bookmarked, toggle } = useBookmark(provider.user_id)
 
   return (
     <Link href={`/providers/${provider.user_id}`} className="group block">
@@ -54,6 +56,18 @@ function ProviderBrowseCard({ provider, photoUrl }: { provider: any; photoUrl?: 
           <BadgeCheck size={11} className="text-primary" />
           <span className="text-[11px] font-semibold text-primary">Verified</span>
         </div>
+
+        {/* Bookmark button */}
+        <button
+          onClick={toggle}
+          aria-label={bookmarked ? 'Remove bookmark' : 'Bookmark provider'}
+          className="absolute top-2.5 right-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 backdrop-blur-sm shadow-sm transition-colors hover:bg-white"
+        >
+          <Bookmark
+            size={13}
+            className={bookmarked ? 'fill-primary stroke-primary' : 'stroke-gray-500'}
+          />
+        </button>
       </div>
 
       {/* Info */}

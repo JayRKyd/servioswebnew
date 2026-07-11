@@ -6,7 +6,7 @@ import type { ProviderHit } from '@/hooks/useProviderSearch'
 
 const BOOKMARKS_KEY = 'servios_bookmarks'
 
-function useBookmark(userId: string) {
+export function useBookmark(userId: string) {
   const [bookmarked, setBookmarked] = useState(false)
 
   useEffect(() => {

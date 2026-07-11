@@ -116,7 +116,7 @@ function CustomerProviderProfileInner() {
         supabase.from('provider_documents')
           .select('document_type, title')
           .eq('provider_id', pp.id)
-          .eq('status', 'approved'),
+          .in('status', ['verified', 'approved']),
       ])
 
       setServices((svcs ?? []) as any)
