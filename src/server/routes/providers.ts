@@ -111,7 +111,7 @@ providers.put('/profile', requireActiveRole('provider'), zValidator('json', upda
       business_name: body.businessName,
       bio: body.bio,
       hourly_rate: body.hourlyRate,
-      service_radius: body.serviceRadius,
+      max_travel_distance: body.serviceRadius,
       islands: body.islands,
       phone: body.phone,
       website: body.website,

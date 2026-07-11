@@ -36,7 +36,7 @@ export interface ProviderProfile {
   is_verified: boolean
   is_active: boolean
   islands: string[]
-  service_radius?: number
+  max_travel_distance?: number
 }
 
 export interface LandlordProfile {

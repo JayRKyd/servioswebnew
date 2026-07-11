@@ -786,10 +786,10 @@ export default function ProviderProfilePage() {
             <div>
               <p className="text-sm font-semibold text-gray-800 mb-1">Travel radius</p>
               <EditableNumber
-                value={profile.service_radius ?? null}
+                value={profile.max_travel_distance ?? null}
                 placeholder="Set travel radius"
                 suffix=" miles"
-                onSave={v => save('service_radius', v)}
+                onSave={v => save('max_travel_distance', v)}
               />
             </div>
           </aside>

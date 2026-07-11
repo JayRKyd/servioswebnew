@@ -93,7 +93,7 @@ function CustomerProviderProfileInner() {
     async function load() {
       const { data: pp } = await supabase
         .from('provider_profiles')
-        .select('id, user_id, first_name, last_name, business_name, bio, trade_category, hourly_rate, rating_average, total_reviews, verification_status, identity_verified, service_areas, profile_image_url, avg_response_hours, created_at')
+        .select('id, user_id, first_name, last_name, business_name, bio, trade_category, hourly_rate, rating_average, total_reviews, verification_status, identity_verified, service_areas, max_travel_distance, profile_image_url, avg_response_hours, created_at')
         .eq('user_id', id as string)
         .maybeSingle()
 
@@ -629,7 +629,12 @@ function CustomerProviderProfileInner() {
             <h2 className="text-lg font-bold text-dark mb-2">Where they work</h2>
             {provider.service_areas && provider.service_areas.length > 0 ? (
               <>
-                <p className="text-sm text-muted mb-5">{provider.service_areas.join(' · ')}</p>
+                <p className="text-sm text-muted mb-5">
+                  {provider.service_areas.join(' · ')}
+                  {(provider as any).max_travel_distance != null && (
+                    <span> · Travels up to {(provider as any).max_travel_distance} miles</span>
+                  )}
+                </p>
                 <div className="h-52 overflow-hidden rounded-2xl bg-gray-100 flex items-center justify-center ring-1 ring-gray-200">
                   <div className="text-center space-y-2">
                     <MapPin size={24} className="text-muted mx-auto" />
