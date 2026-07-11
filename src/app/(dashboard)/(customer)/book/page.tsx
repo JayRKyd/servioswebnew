@@ -628,7 +628,7 @@ function BookPageInner() {
       {/* Heading */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">What do you need done?</h1>
-        <p className="mt-1 text-sm text-gray-500">Pick a service and we'll find the right pro — or browse providers directly below.</p>
+        <p className="mt-1 text-sm text-gray-500">Answer a few quick questions and we'll match you with the right pro.</p>
       </div>
 
       {/* Category tiles — clicking starts the wizard */}
@@ -636,12 +636,20 @@ function BookPageInner() {
         <CategoryPicker onPick={cat => { setCategory(cat); setStepIndex(0) }} />
       </section>
 
+      {/* Divider between the two entry points */}
+      <div className="flex items-center gap-4">
+        <div className="flex-1 border-t border-gray-100" />
+        <span className="shrink-0 text-xs font-semibold uppercase tracking-widest text-gray-400">or</span>
+        <div className="flex-1 border-t border-gray-100" />
+      </div>
+
       {/* Provider browse */}
       <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-gray-900">Browse providers</h2>
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-lg font-bold text-gray-900">Browse providers yourself</h2>
           <Link href="/search" className="text-sm text-primary hover:underline">See all →</Link>
         </div>
+        <p className="text-sm text-gray-500 mb-4">Skip the questions — filter by trade and pick a provider directly.</p>
 
         {/* Category filter pills */}
         <div className="flex gap-2 overflow-x-auto pb-2 mb-6 scrollbar-none">

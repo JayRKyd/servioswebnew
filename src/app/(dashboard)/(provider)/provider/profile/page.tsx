@@ -5,7 +5,7 @@ import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
 import { titleCase } from '@/lib/utils'
 import {
-  Star, BadgeCheck, MapPin, Share2, MoreHorizontal,
+  Star, BadgeCheck, MapPin, Share2,
   ArrowUpDown, Crown, Pencil, Check, X, Plus, Camera,
   ImageIcon, Trash2, ChevronLeft, ChevronRight, ExternalLink, CheckCircle2,
 } from 'lucide-react'
@@ -256,6 +256,7 @@ export default function ProviderProfilePage() {
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
   const portfolioInputRef = useRef<HTMLInputElement>(null)
   const [linkCopied, setLinkCopied] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -393,8 +394,22 @@ export default function ProviderProfilePage() {
     <div className="w-full">
       {/* page action row */}
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-xl font-semibold text-gray-900">My Profile</h1>
-        <div className="flex items-center gap-3" />
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">My Profile</h1>
+          <p className="text-xs text-gray-400 mt-0.5">You're in edit mode — customers see the public version without edit controls.</p>
+        </div>
+        {/* Edit / Preview segmented control */}
+        <div className="flex items-center rounded-xl border border-gray-200 bg-gray-50 p-1">
+          <span className="rounded-lg bg-white px-4 py-1.5 text-xs font-semibold text-gray-900 shadow-sm ring-1 ring-gray-200">
+            Edit profile
+          </span>
+          <Link
+            href={user ? `/providers/${user.id}` : '#'}
+            className="flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors"
+          >
+            Preview as customer <ExternalLink size={11} />
+          </Link>
+        </div>
       </div>
 
       {/* ── PROFILE COMPLETENESS BANNER ── */}
@@ -604,29 +619,53 @@ export default function ProviderProfilePage() {
             </div>
 
             {/* Top-right */}
-            <div className="flex flex-col items-end gap-2 shrink-0 pt-1">
-              <button className="h-8 w-8 flex items-center justify-center rounded-full border border-gray-300 text-gray-500 hover:bg-gray-50">
-                <MoreHorizontal size={16} />
-              </button>
+            <div className="relative flex flex-col items-end gap-2 shrink-0 pt-1">
               <button
-                onClick={() => {
-                  if (!user) return
-                  navigator.clipboard.writeText(window.location.origin + '/providers/' + user.id)
-                  setLinkCopied(true)
-                  setTimeout(() => setLinkCopied(false), 2000)
-                }}
-                className="flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                onClick={() => setShareOpen(v => !v)}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
               >
-                {linkCopied ? 'Link copied!' : <><Share2 size={13} /> Share</>}
+                <Share2 size={13} /> Share
               </button>
-              {user && (
-                <Link
-                  href={`/providers/${user.id}`}
-                  target="_blank"
-                  className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-primary transition-colors"
-                >
-                  Preview as customer <ExternalLink size={11} />
-                </Link>
+
+              {/* Share popover — shows exactly what gets shared */}
+              {shareOpen && user && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShareOpen(false)} />
+                  <div className="absolute right-0 top-10 z-50 w-80 rounded-2xl border border-gray-100 bg-white p-4 shadow-xl space-y-3">
+                    <div>
+                      <p className="text-sm font-bold text-gray-900">Share your public profile</p>
+                      <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">
+                        Anyone with this link sees your public profile — photos, reviews and
+                        verifications, with no edit controls.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        readOnly
+                        value={`${typeof window !== 'undefined' ? window.location.origin : ''}/providers/${user.id}`}
+                        onFocus={e => e.target.select()}
+                        className="flex-1 min-w-0 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-2 text-xs text-gray-600 outline-none"
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(window.location.origin + '/providers/' + user.id)
+                          setLinkCopied(true)
+                          setTimeout(() => setLinkCopied(false), 2000)
+                        }}
+                        className="shrink-0 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary-dark transition-colors"
+                      >
+                        {linkCopied ? 'Copied!' : 'Copy link'}
+                      </button>
+                    </div>
+                    <Link
+                      href={`/providers/${user.id}`}
+                      target="_blank"
+                      className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                    >
+                      Open preview in new tab <ExternalLink size={11} />
+                    </Link>
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -736,17 +775,23 @@ export default function ProviderProfilePage() {
               onSave={v => save('languages', v)}
             />
 
-            {/* Service areas */}
-            {areas.length > 0 && (
-              <div>
-                <p className="text-sm font-semibold text-gray-800 mb-2">Service areas</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {areas.map((area: string) => (
-                    <span key={area} className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-600">{area}</span>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Where they work — service areas (editable) + travel radius */}
+            <EditableList
+              items={areas}
+              label="Service areas"
+              placeholder="e.g. North London"
+              onSave={v => save('service_areas', v)}
+            />
+
+            <div>
+              <p className="text-sm font-semibold text-gray-800 mb-1">Travel radius</p>
+              <EditableNumber
+                value={profile.service_radius ?? null}
+                placeholder="Set travel radius"
+                suffix=" miles"
+                onSave={v => save('service_radius', v)}
+              />
+            </div>
           </aside>
 
           {/* ── MAIN CONTENT ── */}

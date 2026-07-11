@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
+import { MapPin } from 'lucide-react'
 
 const TRADE_ICONS: Record<string, string> = {
   plumber: '🔧', electrician: '⚡', ac_hvac: '❄️', carpenter: '🪚',
@@ -10,11 +11,17 @@ const TRADE_ICONS: Record<string, string> = {
   roofer: '🏠', handyman: '🛠️',
 }
 
+const SERVICE_AREAS = [
+  'Central London', 'North London', 'South London',
+  'East London', 'West London', 'Greater London',
+]
+
 export default function SetupTradePage() {
   const { user } = useAuth()
   const router = useRouter()
   const [trades, setTrades] = useState<{ value: string; label: string }[]>([])
   const [selected, setSelected] = useState<string | null>(null)
+  const [areas, setAreas] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -22,10 +29,26 @@ export default function SetupTradePage() {
       .then(({ data }) => setTrades((data ?? []).map((c: any) => ({ value: c.slug, label: c.name }))))
   }, [])
 
+  // Pre-fill if the provider is returning to this step
+  useEffect(() => {
+    if (!user) return
+    supabase.from('provider_profiles').select('trade_category, service_areas').eq('user_id', user.id).maybeSingle()
+      .then(({ data }) => {
+        if (data?.trade_category) setSelected(data.trade_category)
+        if (data?.service_areas?.length) setAreas(data.service_areas)
+      })
+  }, [user])
+
+  function toggleArea(area: string) {
+    setAreas(a => a.includes(area) ? a.filter(x => x !== area) : [...a, area])
+  }
+
   async function handleNext() {
-    if (!selected || !user) return
+    if (!selected || areas.length === 0 || !user) return
     setSaving(true)
-    await supabase.from('provider_profiles').update({ trade_category: selected, onboarding_step: 'services' }).eq('user_id', user.id)
+    await supabase.from('provider_profiles')
+      .update({ trade_category: selected, service_areas: areas, onboarding_step: 'services' })
+      .eq('user_id', user.id)
     router.push('/provider/setup/services')
     setSaving(false)
   }
@@ -55,7 +78,7 @@ export default function SetupTradePage() {
           <button
             key={trade.value}
             onClick={() => setSelected(trade.value)}
-            className={`relative flex flex-col items-center gap-2 rounded-2xl border-2 p-5 text-center transition hover:border-blue-400 hover:bg-primary/[0.06] ${
+            className={`relative flex flex-col items-center gap-2 rounded-2xl border-2 p-5 text-center transition hover:border-primary/40 hover:bg-primary/[0.06] ${
               selected === trade.value ? 'border-primary bg-primary/[0.06]' : 'border-gray-100 bg-white'
             }`}
           >
@@ -70,10 +93,43 @@ export default function SetupTradePage() {
         ))}
       </div>
 
+      {/* Service areas — required so customers always know where you work */}
+      <div className="space-y-4">
+        <div>
+          <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
+            <MapPin size={17} className="text-primary" /> Where do you work?
+          </h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Pick the areas you cover — customers only see providers who serve their area.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {SERVICE_AREAS.map(area => {
+            const active = areas.includes(area)
+            return (
+              <button
+                key={area}
+                onClick={() => toggleArea(area)}
+                className={`rounded-full border-2 px-4 py-1.5 text-sm font-medium transition ${
+                  active
+                    ? 'border-primary bg-primary/[0.06] text-primary'
+                    : 'border-gray-100 bg-white text-gray-600 hover:border-primary/40'
+                }`}
+              >
+                {active ? '✓ ' : ''}{area}
+              </button>
+            )
+          })}
+        </div>
+        {areas.length === 0 && selected && (
+          <p className="text-xs text-amber-600">Select at least one area to continue.</p>
+        )}
+      </div>
+
       <div className="flex justify-end">
         <button
           onClick={handleNext}
-          disabled={!selected || saving}
+          disabled={!selected || areas.length === 0 || saving}
           className="rounded-xl bg-primary px-8 py-3 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-40"
         >
           {saving ? 'Saving…' : 'Next: Select Services →'}
