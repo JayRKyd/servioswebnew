@@ -15,7 +15,7 @@ export function SmartReplySuggestions({ suggestions, onSelect }: SmartReplySugge
           key={s}
           type="button"
           onClick={() => onSelect(s)}
-          className="rounded-full border border-primary/20 bg-primary/[0.06] px-3 py-1 text-xs font-medium text-primary transition hover:bg-blue-100 active:scale-95"
+          className="rounded-full border border-primary/20 bg-primary/[0.06] px-3 py-1 text-xs font-medium text-primary transition hover:bg-primary/[0.12] active:scale-95"
         >
           {s}
         </button>

@@ -235,6 +235,14 @@ function CustomerProviderProfileInner() {
   const bioTruncated = bioText.length > BIO_LIMIT && !bioExpanded
   const displayedReviews = showAllReviews ? reviews : reviews.slice(0, 6)
 
+  // Single source of truth for rating display: only show a rating when we can
+  // actually show the reviews behind it, so the header never contradicts the
+  // Reviews section (e.g. stale aggregates saying "2 reviews" over an empty list).
+  const hasReviews   = reviews.length > 0
+  const ratingValue  = hasReviews ? provider.rating_average : 0
+  const reviewCount  = hasReviews ? Math.max(provider.total_reviews, reviews.length) : 0
+  const showRating   = hasReviews && ratingValue > 0
+
   const ratingCounts = [5,4,3,2,1].map(star => ({
     star,
     count: reviews.filter(r => Math.round(r.rating) === star).length,
@@ -261,10 +269,8 @@ function CustomerProviderProfileInner() {
         : []),
     provider.avg_response_hours != null && {
       icon: <Zap size={24} className="text-primary" />,
-      title: provider.avg_response_hours <= 1 ? 'Fast response' : `Responds within ${provider.avg_response_hours} hrs`,
-      desc: provider.avg_response_hours <= 1
-        ? 'Typically responds within an hour of a message or booking request.'
-        : `Average response time is ${provider.avg_response_hours} hours.`,
+      title: `Avg. response ${provider.avg_response_hours} hr${provider.avg_response_hours !== 1 ? 's' : ''}`,
+      desc: `Typically replies to messages and booking requests within ${provider.avg_response_hours} hour${provider.avg_response_hours !== 1 ? 's' : ''}.`,
     },
     memberSince && {
       icon: <Clock size={24} className="text-primary" />,
@@ -307,10 +313,10 @@ function CustomerProviderProfileInner() {
             <div className="flex items-center gap-3">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-bold text-dark">£{provider.hourly_rate}/hr</p>
-                {provider.rating_average > 0 && (
+                {showRating && (
                   <p className="text-xs text-muted flex items-center gap-1 justify-end">
                     <Star size={10} className="fill-dark stroke-dark" />
-                    {provider.rating_average.toFixed(2)} · {provider.total_reviews} review{provider.total_reviews !== 1 ? 's' : ''}
+                    {ratingValue.toFixed(2)} · {reviewCount} review{reviewCount !== 1 ? 's' : ''}
                   </p>
                 )}
               </div>
@@ -334,64 +340,84 @@ function CustomerProviderProfileInner() {
 
       {/* ── Photo gallery ── */}
       <div ref={galleryRef} id="photos" className="px-6 lg:px-8 pb-6">
-        <div
-          className="h-[420px] overflow-hidden rounded-2xl gap-2 grid"
-          style={{ gridTemplateColumns: '2fr 1fr 1fr', gridTemplateRows: '1fr 1fr' }}
-        >
-          {/* Main large photo */}
-          <div className="row-span-2 overflow-hidden">
-            {provider.profile_image_url ? (
-              <img src={provider.profile_image_url} alt={displayName} className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/[0.18] to-primary/[0.32]">
-                <span className="text-9xl font-bold text-primary/20 select-none">{initials}</span>
+        {portfolioPhotos.length === 0 ? (
+          /* No portfolio photos — compact hero with a single empty-state panel */
+          <div className="h-[280px] overflow-hidden rounded-2xl gap-2 grid" style={{ gridTemplateColumns: '2fr 1fr' }}>
+            <div className="overflow-hidden">
+              {provider.profile_image_url ? (
+                <img src={provider.profile_image_url} alt={displayName} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/[0.18] to-primary/[0.32]">
+                  <span className="text-8xl font-bold text-primary/20 select-none">{initials}</span>
+                </div>
+              )}
+            </div>
+            <div className="flex flex-col items-center justify-center gap-2 bg-gray-50 text-center px-6">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white ring-1 ring-gray-200">
+                <Grid2X2 size={18} className="text-gray-400" />
               </div>
-            )}
-          </div>
-
-          {/* Smaller slots — filled with portfolio photos if available */}
-          {[0, 1, 2].map((idx) => {
-            const photo = portfolioPhotos[idx]
-            return (
-              <div
-                key={idx}
-                className={`overflow-hidden ${photo ? 'cursor-pointer' : ''}`}
-                onClick={photo ? () => { setShowPhotoGallery(true); setLightboxIdx(idx) } : undefined}
-              >
-                {photo ? (
-                  <img src={photo.url} alt={photo.caption ?? ''} className="h-full w-full object-cover hover:scale-105 transition-transform duration-300" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-gray-50">
-                    <p className="text-xs text-gray-400">No photos yet</p>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-
-          {/* Bottom-right: "Show all" button */}
-          <div
-            className={`relative overflow-hidden ${portfolioPhotos[3] ? 'cursor-pointer' : ''}`}
-            onClick={portfolioPhotos[3] ? () => { setShowPhotoGallery(true); setLightboxIdx(3) } : undefined}
-          >
-            {portfolioPhotos[3] ? (
-              <img src={portfolioPhotos[3].url} alt={portfolioPhotos[3].caption ?? ''} className="h-full w-full object-cover hover:scale-105 transition-transform duration-300" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-gray-50">
-                <p className="text-xs text-gray-400">No photos yet</p>
-              </div>
-            )}
-            <div className="absolute bottom-3 right-3">
-              <button
-                onClick={(e) => { e.stopPropagation(); setShowPhotoGallery(true); setLightboxIdx(null) }}
-                className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-dark shadow-md hover:shadow-lg transition-shadow ring-1 ring-gray-200"
-              >
-                <Grid2X2 size={12} />
-                Show all photos
-              </button>
+              <p className="text-sm font-semibold text-dark">No photos yet</p>
+              <p className="text-xs text-muted leading-relaxed">
+                This provider hasn't added work photos yet — check their reviews and verifications below.
+              </p>
             </div>
           </div>
-        </div>
+        ) : (
+          <div
+            className="h-[420px] overflow-hidden rounded-2xl gap-2 grid"
+            style={{ gridTemplateColumns: '2fr 1fr 1fr', gridTemplateRows: '1fr 1fr' }}
+          >
+            {/* Main large photo */}
+            <div className="row-span-2 overflow-hidden">
+              {provider.profile_image_url ? (
+                <img src={provider.profile_image_url} alt={displayName} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/[0.18] to-primary/[0.32]">
+                  <span className="text-9xl font-bold text-primary/20 select-none">{initials}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Smaller slots — filled with portfolio photos if available */}
+            {[0, 1, 2].map((idx) => {
+              const photo = portfolioPhotos[idx]
+              return (
+                <div
+                  key={idx}
+                  className={`overflow-hidden ${photo ? 'cursor-pointer' : ''}`}
+                  onClick={photo ? () => { setShowPhotoGallery(true); setLightboxIdx(idx) } : undefined}
+                >
+                  {photo ? (
+                    <img src={photo.url} alt={photo.caption ?? ''} className="h-full w-full object-cover hover:scale-105 transition-transform duration-300" />
+                  ) : (
+                    <div className="h-full w-full bg-gray-50" />
+                  )}
+                </div>
+              )
+            })}
+
+            {/* Bottom-right: "Show all" button */}
+            <div
+              className={`relative overflow-hidden ${portfolioPhotos[3] ? 'cursor-pointer' : ''}`}
+              onClick={portfolioPhotos[3] ? () => { setShowPhotoGallery(true); setLightboxIdx(3) } : undefined}
+            >
+              {portfolioPhotos[3] ? (
+                <img src={portfolioPhotos[3].url} alt={portfolioPhotos[3].caption ?? ''} className="h-full w-full object-cover hover:scale-105 transition-transform duration-300" />
+              ) : (
+                <div className="h-full w-full bg-gray-50" />
+              )}
+              <div className="absolute bottom-3 right-3">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setShowPhotoGallery(true); setLightboxIdx(null) }}
+                  className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-dark shadow-md hover:shadow-lg transition-shadow ring-1 ring-gray-200"
+                >
+                  <Grid2X2 size={12} />
+                  Show all photos
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Main content ── */}
@@ -414,14 +440,14 @@ function CustomerProviderProfileInner() {
                   </span>
                 </>
               )}
-              {provider.rating_average > 0 && (
+              {showRating && (
                 <>
                   <span>·</span>
                   <span className="flex items-center gap-1 font-semibold text-dark">
                     <Star size={12} className="fill-dark stroke-dark" />
-                    {provider.rating_average.toFixed(2)}
+                    {ratingValue.toFixed(2)}
                   </span>
-                  <span className="text-muted">({provider.total_reviews} review{provider.total_reviews !== 1 ? 's' : ''})</span>
+                  <span className="text-muted">({reviewCount} review{reviewCount !== 1 ? 's' : ''})</span>
                 </>
               )}
               {provider.identity_verified && (
@@ -534,7 +560,7 @@ function CustomerProviderProfileInner() {
                 <div className="flex items-center gap-2 mb-6">
                   <Star size={20} className="fill-dark stroke-dark" />
                   <h2 className="text-lg font-bold text-dark">
-                    {provider.rating_average.toFixed(2)} · {provider.total_reviews} review{provider.total_reviews !== 1 ? 's' : ''}
+                    {ratingValue.toFixed(2)} · {reviewCount} review{reviewCount !== 1 ? 's' : ''}
                   </h2>
                 </div>
 
@@ -612,7 +638,9 @@ function CustomerProviderProfileInner() {
                 </div>
               </>
             ) : (
-              <p className="text-sm text-muted">Service areas not specified.</p>
+              <p className="text-sm text-muted">
+                Message {displayName} to confirm they cover your area — most providers travel across Greater London.
+              </p>
             )}
           </div>
         </div>
@@ -741,13 +769,13 @@ function CustomerProviderProfileInner() {
                   £{provider.hourly_rate}
                   <span className="text-base font-normal text-muted"> / hr</span>
                 </p>
-                {provider.rating_average > 0 && (
+                {showRating && (
                   <div className="mt-1 flex items-center gap-1.5 text-sm">
                     <Star size={13} className="fill-dark stroke-dark" />
-                    <span className="font-semibold text-dark">{provider.rating_average.toFixed(2)}</span>
+                    <span className="font-semibold text-dark">{ratingValue.toFixed(2)}</span>
                     <span className="text-muted">·</span>
                     <span className="text-muted underline cursor-pointer" onClick={() => scrollToSection(reviewsRef, 'reviews')}>
-                      {provider.total_reviews} review{provider.total_reviews !== 1 ? 's' : ''}
+                      {reviewCount} review{reviewCount !== 1 ? 's' : ''}
                     </span>
                   </div>
                 )}
@@ -771,7 +799,19 @@ function CustomerProviderProfileInner() {
               </button>
             </div>
 
-            <p className="text-center text-xs text-muted">You won't be charged yet</p>
+            <div className="text-center space-y-1">
+              <p className="text-xs text-muted">You won't be charged yet</p>
+              <details className="group">
+                <summary className="cursor-pointer list-none text-xs font-medium text-primary hover:underline">
+                  How payment works
+                </summary>
+                <div className="mt-2 rounded-xl bg-gray-50 px-3.5 py-3 text-left text-xs text-gray-600 leading-relaxed">
+                  Your payment is held securely by Servios when you book. The provider is
+                  only paid after the job is marked complete — if anything goes wrong,
+                  you're covered by our resolution process.
+                </div>
+              </details>
+            </div>
 
             {/* Trust signals */}
             {(provider.identity_verified || provider.verification_status === 'verified' || (provider.service_areas?.length ?? 0) > 0) && (
@@ -782,12 +822,21 @@ function CustomerProviderProfileInner() {
                     <span>Identity verified</span>
                   </div>
                 )}
-                {provider.verification_status === 'verified' && (
+                {verifiedDocs.length > 0 ? (
+                  verifiedDocs.map((doc, i) => (
+                    <div key={i} className="flex items-center gap-3 text-sm text-gray-600">
+                      <Shield size={16} className="text-primary shrink-0" />
+                      <span>
+                        {(doc.title ?? doc.document_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()))} verified
+                      </span>
+                    </div>
+                  ))
+                ) : provider.verification_status === 'verified' ? (
                   <div className="flex items-center gap-3 text-sm text-gray-600">
-                    <Shield size={16} className="text-green-600 shrink-0" />
+                    <Shield size={16} className="text-primary shrink-0" />
                     <span>Documents verified</span>
                   </div>
-                )}
+                ) : null}
                 {provider.service_areas && provider.service_areas.length > 0 && (
                   <div className="flex items-start gap-3 text-sm text-gray-600">
                     <MapPin size={16} className="text-muted shrink-0 mt-0.5" />

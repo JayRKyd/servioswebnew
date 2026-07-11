@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/auth'
 import { useProfileIds } from '@/hooks/useProfileIds'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, titleCase } from '@/lib/utils'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Briefcase, CheckCircle, TrendingUp, PoundSterling, Star, MessageSquare } from 'lucide-react'
 
@@ -45,9 +45,18 @@ function LineChart({ data }: { data: { label: string; jobs: number }[] }) {
       {pts.filter(p => p.jobs > 0).map((p, i) => (
         <circle key={i} cx={p.x} cy={p.y} r="4" fill="currentColor" className="text-primary" />
       ))}
-      {/* X labels */}
-      {pts.filter((_, i) => i % showEvery === 0 || i === pts.length - 1).map((p, i) => (
-        <text key={i} x={p.x} y={H - 5} textAnchor="middle" fontSize="9" fill="#9ca3af">{p.label}</text>
+      {/* X labels — anchor edges inward so first/last labels never clip */}
+      {pts.filter((_, i) => i % showEvery === 0 || i === pts.length - 1).map((p, i, arr) => (
+        <text
+          key={i}
+          x={p.x}
+          y={H - 5}
+          textAnchor={i === 0 && p.x < 30 ? 'start' : i === arr.length - 1 ? 'end' : 'middle'}
+          fontSize="9"
+          fill="#9ca3af"
+        >
+          {p.label}
+        </text>
       ))}
     </svg>
   )
@@ -251,7 +260,7 @@ export default function ProviderAnalyticsPage() {
 
   function customerName(b: any) {
     const cp = b.customer_profile
-    return cp ? `${cp.first_name ?? ''} ${cp.last_name ?? ''}`.trim() || 'Customer' : 'Customer'
+    return cp ? `${titleCase(cp.first_name ?? '')} ${titleCase(cp.last_name ?? '')}`.trim() || 'Customer' : 'Customer'
   }
   function fmtDate(s: string) {
     return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' }).format(new Date(s + 'T12:00:00'))

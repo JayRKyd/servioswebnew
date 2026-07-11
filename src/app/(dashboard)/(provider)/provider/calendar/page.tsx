@@ -3,15 +3,16 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/auth'
 import { useProfileIds } from '@/hooks/useProfileIds'
-import { formatTime } from '@/lib/utils'
+import { formatTime, titleCase } from '@/lib/utils'
 import { MapPin, Clock, ChevronLeft, ChevronRight, CalendarDays, ChevronDown } from 'lucide-react'
 
 function daysInMonth(year: number, month: number) { return new Date(year, month + 1, 0).getDate() }
-function firstDayOfMonth(year: number, month: number) { return new Date(year, month, 1).getDay() }
+// Monday-start offset: JS getDay() is 0=Sunday, shift so Monday=0 (UK convention)
+function firstDayOfMonth(year: number, month: number) { return (new Date(year, month, 1).getDay() + 6) % 7 }
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-const DAY_HEADERS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+const DAY_HEADERS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 
 interface MonthEvent {
   id: string
@@ -205,7 +206,7 @@ export default function ProviderCalendarPage() {
               <div
                 key={d}
                 className={`py-3 text-center text-xs font-semibold uppercase tracking-widest ${
-                  i === 0 || i === 6 ? 'text-gray-400' : 'text-gray-500'
+                  i >= 5 ? 'text-gray-400' : 'text-gray-500'
                 }`}
               >
                 {d}
@@ -229,7 +230,7 @@ export default function ProviderCalendarPage() {
               const events = eventMap.get(dateStr) ?? []
               const isToday = dateStr === todayStr
               const isSelected = dateStr === selectedDate
-              const isWeekend = colIndex === 0 || colIndex === 6
+              const isWeekend = colIndex >= 5
 
               return (
                 <button
@@ -241,7 +242,7 @@ export default function ProviderCalendarPage() {
                       ? 'bg-primary/[0.06] ring-inset ring-2 ring-primary/40'
                       : isWeekend
                       ? 'bg-gray-50/50 hover:bg-gray-100/60'
-                      : 'bg-white hover:bg-blue-50/40',
+                      : 'bg-white hover:bg-primary/[0.04]',
                   ].join(' ')}
                 >
                   {/* Day number */}
@@ -339,7 +340,7 @@ export default function ProviderCalendarPage() {
                         ? `${cp.first_name?.[0] ?? ''}${cp.last_name?.[0] ?? ''}`.toUpperCase()
                         : '?'
                       const customerName = cp
-                        ? `${cp.first_name ?? ''} ${cp.last_name ?? ''}`.trim()
+                        ? `${titleCase(cp.first_name ?? '')} ${titleCase(cp.last_name ?? '')}`.trim()
                         : 'Customer'
                       const addr = !b.service_address
                         ? null

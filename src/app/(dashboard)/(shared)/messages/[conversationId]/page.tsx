@@ -80,6 +80,15 @@ export default function ConversationPage() {
   const activeRole = (user as any)?.user_metadata?.active_role as string | undefined
   const isProvider = activeRole === 'provider'
 
+  // Role within THIS conversation — derived from the conversation row, not user
+  // metadata (which can be stale/undefined). Drives quick replies and links.
+  const conversationRole: 'customer' | 'provider' | undefined =
+    conversation && user
+      ? conversation.customer_id === user.id ? 'customer'
+      : conversation.provider_id === user.id ? 'provider'
+      : (isProvider ? 'provider' : 'customer')
+      : undefined
+
   // ── Fetch latest offer via server API (bypasses RLS) ─────────────────────
   async function fetchOffer() {
     const { data } = await apiClient<{ offer: any }>(`/api/v1/conversations/${conversationId}/offers`)
@@ -107,7 +116,11 @@ export default function ConversationPage() {
       setMessages(msgs ?? [])
 
       if (conv) {
-        if (isProvider) {
+        // Determine which side of the conversation the viewer is on from the
+        // conversation row itself — metadata role can be stale or undefined.
+        const { data: { user: authUser } } = await supabase.auth.getUser()
+        const viewerIsProvider = authUser ? conv.provider_id === authUser.id : isProvider
+        if (viewerIsProvider) {
           const { data: cp } = await supabase
             .from('customer_profiles')
             .select('first_name, last_name')
@@ -173,7 +186,7 @@ export default function ConversationPage() {
 
   // Smart replies
   const lastIncoming = messages.filter((m) => m.sender_id !== user?.id && m.message_type === 'text').at(-1)
-  const suggestions  = useSmartReplies(lastIncoming ? { lastMessage: lastIncoming.message_text, senderRole: activeRole } : null)
+  const suggestions  = useSmartReplies(lastIncoming ? { lastMessage: lastIncoming.message_text, senderRole: conversationRole ?? activeRole } : null)
 
   // ── Send ──────────────────────────────────────────────────────────────────
   async function handleSend(e: React.FormEvent) {

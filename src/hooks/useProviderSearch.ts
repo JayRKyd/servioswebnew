@@ -98,12 +98,15 @@ export function useProviderSearch() {
       requests: [{ indexName: PROVIDERS_INDEX, query: q, ...params }],
     }).then(r => ({ hits: r.results[0]?.hits ?? [], nbHits: r.results[0]?.nbHits ?? 0 }))
 
-    let sorted = [...hits]
+    // Drop stale index records whose user_id isn't a real UUID (e.g. old seed
+    // objects like "p7") — they render cards that 404 on /providers/[id].
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    let sorted = hits.filter(h => UUID_RE.test(h.user_id))
     if (f.sortBy === 'price_asc')  sorted.sort((a, b) => a.hourly_rate - b.hourly_rate)
     if (f.sortBy === 'price_desc') sorted.sort((a, b) => b.hourly_rate - a.hourly_rate)
     if (f.sortBy === 'rating')     sorted.sort((a, b) => b.rating_average - a.rating_average)
     setResults(sorted)
-    setTotal(nbHits)
+    setTotal(sorted.length < hits.length ? sorted.length : nbHits)
   }
 
   async function searchSupabase(q: string, f: SearchFilters) {

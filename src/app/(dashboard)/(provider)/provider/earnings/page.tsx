@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/auth'
 import { useProfileIds } from '@/hooks/useProfileIds'
-import { formatDate, formatCurrency } from '@/lib/utils'
+import { formatDate, formatCurrency, titleCase } from '@/lib/utils'
 import { TrendingUp, Briefcase, PoundSterling, BarChart2, ArrowUpRight } from 'lucide-react'
 
 const PERIODS = [
@@ -224,7 +224,7 @@ export default function ProviderEarningsPage() {
                   const rate  = b.commission_rate ? `${Math.round(b.commission_rate * 100)}%` : '12%'
                   const cp    = b.customer_profile
                   const initials = cp ? `${cp.first_name?.[0] ?? ''}${cp.last_name?.[0] ?? ''}`.toUpperCase() : '?'
-                  const customerName = cp ? `${cp.first_name ?? ''} ${cp.last_name ?? ''}`.trim() : 'Customer'
+                  const customerName = cp ? `${titleCase(cp.first_name ?? '')} ${titleCase(cp.last_name ?? '')}`.trim() : 'Customer'
 
                   return (
                     <tr key={b.id} className="group transition-colors hover:bg-gray-50/60">

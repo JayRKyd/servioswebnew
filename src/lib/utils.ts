@@ -20,5 +20,10 @@ export function formatTime(time: string | null | undefined): string {
 
 export function titleCase(s: string | null | undefined): string {
   if (!s) return ''
-  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
+  // Capitalise the first letter of each word; leave the rest of the word
+  // untouched so acronyms like "NICEIC" and cased brands survive.
+  return s
+    .split(' ')
+    .map(w => (w === w.toLowerCase() ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+    .join(' ')
 }

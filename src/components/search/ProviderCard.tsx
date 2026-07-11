@@ -62,14 +62,14 @@ export function ProviderCard({
       className={
         'block rounded-xl bg-white p-4 shadow-sm transition ' +
         (isSelected
-          ? 'ring-2 ring-primary shadow-blue-100'
-          : 'ring-1 ring-gray-100 hover:ring-blue-200 hover:shadow-md')
+          ? 'ring-2 ring-primary shadow-md'
+          : 'ring-1 ring-gray-100 hover:ring-primary/30 hover:shadow-md')
       }
     >
       <div className="flex items-start gap-3">
         {/* Avatar */}
         <div className="relative h-14 w-14 shrink-0">
-          <div className="h-14 w-14 overflow-hidden rounded-full bg-blue-100 flex items-center justify-center text-primary font-bold text-xl">
+          <div className="h-14 w-14 overflow-hidden rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xl">
             {provider.avatar_url
               ? <img src={provider.avatar_url} alt={displayName} className="h-full w-full object-cover" />
               : displayName.charAt(0).toUpperCase()}
@@ -140,18 +140,22 @@ export function AirbnbProviderCard({
   onHover,
   context,
   fill = false,
+  photoUrl,
 }: {
   provider: ProviderHit
   isSelected?: boolean
   onHover?: (id: string | null) => void
   context?: string
   fill?: boolean
+  /** Optional portfolio photo used when the provider has no profile image */
+  photoUrl?: string | null
 }) {
   const displayName = provider.business_name || `${provider.first_name} ${provider.last_name}`
   const initial     = displayName.charAt(0).toUpperCase()
   const href        = `/providers/${provider.user_id}` + (context ? `?context=${encodeURIComponent(context)}` : '')
   const location    = provider.islands?.[0] ?? null
   const category    = provider.categories?.[0] ?? null
+  const cardImage   = provider.avatar_url || photoUrl || null
   const { bookmarked, toggle } = useBookmark(provider.user_id)
 
   return (
@@ -165,9 +169,9 @@ export function AirbnbProviderCard({
       <div className={`relative aspect-[4/3] overflow-hidden rounded-2xl bg-surface transition-all duration-200 ${
         isSelected ? 'ring-2 ring-primary shadow-md' : 'group-hover:shadow-md'
       }`}>
-        {provider.avatar_url ? (
+        {cardImage ? (
           <img
-            src={provider.avatar_url}
+            src={cardImage}
             alt={displayName}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ArrowLeft, Droplets, Zap, Wind, Paintbrush, Hammer, Sparkles, Leaf, Home, Bug, Shield, Wrench, Star, BadgeCheck, MapPin } from 'lucide-react'
 import { supabase } from '@/lib/auth'
 import { titleCase } from '@/lib/utils'
+import { usePortfolioThumbs } from '@/hooks/usePortfolioThumbs'
 import {
   CATEGORY_META, SERVICE_QUESTIONS, LOCATION_STEP,
 } from '@/lib/service-questions'
@@ -26,19 +27,20 @@ const CATEGORY_ICONS: Record<string, React.ElementType> = {
 
 // ─── Provider card (browse section) ───────────────────────────────────────────
 
-function ProviderBrowseCard({ provider }: { provider: any }) {
+function ProviderBrowseCard({ provider, photoUrl }: { provider: any; photoUrl?: string | null }) {
   const displayName = provider.business_name
     ?? `${titleCase(provider.first_name)} ${titleCase(provider.last_name)}`
   const initial = displayName.charAt(0).toUpperCase()
   const meta = provider.trade_category ? CATEGORY_META[provider.trade_category] : null
+  const cardImage = provider.profile_image_url || photoUrl || null
 
   return (
     <Link href={`/providers/${provider.user_id}`} className="group block">
       {/* Photo / avatar area */}
       <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-surface group-hover:shadow-md transition-all duration-200">
-        {provider.profile_image_url ? (
+        {cardImage ? (
           <img
-            src={provider.profile_image_url}
+            src={cardImage}
             alt={displayName}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
@@ -73,9 +75,7 @@ function ProviderBrowseCard({ provider }: { provider: any }) {
           <p className="text-xs text-muted">{provider.total_reviews} review{provider.total_reviews !== 1 ? 's' : ''}</p>
         )}
         {provider.hourly_rate != null && (
-          <p className="text-sm font-semibold text-dark pt-1">
-            <span className="font-normal text-muted text-xs">From </span>£{provider.hourly_rate}/hr
-          </p>
+          <p className="text-sm font-semibold text-dark pt-1">£{provider.hourly_rate}/hr</p>
         )}
       </div>
     </Link>
@@ -518,6 +518,10 @@ function BookPageInner() {
     ? providers
     : providers.filter(p => p.trade_category === browseCategory)
 
+  const portfolioThumbs = usePortfolioThumbs(
+    providers.filter(p => !p.profile_image_url).map(p => p.user_id)
+  )
+
   // Wizard logic (unchanged)
   const categoryQuestions = category ? (SERVICE_QUESTIONS[category] ?? []) : []
   const steps = categoryQuestions
@@ -668,7 +672,7 @@ function BookPageInner() {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
-            {filteredProviders.map(p => <ProviderBrowseCard key={p.id} provider={p} />)}
+            {filteredProviders.map(p => <ProviderBrowseCard key={p.id} provider={p} photoUrl={portfolioThumbs[p.user_id]} />)}
           </div>
         )}
       </section>

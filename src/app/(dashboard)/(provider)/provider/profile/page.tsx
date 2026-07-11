@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
+import { titleCase } from '@/lib/utils'
 import {
   Star, BadgeCheck, MapPin, Share2, MoreHorizontal,
   ArrowUpDown, Crown, Pencil, Check, X, Plus, Camera,
@@ -224,9 +225,9 @@ function EditableList({
           {items.map((item, i) => {
             const [name, level] = item.split(':').map(s => s.trim())
             return level ? (
-              <p key={i} className="text-sm text-gray-600">{name}: <span className="text-primary font-medium">{level}</span></p>
+              <p key={i} className="text-sm text-gray-600">{titleCase(name)}: <span className="text-primary font-medium">{titleCase(level)}</span></p>
             ) : (
-              <p key={i} className="text-sm text-gray-600">{item}</p>
+              <p key={i} className="text-sm text-gray-600">{titleCase(item)}</p>
             )
           })}
         </div>
@@ -348,7 +349,7 @@ export default function ProviderProfilePage() {
     ? new Date(profile.verified_at).getFullYear()
     : profile.created_at ? new Date(profile.created_at).getFullYear() : new Date().getFullYear()
 
-  const displayName = profile.business_name ?? `${profile.first_name} ${profile.last_name}`
+  const displayName = profile.business_name ?? `${titleCase(profile.first_name ?? '')} ${titleCase(profile.last_name ?? '')}`.trim()
   const initials = (profile.business_name?.[0] ?? profile.first_name?.[0] ?? 'P').toUpperCase()
 
   const bio = profile.bio ?? ''
@@ -523,7 +524,7 @@ export default function ProviderProfilePage() {
               </div>
 
               {profile.business_name && (profile.first_name || profile.last_name) && (
-                <p className="text-sm text-gray-500 mt-0.5">{profile.first_name} {profile.last_name}</p>
+                <p className="text-sm text-gray-500 mt-0.5">{titleCase(profile.first_name ?? '')} {titleCase(profile.last_name ?? '')}</p>
               )}
 
               {/* Location + live UK time */}

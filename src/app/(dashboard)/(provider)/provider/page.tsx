@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
-import { formatCurrency, formatTime } from '@/lib/utils'
+import { formatCurrency, formatTime, titleCase } from '@/lib/utils'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import {
   Calendar, Clock, Star, Bell, ChevronRight, Briefcase,
@@ -335,7 +335,7 @@ export default function ProviderDashboard() {
                 {upcoming.map(b => {
                   const isToday = b.scheduled_date === todayStr
                   const cp = b.customer_profile
-                  const customerName = cp ? `${cp.first_name ?? ''} ${cp.last_name ?? ''}`.trim() : 'Customer'
+                  const customerName = cp ? `${titleCase(cp.first_name ?? '')} ${titleCase(cp.last_name ?? '')}`.trim() : 'Customer'
                   return (
                     <Link key={b.id} href={`/provider/bookings/${b.id}`}
                       className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-gray-50/60">
@@ -392,7 +392,7 @@ export default function ProviderDashboard() {
               <div className="divide-y divide-gray-50">
                 {pending.slice(0, 4).map(b => {
                   const cp = b.customer_profile
-                  const customerName = cp ? `${cp.first_name ?? ''} ${cp.last_name ?? ''}`.trim() : 'Customer'
+                  const customerName = cp ? `${titleCase(cp.first_name ?? '')} ${titleCase(cp.last_name ?? '')}`.trim() : 'Customer'
                   return (
                     <Link key={b.id} href={`/provider/bookings/${b.id}`}
                       className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-gray-50/60">

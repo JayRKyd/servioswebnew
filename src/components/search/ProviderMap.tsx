@@ -90,7 +90,7 @@ export function ProviderMap({
           source: 'providers',
           filter: ['has', 'point_count'],
           paint: {
-            'circle-color': '#1a56db',
+            'circle-color': '#115e56',
             'circle-radius': ['step', ['get', 'point_count'], 20, 5, 26, 20, 32],
             'circle-stroke-width': 3,
             'circle-stroke-color': '#ffffff',
@@ -120,7 +120,7 @@ export function ProviderMap({
             'circle-color': '#ffffff',
             'circle-radius': 18,
             'circle-stroke-width': 2,
-            'circle-stroke-color': '#1a56db',
+            'circle-stroke-color': '#115e56',
           },
         })
 
@@ -134,7 +134,7 @@ export function ProviderMap({
             'text-size': 13,
             'text-font': ['DIN Offc Pro Bold', 'Arial Unicode MS Bold'],
           },
-          paint: { 'text-color': '#1a56db' },
+          paint: { 'text-color': '#115e56' },
         })
 
         map.on('click', 'clusters', (e: any) => {

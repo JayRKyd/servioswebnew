@@ -371,9 +371,9 @@ function Inner() {
                   {languages.map((item: string, i: number) => {
                     const [name, level] = item.split(':').map(s => s.trim())
                     return level ? (
-                      <p key={i} className="text-sm text-gray-600">{name}: <span className="text-primary font-medium">{level}</span></p>
+                      <p key={i} className="text-sm text-gray-600">{titleCase(name)}: <span className="text-primary font-medium">{titleCase(level)}</span></p>
                     ) : (
-                      <p key={i} className="text-sm text-gray-600">{item}</p>
+                      <p key={i} className="text-sm text-gray-600">{titleCase(item)}</p>
                     )
                   })}
                 </div>
@@ -434,7 +434,7 @@ function Inner() {
                   <div className="flex items-center gap-2">
                     <StarRow rating={rating} />
                     <p className="text-sm font-semibold text-gray-800">
-                      {rating.toFixed(1)} · {profile.total_reviews} review{profile.total_reviews !== 1 ? 's' : ''}
+                      {rating.toFixed(1)} · {Math.max(profile.total_reviews, allReviews.length)} review{Math.max(profile.total_reviews, allReviews.length) !== 1 ? 's' : ''}
                     </p>
                   </div>
                   {displayedReviews.map((rv: any) => (

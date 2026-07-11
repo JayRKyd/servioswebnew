@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic'
 import { useSearchParams } from 'next/navigation'
 import { useProviderSearch } from '@/hooks/useProviderSearch'
 import { useGeolocation } from '@/hooks/useGeolocation'
+import { usePortfolioThumbs } from '@/hooks/usePortfolioThumbs'
 import { AirbnbProviderCard, ProviderCard } from '@/components/search/ProviderCard'
 import {
   ChevronLeft, ChevronRight, Search, SlidersHorizontal, Map as MapIcon, X, MapPin,
@@ -269,6 +270,9 @@ function SearchPageInner() {
   }
 
   const displayProviders: ProviderHit[] = results
+  const portfolioThumbs = usePortfolioThumbs(
+    useMemo(() => results.filter(p => !p.avatar_url).map(p => p.user_id), [results])
+  )
 
   const grouped = useMemo(() => {
     const map = new Map<string, ProviderHit[]>()
@@ -484,6 +488,7 @@ function SearchPageInner() {
                         isSelected={selectedId === p.user_id}
                         onHover={setSelectedId}
                         context={context}
+                        photoUrl={portfolioThumbs[p.user_id]}
                       />
                     ))}
                   </div>
@@ -520,6 +525,7 @@ function SearchPageInner() {
                       onHover={setSelectedId}
                       context={context}
                       fill
+                      photoUrl={portfolioThumbs[p.user_id]}
                     />
                   ))}
                 </div>
