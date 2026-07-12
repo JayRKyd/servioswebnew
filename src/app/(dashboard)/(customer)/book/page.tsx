@@ -29,8 +29,8 @@ const CATEGORY_ICONS: Record<string, React.ElementType> = {
 // ─── Provider card (browse section) ───────────────────────────────────────────
 
 function ProviderBrowseCard({ provider, photoUrl }: { provider: any; photoUrl?: string | null }) {
-  const displayName = provider.business_name
-    ?? `${titleCase(provider.first_name)} ${titleCase(provider.last_name)}`
+  const displayName = provider.business_name?.trim()
+    || `${titleCase(provider.first_name)} ${titleCase(provider.last_name)}`
   const initial = displayName.charAt(0).toUpperCase()
   const meta = provider.trade_category ? CATEGORY_META[provider.trade_category] : null
   const cardImage = provider.profile_image_url || photoUrl || null

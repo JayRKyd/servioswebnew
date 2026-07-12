@@ -150,8 +150,8 @@ function Inner() {
     ? new Date(profile.verified_at).getFullYear()
     : profile.created_at ? new Date(profile.created_at).getFullYear() : new Date().getFullYear()
 
-  const displayName = profile.business_name ?? `${titleCase(profile.first_name ?? '')} ${titleCase(profile.last_name ?? '')}`.trim()
-  const initials = (profile.business_name?.[0] ?? profile.first_name?.[0] ?? 'P').toUpperCase()
+  const displayName = profile.business_name?.trim() || `${titleCase(profile.first_name ?? '')} ${titleCase(profile.last_name ?? '')}`.trim()
+  const initials = (profile.business_name?.trim()?.[0] || profile.first_name?.[0] || 'P').toUpperCase()
 
   const bio = profile.bio ?? ''
   const BIO_LIMIT = 300

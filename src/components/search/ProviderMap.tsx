@@ -254,8 +254,8 @@ function syncProviders(map: any, providers: ProviderHit[]) {
         geometry: { type: 'Point', coordinates: [p._geoloc!.lng, p._geoloc!.lat] },
         properties: {
           user_id: p.user_id,
-          label: (p.business_name ?? p.first_name)?.[0]?.toUpperCase() ?? '?',
-          name: p.business_name ?? `${p.first_name} ${p.last_name}`,
+          label: (p.business_name?.trim() || p.first_name)?.[0]?.toUpperCase() ?? '?',
+          name: p.business_name?.trim() || `${p.first_name} ${p.last_name}`,
           rating: p.rating_average,
           price: p.hourly_rate,
         },

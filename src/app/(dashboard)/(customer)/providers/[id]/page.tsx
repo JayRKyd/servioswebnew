@@ -220,8 +220,8 @@ function CustomerProviderProfileInner() {
     </div>
   )
 
-  const displayName = provider.business_name
-    ?? `${titleCase(provider.first_name)} ${titleCase(provider.last_name)}`
+  const displayName = provider.business_name?.trim()
+    || `${titleCase(provider.first_name)} ${titleCase(provider.last_name)}`
   const initials = provider.business_name
     ? provider.business_name.charAt(0).toUpperCase()
     : `${provider.first_name?.[0] ?? ''}${provider.last_name?.[0] ?? ''}`.toUpperCase()
