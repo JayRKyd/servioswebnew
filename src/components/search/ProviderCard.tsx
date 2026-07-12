@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { BadgeCheck, Star, Bookmark } from 'lucide-react'
 import type { ProviderHit } from '@/hooks/useProviderSearch'
 
-const BOOKMARKS_KEY = 'servios_bookmarks'
+export const BOOKMARKS_KEY = 'servios_bookmarks'
 
 export function useBookmark(userId: string) {
   const [bookmarked, setBookmarked] = useState(false)

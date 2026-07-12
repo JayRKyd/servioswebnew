@@ -13,7 +13,7 @@ import {
   Bell, Settings, HelpCircle, Star, BookOpen, Home,
   Users, ShieldCheck, AlertTriangle, Mail, Image,
   ClipboardList, Building2, FileCheck, Wallet, Quote,
-  MapPin, Siren, CreditCard, CalendarPlus
+  MapPin, Siren, CreditCard, CalendarPlus, Bookmark
 } from "lucide-react"
 
 interface SidebarProps { role: Role }
@@ -22,6 +22,7 @@ const NAV_LABELS: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/book": "Book a Service",
   "/search": "Find a Provider",
+  "/saved": "Saved",
   "/providers": "Providers",
   "/services": "Services",
   "/bookings": "Bookings",
@@ -76,6 +77,7 @@ const NAV_ICONS: Record<string, React.ElementType> = {
   "Dashboard":      LayoutDashboard,
   "Book a Service": CalendarPlus,
   "Find a Provider": Search,
+  "Saved":          Bookmark,
   "Services":       Wrench,
   "Bookings":       BookOpen,
   "Requests":       BookOpen,

@@ -272,6 +272,16 @@ function Inner() {
                 <MessageSquare size={14} /> {messaging ? 'Opening…' : 'Message'}
               </button>
               <p className="text-xs text-gray-400">You won't be charged yet</p>
+              <details className="group">
+                <summary className="cursor-pointer list-none text-xs font-medium text-primary hover:underline">
+                  How payment works
+                </summary>
+                <div className="mt-2 rounded-xl bg-gray-50 px-3.5 py-3 text-xs text-gray-600 leading-relaxed">
+                  Your payment is held securely by Servios when you book. The provider is
+                  only paid after the job is marked complete — if anything goes wrong,
+                  you're covered by our resolution process.
+                </div>
+              </details>
             </div>
           </div>
         </div>

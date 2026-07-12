@@ -287,10 +287,13 @@ export default function CustomerDashboard() {
             <div className="rounded-2xl bg-gray-50 p-4">
               <ClipboardList size={24} className="text-gray-300" />
             </div>
-            <p className="text-sm font-medium text-gray-500">No bookings yet</p>
+            <p className="text-sm font-medium text-gray-700">Your bookings will appear here</p>
+            <p className="max-w-xs text-center text-xs text-gray-500 leading-relaxed">
+              Once you book a service, you'll be able to track it, message your provider, and leave a review — all from here.
+            </p>
             <Link href="/book"
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark transition-colors">
-              Book your first service
+              className="mt-1 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark transition-colors">
+              Book your first service →
             </Link>
           </div>
         ) : (
