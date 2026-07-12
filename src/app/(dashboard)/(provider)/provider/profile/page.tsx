@@ -173,16 +173,20 @@ function EditableList({
   async function handleSave() {
     setSaving(true)
     setError(null)
-    const ok = await onSave(draft)
+    // Flush any text the user typed but didn't commit with "+"/Enter, so it
+    // isn't silently dropped on Save.
+    const pending = newItem.trim()
+    const finalDraft = pending && !draft.includes(pending) ? [...draft, pending] : draft
+    const ok = await onSave(finalDraft)
     setSaving(false)
-    if (ok) setEditing(false)
+    if (ok) { setDraft(finalDraft); setNewItem(''); setEditing(false) }
     else setError('Failed to save — please try again.')
   }
-  function cancel() { setDraft(items); setEditing(false); setError(null) }
+  function cancel() { setDraft(items); setNewItem(''); setEditing(false); setError(null) }
   function remove(i: number) { setDraft(d => d.filter((_, idx) => idx !== i)) }
   function add() {
     if (!newItem.trim()) return
-    setDraft(d => [...d, newItem.trim()])
+    setDraft(d => (d.includes(newItem.trim()) ? d : [...d, newItem.trim()]))
     setNewItem('')
   }
 
