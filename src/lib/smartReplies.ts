@@ -17,61 +17,63 @@ type SuggestionRule = {
   suggestions: string[]
 }
 
+// Provider-facing rules: the provider is replying to a customer who is
+// enquiring about or has booked their service.
 const RULES: SuggestionRule[] = [
-  // Greeting
+  // Customer greeting
   {
     keywords: /\b(hello|hi|hey|good morning|good afternoon|good evening)\b/i,
-    suggestions: ['Hi! How can I help?', 'Hello! Thanks for reaching out.', 'Hi there!'],
+    suggestions: ['Hi! How can I help?', 'Hello! Thanks for reaching out.', 'Hi there — what can I do for you?'],
   },
-  // Job complete / done
+  // Customer says the job is done / thanks for finishing
   {
     keywords: /\b(done|finished|complete|completed|all done|job done|wrapped up)\b/i,
-    suggestions: ["Thanks for letting me know!", "Great work, I'll release payment shortly.", "Noted, I'll review and confirm."],
+    suggestions: ["Glad it's all sorted!", "Happy to help — let me know if anything else comes up.", "Thanks! I'll send the invoice shortly."],
   },
-  // On my way / arriving
+  // Arrival / access
   {
     keywords: /\b(on my way|heading over|en route|be there|arriving|almost there)\b/i,
-    suggestions: ["Great, I'll be ready!", "Perfect, the door is unlocked.", "Thanks for the heads up."],
+    suggestions: ["Great, see you shortly!", "Perfect, I'm on my way.", "Thanks — I'll be there soon."],
   },
   // Running late / delay
   {
     keywords: /\b(running late|delayed|stuck|traffic|sorry for|behind schedule)\b/i,
-    suggestions: ["No worries, take your time.", "Thanks for letting me know!", "Okay, I'll adjust accordingly."],
+    suggestions: ["No problem, take your time.", "Thanks for letting me know.", "No worries — see you when you arrive."],
   },
-  // Quote / price
+  // Quote / price — provider is being asked for pricing
   {
     keywords: /\b(quote|price|cost|estimate|charge|fee|rate)\b/i,
-    suggestions: ["That price works for me.", "Can you break down the costs?", "Thanks for the estimate, I'll review it."],
+    suggestions: ["Happy to put together a quote for you.", "I'll send you an estimate shortly.", "Can you share a bit more detail so I can price it accurately?"],
   },
   // Scheduling / date / time
   {
     keywords: /\b(schedule|reschedule|time|date|appointment|available|availability|when)\b/i,
-    suggestions: ["That time works for me.", "Can we do a different day?", "I'll confirm the time shortly."],
+    suggestions: ["That works for me.", "Let me check my calendar and confirm.", "I can do that — I'll confirm shortly."],
   },
-  // Payment / invoice
+  // Payment / invoice — provider receives payment
   {
     keywords: /\b(payment|invoice|paid|transfer|deposit|receipt)\b/i,
-    suggestions: ["Payment has been sent.", "I'll process payment now.", "Can you send an invoice?"],
+    suggestions: ["Thanks, payment received!", "I'll send the invoice over now.", "No problem — I'll get the invoice to you."],
   },
-  // Photos / photos uploaded
+  // Photos — customer sends photos of the problem
   {
     keywords: /\b(photo|picture|image|before|after|pic)\b/i,
-    suggestions: ["Thanks, I can see the photos!", "Looks great!", "The work looks excellent."],
+    suggestions: ["Thanks — that helps me understand the issue.", "Got it, I can see the problem.", "Thanks for the photos, I'll take a look."],
   },
-  // Booking status: accepted
+  // Booking accepted / confirmed
   {
     keywords: /\b(accept|confirmed|booked|secured)\b/i,
-    suggestions: ["Great, see you then!", "Confirmed, I'll be ready.", "Thanks for confirming!"],
+    suggestions: ["Great, see you then!", "Confirmed — I'll be there.", "Thanks for confirming!"],
   },
-  // Booking status: rejected / cancel
+  // Cancellation
   {
     keywords: /\b(cancel|reject|decline|unable|unavailable|not available)\b/i,
-    suggestions: ["Understood, thank you.", "No problem, I'll find another provider.", "Thanks for letting me know."],
+    suggestions: ["No problem, thanks for letting me know.", "Understood — reach out anytime.", "No worries, happy to help another time."],
   },
   // Questions
   {
     keywords: /\?$/,
-    suggestions: ["Yes, that's correct.", "Let me check and get back to you.", "Could you give me more details?"],
+    suggestions: ["Yes, that's correct.", "Let me check and get back to you.", "Sure — happy to explain."],
   },
   // Thank you
   {
