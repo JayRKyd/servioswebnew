@@ -16,7 +16,7 @@ describe("Button", () => {
     )
     const link = container.querySelector("a")
     expect(link).toHaveClass("bg-transparent")
-    expect(link).toHaveClass("text-blue-400")
+    expect(link).toHaveClass("text-primary/60")
   })
 
   it("applies correct size classes", () => {

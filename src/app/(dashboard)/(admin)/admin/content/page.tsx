@@ -107,7 +107,7 @@ export default function AdminContentQueuePage() {
           <h1 className="text-2xl font-bold text-gray-900">Content Queue</h1>
           <p className="text-sm text-gray-500 mt-1">Photos providers consented to feature on social media</p>
         </div>
-        <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-primary">{counts.pending} pending review</span>
+        <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">{counts.pending} pending review</span>
       </div>
 
       {/* Filter tabs */}

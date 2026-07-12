@@ -17,7 +17,7 @@ const DOC_META: Record<string, { label: string; icon: React.ReactNode; hint: str
     label: 'Insurance',
     icon: <Shield size={16} />,
     hint: 'Public liability insurance — minimum £1m cover. Required to accept jobs.',
-    color: 'text-blue-600 bg-blue-50',
+    color: 'text-primary bg-primary/[0.08]',
   },
   license: {
     label: 'License',

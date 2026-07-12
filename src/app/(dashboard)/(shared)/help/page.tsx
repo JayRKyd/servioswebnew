@@ -33,7 +33,7 @@ export default function HelpPage() {
         ))}
       </div>
 
-      <div className="rounded-xl bg-primary/[0.06] p-6 ring-1 ring-blue-200">
+      <div className="rounded-xl bg-primary/[0.06] p-6 ring-1 ring-primary/30">
         <h2 className="font-semibold text-gray-900 mb-2">Still need help?</h2>
         <p className="text-sm text-gray-600 mb-4">Our support team is available Mon–Fri, 9am–6pm EST.</p>
         <a href="mailto:support@servios.app" className="inline-block rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark">Contact Support</a>

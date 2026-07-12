@@ -32,7 +32,7 @@ export default function CustomerBookingsPage() {
       <div className="flex gap-2 overflow-x-auto pb-1">
         {FILTERS.map(f => (
           <button key={f} onClick={() => setFilter(f)}
-            className={'whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition ' + (filter === f ? 'bg-primary text-white' : 'bg-white text-gray-600 ring-1 ring-gray-200 hover:ring-blue-300')}>
+            className={'whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition ' + (filter === f ? 'bg-primary text-white' : 'bg-white text-gray-600 ring-1 ring-gray-200 hover:ring-primary/30')}>
             {f.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
           </button>
         ))}
@@ -45,7 +45,7 @@ export default function CustomerBookingsPage() {
       ) : (
         <div className="space-y-3">
           {bookings.map(b => (
-            <Link key={b.id} href={'/bookings/' + b.id} className="block rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100 transition hover:ring-blue-300">
+            <Link key={b.id} href={'/bookings/' + b.id} className="block rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100 transition hover:ring-primary/30">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="font-semibold text-gray-900">{b.service?.title ?? 'Booking'}</p>

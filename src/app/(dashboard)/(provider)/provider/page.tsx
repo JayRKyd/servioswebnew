@@ -56,7 +56,7 @@ function Avatar({ cp }: { cp: any }) {
 }
 
 const QUICK_LINKS = [
-  { label: 'Calendar',     href: '/provider/calendar',     icon: <Calendar size={18} />,     color: 'text-blue-600 bg-blue-50' },
+  { label: 'Calendar',     href: '/provider/calendar',     icon: <Calendar size={18} />,     color: 'text-primary bg-primary/[0.08]' },
   { label: 'Requests',     href: '/provider/bookings',     icon: <Briefcase size={18} />,    color: 'text-purple-600 bg-purple-50' },
   { label: 'Earnings',     href: '/provider/earnings',     icon: <PoundSterling size={18} />,color: 'text-green-600 bg-green-50' },
   { label: 'Messages',     href: '/messages',              icon: <MessageSquare size={18} />, color: 'text-teal-600 bg-teal-50' },
@@ -222,8 +222,8 @@ export default function ProviderDashboard() {
           className="group rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-primary/20">
           <div className="mb-4 flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Upcoming</p>
-            <div className="rounded-xl bg-blue-50 p-1.5">
-              <Calendar size={14} className="text-blue-600" />
+            <div className="rounded-xl bg-primary/[0.08] p-1.5">
+              <Calendar size={14} className="text-primary" />
             </div>
           </div>
           <p className="text-3xl font-bold tracking-tight text-gray-900">{upcoming.length}</p>
@@ -474,17 +474,17 @@ export default function ProviderDashboard() {
           {/* Verify nudge — only if not verified */}
           {!profile?.identity_verified && (
             <Link href="/provider/documents"
-              className="flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50 p-4 transition-colors hover:border-blue-300">
-              <div className="shrink-0 rounded-xl bg-blue-100 p-2">
-                <FileText size={15} className="text-blue-600" />
+              className="flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary/[0.08] p-4 transition-colors hover:border-primary/40">
+              <div className="shrink-0 rounded-xl bg-primary/10 p-2">
+                <FileText size={15} className="text-primary" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-blue-900">Complete verification</p>
-                <p className="mt-0.5 text-xs leading-relaxed text-blue-600">
+                <p className="text-sm font-semibold text-gray-900">Complete verification</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-primary">
                   Upload your documents to earn your verified badge and rank higher in search.
                 </p>
               </div>
-              <ArrowRight size={14} className="mt-0.5 shrink-0 text-blue-400" />
+              <ArrowRight size={14} className="mt-0.5 shrink-0 text-primary/60" />
             </Link>
           )}
 

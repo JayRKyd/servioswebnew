@@ -117,7 +117,7 @@ export function ProviderFilters({
         ) : (
           <button
             onClick={onRequestLocation}
-            className="w-full rounded-lg border border-dashed border-gray-300 px-3 py-2 text-xs text-gray-500 hover:border-blue-400 hover:text-primary transition"
+            className="w-full rounded-lg border border-dashed border-gray-300 px-3 py-2 text-xs text-gray-500 hover:border-primary/40 hover:text-primary transition"
           >
             📍 Use my location
           </button>

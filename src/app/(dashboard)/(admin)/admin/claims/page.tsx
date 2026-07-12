@@ -128,7 +128,7 @@ export default function AdminClaimsPage() {
                         <div className="flex gap-2 flex-wrap">
                           {claim.evidence_urls.map((url: string, i: number) => (
                             <a key={i} href={url} target="_blank" rel="noreferrer"
-                              className="rounded-lg bg-primary/[0.06] px-3 py-1.5 text-xs text-primary hover:bg-blue-100">
+                              className="rounded-lg bg-primary/[0.06] px-3 py-1.5 text-xs text-primary hover:bg-primary/10">
                               View File {i + 1}
                             </a>
                           ))}

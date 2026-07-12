@@ -7,7 +7,7 @@ import { formatDate, formatCurrency } from '@/lib/utils'
 
 const STATUS_COLORS: Record<string, string> = {
   pending:     'bg-yellow-100 text-yellow-700',
-  accepted:    'bg-blue-100 text-primary',
+  accepted:    'bg-primary/10 text-primary',
   in_progress: 'bg-purple-100 text-purple-700',
   completed:   'bg-green-100 text-green-700',
   cancelled:   'bg-gray-100 text-gray-500',
@@ -95,7 +95,7 @@ export default function PropertyHistoryPage() {
             const photoCount = b.photos?.length ?? 0
             return (
               <Link key={b.id} href={`/landlord/bookings/${b.id}`}
-                className="block rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100 hover:ring-blue-200 transition">
+                className="block rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100 hover:ring-primary/30 transition">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">

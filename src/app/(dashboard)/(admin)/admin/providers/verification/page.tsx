@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 
 const DOC_TYPE_META: Record<string, { label: string; color: string }> = {
-  insurance:     { label: 'Insurance',     color: 'bg-blue-100 text-blue-700' },
+  insurance:     { label: 'Insurance',     color: 'bg-primary/10 text-primary' },
   license:       { label: 'License',       color: 'bg-purple-100 text-purple-700' },
   certification: { label: 'Certification', color: 'bg-indigo-100 text-indigo-700' },
   id:            { label: 'ID',            color: 'bg-teal-100 text-teal-700' },

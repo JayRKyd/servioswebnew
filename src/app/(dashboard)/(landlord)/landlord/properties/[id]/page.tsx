@@ -142,7 +142,7 @@ export default function PropertyDetailPage() {
           {tenants.length === 0
             ? <div className="flex h-32 items-center justify-center rounded-xl border-2 border-dashed border-gray-200"><p className="text-gray-400">No tenants</p></div>
             : tenants.map(t => (
-              <Link key={t.id} href={'/landlord/tenants/' + t.id} className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100 transition hover:ring-blue-300">
+              <Link key={t.id} href={'/landlord/tenants/' + t.id} className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100 transition hover:ring-primary/30">
                 <div>
                   <p className="font-medium text-gray-900">{t.first_name} {t.last_name}</p>
                   <p className="text-sm text-gray-500">{t.email ?? t.phone}</p>

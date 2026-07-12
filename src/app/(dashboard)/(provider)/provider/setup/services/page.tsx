@@ -152,7 +152,7 @@ export default function SetupServicesPage() {
 
         {/* Custom services */}
         {Object.values(selected).filter((s) => s.isCustom).map((svc) => (
-          <div key={svc.name} className="rounded-xl border-2 border-dashed border-blue-300 bg-primary/[0.06] p-4 flex items-center justify-between">
+          <div key={svc.name} className="rounded-xl border-2 border-dashed border-primary/40 bg-primary/[0.06] p-4 flex items-center justify-between">
             <div>
               <p className="font-semibold text-gray-900">{svc.name}</p>
               <p className="text-xs text-gray-500">£{svc.price} · {svc.priceType}</p>
@@ -171,7 +171,7 @@ export default function SetupServicesPage() {
 
         {/* Custom form */}
         {showCustom ? (
-          <div className="rounded-xl border-2 border-blue-400 bg-white p-4 space-y-3">
+          <div className="rounded-xl border-2 border-primary/40 bg-white p-4 space-y-3">
             <p className="font-semibold text-gray-900">Add custom service</p>
             <input value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder="Service name"
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
@@ -194,7 +194,7 @@ export default function SetupServicesPage() {
           </div>
         ) : (
           <button onClick={() => setShowCustom(true)}
-            className="w-full rounded-xl border-2 border-dashed border-gray-200 py-3 text-sm font-medium text-primary hover:border-blue-300 hover:bg-primary/[0.06]">
+            className="w-full rounded-xl border-2 border-dashed border-gray-200 py-3 text-sm font-medium text-primary hover:border-primary/40 hover:bg-primary/[0.06]">
             + Add a service not listed above
           </button>
         )}

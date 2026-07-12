@@ -38,7 +38,7 @@ function initials(name: string): string {
 const AVATAR_COLOURS = [
   'bg-primary/20 text-primary',
   'bg-purple-100 text-purple-700',
-  'bg-blue-100 text-blue-700',
+  'bg-primary/10 text-primary',
   'bg-teal-100 text-teal-700',
   'bg-pink-100 text-pink-700',
   'bg-amber-100 text-amber-700',

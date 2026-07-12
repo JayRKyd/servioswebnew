@@ -28,7 +28,7 @@ export default function ServicesPage() {
       <div className="flex gap-2 overflow-x-auto pb-1">
         {(['All', ...categories]).map(c => (
           <button key={c} onClick={() => setCategory(c)}
-            className={'whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition ' + (category === c ? 'bg-primary text-white' : 'bg-white text-gray-600 ring-1 ring-gray-200 hover:ring-blue-300')}>
+            className={'whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition ' + (category === c ? 'bg-primary text-white' : 'bg-white text-gray-600 ring-1 ring-gray-200 hover:ring-primary/30')}>
             {c}
           </button>
         ))}
@@ -39,8 +39,8 @@ export default function ServicesPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map(s => (
-            <Link key={s.id} href={'/services/' + s.id} className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100 transition hover:ring-blue-300">
-              <span className="inline-block rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-primary">{s.category}</span>
+            <Link key={s.id} href={'/services/' + s.id} className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100 transition hover:ring-primary/30">
+              <span className="inline-block rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">{s.category}</span>
               <p className="mt-2 font-semibold text-gray-900">{s.title}</p>
               {s.description && <p className="mt-1 text-sm text-gray-500 line-clamp-2">{s.description}</p>}
               <p className="mt-3 text-sm font-medium text-primary">Book now →</p>

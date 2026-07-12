@@ -129,7 +129,7 @@ export default function ProviderQuotesPage() {
             <li key={q.id}>
               <Link
                 href={'/provider/quotes/' + q.id}
-                className="block rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100 hover:ring-blue-200 transition"
+                className="block rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100 hover:ring-primary/30 transition"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">

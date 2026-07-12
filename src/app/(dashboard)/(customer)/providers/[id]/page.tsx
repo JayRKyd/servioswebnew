@@ -639,10 +639,17 @@ function CustomerProviderProfileInner() {
                     <span> · Travels up to {(provider as any).max_travel_distance} miles</span>
                   )}
                 </p>
-                <div className="h-52 overflow-hidden rounded-2xl bg-gray-100 flex items-center justify-center ring-1 ring-gray-200">
-                  <div className="text-center space-y-2">
-                    <MapPin size={24} className="text-muted mx-auto" />
-                    <p className="text-sm text-muted">Map view coming soon</p>
+                <div className="rounded-2xl bg-[#f7f5ee] ring-1 ring-gray-200 p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <MapPin size={18} className="text-primary" />
+                    <p className="text-sm font-semibold text-dark">Coverage areas</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {provider.service_areas.map((area: string) => (
+                      <span key={area} className="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700 ring-1 ring-gray-200">
+                        {area}
+                      </span>
+                    ))}
                   </div>
                 </div>
               </>

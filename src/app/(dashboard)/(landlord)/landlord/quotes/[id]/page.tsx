@@ -189,7 +189,7 @@ export default function LandlordQuoteDetailPage() {
       )}
 
       {threshold != null && isOpen && (
-        <div className="rounded-lg bg-primary/[0.06] p-4 text-sm text-blue-800 ring-1 ring-blue-200">
+        <div className="rounded-lg bg-primary/[0.06] p-4 text-sm text-gray-700 ring-1 ring-primary/30">
           Your auto-approval threshold is <strong>£{threshold.toFixed(2)}</strong>. Quotes at or
           under this amount will be automatically accepted when you select a winner.
         </div>

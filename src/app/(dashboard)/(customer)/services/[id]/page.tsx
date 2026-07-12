@@ -28,7 +28,7 @@ export default function ServiceDetailPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <span className="inline-block rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-primary">{service.category}</span>
+        <span className="inline-block rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">{service.category}</span>
         <h1 className="mt-2 text-2xl font-bold text-gray-900">{service.title}</h1>
         {service.description && <p className="mt-2 text-gray-500">{service.description}</p>}
       </div>

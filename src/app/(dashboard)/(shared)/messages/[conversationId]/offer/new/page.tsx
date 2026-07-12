@@ -157,7 +157,7 @@ export default function NewOfferPage() {
       </div>
 
       {/* Total */}
-      <div className="flex items-center justify-between rounded-xl bg-primary/[0.06] px-4 py-3 ring-1 ring-blue-100">
+      <div className="flex items-center justify-between rounded-xl bg-primary/[0.06] px-4 py-3 ring-1 ring-primary/20">
         <span className="text-sm font-semibold text-primary">Total</span>
         <span className="text-lg font-bold text-primary">{formatCurrency(totalCents / 100)}</span>
       </div>

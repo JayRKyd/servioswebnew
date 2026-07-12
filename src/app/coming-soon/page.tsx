@@ -6,7 +6,7 @@ export default function ComingSoonPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md text-center space-y-6">
-        <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600 text-white text-3xl">
+        <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-white text-3xl">
           🏠
         </div>
 
@@ -31,7 +31,7 @@ export default function ComingSoonPage() {
               'Before/after photo documentation',
             ].map((item) => (
               <li key={item} className="flex items-center gap-2">
-                <span className="text-blue-500">✓</span>
+                <span className="text-primary">✓</span>
                 {item}
               </li>
             ))}
@@ -45,7 +45,7 @@ export default function ComingSoonPage() {
         </p>
 
         <div className="flex flex-col gap-3 sm:flex-row">
-          <Link href="/" className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-center text-sm font-medium text-white hover:bg-blue-700">
+          <Link href="/" className="flex-1 rounded-lg bg-primary px-4 py-2.5 text-center text-sm font-medium text-white hover:bg-primary-dark">
             Go to Dashboard
           </Link>
           <Link href="/login" className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-center text-sm font-medium text-gray-700 hover:bg-gray-50">

@@ -30,7 +30,7 @@ export default function LandlordPropertiesPage() {
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {properties.map(p => (
-              <Link key={p.id} href={'/landlord/properties/' + p.id} className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100 transition hover:ring-blue-300">
+              <Link key={p.id} href={'/landlord/properties/' + p.id} className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100 transition hover:ring-primary/30">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="font-semibold text-gray-900">{p.name}</p>

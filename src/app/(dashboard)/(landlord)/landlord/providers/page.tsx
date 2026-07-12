@@ -186,7 +186,7 @@ export default function PreferredProvidersPage() {
                   ) : (
                     <button
                       onClick={() => addProvider(r.user_id)}
-                      className="rounded-md bg-primary/[0.06] px-3 py-1 text-xs font-medium text-primary hover:bg-blue-100"
+                      className="rounded-md bg-primary/[0.06] px-3 py-1 text-xs font-medium text-primary hover:bg-primary/10"
                     >
                       Add
                     </button>
@@ -240,7 +240,7 @@ export default function PreferredProvidersPage() {
                   <div key={pp.id} className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
                     <div className="flex items-start gap-4">
                       {/* Avatar */}
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-primary">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
                         {initials}
                       </div>
                       {/* Info */}

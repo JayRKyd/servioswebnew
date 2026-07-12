@@ -312,7 +312,7 @@ export default function ProviderAnalyticsPage() {
       {/* ── Stat row 1 ── */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <StatCard label="Total Bookings" display={bookings.length.toString()}
-          icon={<Briefcase size={13} />} iconBg="bg-blue-50 text-blue-600"
+          icon={<Briefcase size={13} />} iconBg="bg-primary/[0.08] text-primary"
           sub={`${cancelled.length} cancelled`} />
         <StatCard label="Completed" display={completed.length.toString()}
           icon={<CheckCircle size={13} />} iconBg="bg-green-50 text-green-600"

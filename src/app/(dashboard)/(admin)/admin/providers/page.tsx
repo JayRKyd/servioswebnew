@@ -25,7 +25,7 @@ export default function AdminProvidersPage() {
       </div>
       <div className="flex gap-2">
         {['all', 'pending', 'verified', 'inactive'].map(f => (
-          <button key={f} onClick={() => setFilter(f)} className={'rounded-full px-3 py-1.5 text-xs font-medium transition capitalize ' + (filter === f ? 'bg-primary text-white' : 'bg-white text-gray-600 ring-1 ring-gray-200 hover:ring-blue-300')}>{f}</button>
+          <button key={f} onClick={() => setFilter(f)} className={'rounded-full px-3 py-1.5 text-xs font-medium transition capitalize ' + (filter === f ? 'bg-primary text-white' : 'bg-white text-gray-600 ring-1 ring-gray-200 hover:ring-primary/30')}>{f}</button>
         ))}
       </div>
       {loading ? <div className="flex h-40 items-center justify-center text-gray-400">Loading…</div> : (

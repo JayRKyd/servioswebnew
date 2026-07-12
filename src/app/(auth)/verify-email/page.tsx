@@ -10,7 +10,7 @@ export default function VerifyEmailPage() {
       <p className="text-xs text-gray-400">
         Didn&apos;t receive it? Check your spam folder.
       </p>
-      <Link href="/login" className="block text-sm text-blue-600 hover:underline">
+      <Link href="/login" className="block text-sm text-primary hover:underline">
         Back to sign in
       </Link>
     </div>

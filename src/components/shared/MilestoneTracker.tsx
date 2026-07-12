@@ -26,7 +26,7 @@ interface MilestoneTrackerProps {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  active:    'bg-blue-100 text-blue-700',
+  active:    'bg-primary/10 text-primary',
   completed: 'bg-green-100 text-green-700',
   released:  'bg-green-100 text-green-700',
   escrowed:  'bg-purple-100 text-purple-700',
@@ -90,7 +90,7 @@ export function MilestoneTracker({ milestones, isProvider, onStatusChange, onEdi
               /* ── Inline edit form ─────────────────────────────────────── */
               <div className="flex items-start gap-4">
                 <div className={`shrink-0 w-[26px] h-[26px] rounded-full flex items-center justify-center text-[11px] font-bold mt-1 ${
-                  m.status === 'active' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-white'
+                  m.status === 'active' ? 'bg-primary text-white' : 'bg-gray-800 text-white'
                 }`}>
                   {m.milestone_number}
                 </div>
@@ -149,7 +149,7 @@ export function MilestoneTracker({ milestones, isProvider, onStatusChange, onEdi
                   m.status === 'completed' || m.status === 'released'
                     ? 'bg-green-600 text-white'
                     : m.status === 'active'
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-primary text-white'
                     : 'bg-gray-800 text-white'
                 }`}>
                   {m.milestone_number}
@@ -177,7 +177,7 @@ export function MilestoneTracker({ milestones, isProvider, onStatusChange, onEdi
                       <button
                         onClick={() => handleChange(m.id, 'active')}
                         disabled={isInProgress}
-                        className="rounded-md bg-blue-50 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50 transition-colors"
+                        className="rounded-md bg-primary/[0.08] px-2.5 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary/10 disabled:opacity-50 transition-colors"
                       >
                         {isInProgress ? '…' : 'Mark Active'}
                       </button>

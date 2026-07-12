@@ -49,7 +49,7 @@ export default function AddRolePage() {
       <div className="space-y-3">
         {addable.map(o => (
           <button key={o.role} onClick={() => setSelected(o.role)}
-            className={'w-full rounded-xl p-4 text-left shadow-sm ring-1 transition ' + (selected === o.role ? 'ring-blue-400 bg-primary/[0.06]' : 'bg-white ring-gray-100 hover:ring-blue-200')}>
+            className={'w-full rounded-xl p-4 text-left shadow-sm ring-1 transition ' + (selected === o.role ? 'ring-primary/40 bg-primary/[0.06]' : 'bg-white ring-gray-100 hover:ring-primary/30')}>
             <p className="font-semibold text-gray-900">{o.label}</p>
             <p className="text-sm text-gray-500">{o.description}</p>
           </button>

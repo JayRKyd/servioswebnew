@@ -125,7 +125,7 @@ export default function ProviderEarningsPage() {
         <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
           <div className="mb-4 flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Jobs Done</p>
-            <div className="rounded-lg bg-blue-50 p-1.5"><Briefcase size={14} className="text-blue-600" /></div>
+            <div className="rounded-lg bg-primary/[0.08] p-1.5"><Briefcase size={14} className="text-primary" /></div>
           </div>
           <p className="text-3xl font-bold text-gray-900 tracking-tight">{filtered.length}</p>
           <p className="mt-1.5 text-xs text-gray-400">{formatCurrency(totalFees / 100)} commission paid</p>

@@ -35,7 +35,7 @@ export default function ForgotPasswordPage() {
         <p className="text-sm text-gray-500">
           We sent a password reset link to <strong>{email}</strong>.
         </p>
-        <Link href="/login" className="block text-sm text-blue-600 hover:underline">
+        <Link href="/login" className="block text-sm text-primary hover:underline">
           Back to sign in
         </Link>
       </div>
@@ -61,7 +61,7 @@ export default function ForgotPasswordPage() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
 
@@ -70,14 +70,14 @@ export default function ForgotPasswordPage() {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50"
         >
           {isLoading ? 'Sending…' : 'Send reset link'}
         </button>
       </form>
 
       <p className="text-center text-sm text-gray-500">
-        <Link href="/login" className="text-blue-600 hover:underline">Back to sign in</Link>
+        <Link href="/login" className="text-primary hover:underline">Back to sign in</Link>
       </p>
     </div>
   )

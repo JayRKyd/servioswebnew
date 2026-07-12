@@ -6,13 +6,13 @@ import { formatDate } from '@/lib/utils'
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700',
-  accepted: 'bg-blue-100 text-primary',
+  accepted: 'bg-primary/10 text-primary',
   in_progress: 'bg-purple-100 text-purple-700',
   completed: 'bg-green-100 text-green-700',
   cancelled: 'bg-gray-100 text-gray-500',
   rejected: 'bg-red-100 text-red-700',
   approved: 'bg-green-100 text-green-700',
-  scheduled: 'bg-blue-100 text-primary',
+  scheduled: 'bg-primary/10 text-primary',
   open: 'bg-red-100 text-red-700',
   resolved: 'bg-green-100 text-green-700',
   under_review: 'bg-orange-100 text-orange-700',

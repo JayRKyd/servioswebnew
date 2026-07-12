@@ -45,7 +45,7 @@ export default function LandlordDashboard() {
     <div className="space-y-6">
       <div className="rounded-xl bg-primary p-6 text-white">
         <h1 className="text-2xl font-bold">Hi, {name}</h1>
-        <p className="mt-1 text-blue-200">{properties.length} properties · {maintenance.length} pending maintenance</p>
+        <p className="mt-1 text-white/70">{properties.length} properties · {maintenance.length} pending maintenance</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -59,7 +59,7 @@ export default function LandlordDashboard() {
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {([['Properties', '/landlord/properties'], ['Tenants', '/landlord/tenants'], ['Maintenance', '/landlord/maintenance'], ['Messages', '/messages']] as const).map(([label, href]) => (
-          <Link key={label} href={href} className="rounded-xl bg-white p-4 text-center text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-gray-100 transition hover:ring-blue-300">{label}</Link>
+          <Link key={label} href={href} className="rounded-xl bg-white p-4 text-center text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-gray-100 transition hover:ring-primary/30">{label}</Link>
         ))}
       </div>
 
@@ -68,7 +68,7 @@ export default function LandlordDashboard() {
           <h2 className="mb-3 font-semibold text-gray-900">Pending Maintenance</h2>
           <div className="space-y-3">
             {maintenance.map(m => (
-              <Link key={m.id} href={'/landlord/maintenance/' + m.id} className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100 transition hover:ring-blue-300">
+              <Link key={m.id} href={'/landlord/maintenance/' + m.id} className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100 transition hover:ring-primary/30">
                 <div>
                   <p className="font-medium text-gray-900">{m.title}</p>
                   <p className="text-xs text-gray-400">{m.description?.slice(0, 60)}</p>

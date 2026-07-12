@@ -49,12 +49,12 @@ export default function TenantDashboard() {
     <div className="space-y-6">
       <div className="rounded-xl bg-primary p-6 text-white">
         <h1 className="text-2xl font-bold">Hi, {name}</h1>
-        {tenancy ? <p className="mt-1 text-blue-200">{tenancy.properties?.name}{tenancy.unit_number ? ' · Unit ' + tenancy.unit_number : ''}</p> : <p className="mt-1 text-blue-200">No active tenancy</p>}
+        {tenancy ? <p className="mt-1 text-white/70">{tenancy.properties?.name}{tenancy.unit_number ? ' · Unit ' + tenancy.unit_number : ''}</p> : <p className="mt-1 text-white/70">No active tenancy</p>}
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {([['Report Issue', '/tenant/maintenance/new'], ['My Property', '/tenant/property'], ['Chat Landlord', '/tenant/chat'], ['Emergency', '/tenant/emergency']] as const).map(([label, href]) => (
-          <Link key={label} href={href} className={'rounded-xl p-4 text-center text-sm font-semibold shadow-sm ring-1 ring-gray-100 transition hover:ring-blue-300 ' + (label === 'Emergency' ? 'bg-red-50 text-red-600 ring-red-200' : 'bg-white text-gray-700')}>{label}</Link>
+          <Link key={label} href={href} className={'rounded-xl p-4 text-center text-sm font-semibold shadow-sm ring-1 ring-gray-100 transition hover:ring-primary/30 ' + (label === 'Emergency' ? 'bg-red-50 text-red-600 ring-red-200' : 'bg-white text-gray-700')}>{label}</Link>
         ))}
       </div>
 

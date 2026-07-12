@@ -83,7 +83,7 @@ export function JobOfferPanel({
             })()}
             <span className={`mt-2.5 inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold capitalize ${
               booking.status === 'completed'   ? 'bg-purple-100 text-purple-700' :
-              booking.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+              booking.status === 'in_progress' ? 'bg-primary/10 text-primary' :
               booking.status === 'accepted' || booking.status === 'confirmed'
                                                ? 'bg-green-100 text-green-800' :
               booking.status === 'rejected' || booking.status === 'cancelled'
@@ -175,7 +175,7 @@ export function JobOfferPanel({
                     <p className="text-xs text-gray-500 mt-0.5">Due {m.due_date}</p>
                   )}
                   <span className={`mt-1 inline-flex items-center rounded-full px-2 py-px text-[10px] font-medium capitalize ${
-                    m.status === 'active'                                    ? 'bg-blue-100 text-blue-700' :
+                    m.status === 'active'                                    ? 'bg-primary/10 text-primary' :
                     m.status === 'released' || m.status === 'completed'     ? 'bg-green-100 text-green-700' :
                     m.status === 'escrowed'                                  ? 'bg-purple-100 text-purple-700' :
                     'bg-gray-100 text-gray-500'

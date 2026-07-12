@@ -261,7 +261,7 @@ export default function CustomerDashboard() {
               const meta = CATEGORY_META[key]
               return (
                 <Link key={key} href={`/book?category=${key}`}
-                  className="flex flex-col items-center gap-1.5 rounded-xl bg-gray-50 px-2 py-3 text-center hover:bg-blue-50 hover:ring-1 hover:ring-primary/20 transition-all">
+                  className="flex flex-col items-center gap-1.5 rounded-xl bg-gray-50 px-2 py-3 text-center hover:bg-primary/[0.08] hover:ring-1 hover:ring-primary/20 transition-all">
                   <span className="text-xl">{meta?.icon}</span>
                   <span className="text-[11px] font-medium text-gray-600">{meta?.label}</span>
                 </Link>

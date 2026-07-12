@@ -38,7 +38,7 @@ export default function NotificationsPage() {
             {notifications.map(n => {
               const bookingId = n.data?.booking_id
               const inner = (
-                <div className={'flex items-start gap-3 rounded-xl p-4 shadow-sm ring-1 transition ' + (n.is_read ? 'bg-white ring-gray-100' : 'bg-primary/[0.06] ring-blue-200')}>
+                <div className={'flex items-start gap-3 rounded-xl p-4 shadow-sm ring-1 transition ' + (n.is_read ? 'bg-white ring-gray-100' : 'bg-primary/[0.06] ring-primary/30')}>
                   <span className="text-xl shrink-0">{NOTIF_ICONS[n.notification_type] ?? '🔔'}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900">{n.title ?? n.notification_type?.replace(/_/g, ' ')}</p>

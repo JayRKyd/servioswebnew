@@ -6,13 +6,13 @@ import { formatDate, formatCurrency } from '@/lib/utils'
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700',
-  accepted: 'bg-blue-100 text-primary',
+  accepted: 'bg-primary/10 text-primary',
   in_progress: 'bg-purple-100 text-purple-700',
   completed: 'bg-green-100 text-green-700',
   cancelled: 'bg-gray-100 text-gray-500',
   rejected: 'bg-red-100 text-red-700',
   approved: 'bg-green-100 text-green-700',
-  scheduled: 'bg-blue-100 text-primary',
+  scheduled: 'bg-primary/10 text-primary',
   open: 'bg-red-100 text-red-700',
   resolved: 'bg-green-100 text-green-700',
   under_review: 'bg-orange-100 text-orange-700',
@@ -42,7 +42,7 @@ export default function AdminBookingsPage() {
       <h1 className="text-2xl font-bold text-gray-900">All Bookings</h1>
       <div className="flex gap-2 overflow-x-auto pb-1">
         {['all', 'pending', 'accepted', 'in_progress', 'completed', 'cancelled'].map(f => (
-          <button key={f} onClick={() => setFilter(f)} className={'whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition ' + (filter === f ? 'bg-primary text-white' : 'bg-white text-gray-600 ring-1 ring-gray-200 hover:ring-blue-300')}>
+          <button key={f} onClick={() => setFilter(f)} className={'whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition ' + (filter === f ? 'bg-primary text-white' : 'bg-white text-gray-600 ring-1 ring-gray-200 hover:ring-primary/30')}>
             {f.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
           </button>
         ))}

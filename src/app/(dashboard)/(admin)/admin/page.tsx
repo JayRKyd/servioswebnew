@@ -62,7 +62,7 @@ export default function AdminDashboard() {
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {([['Users', '/admin/users'], ['Providers', '/admin/providers'], ['Bookings', '/admin/bookings'], ['Disputes', '/admin/disputes']] as const).map(([label, href]) => (
-          <Link key={label} href={href} className="rounded-xl bg-white p-4 text-center text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-gray-100 transition hover:ring-blue-300">{label}</Link>
+          <Link key={label} href={href} className="rounded-xl bg-white p-4 text-center text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-gray-100 transition hover:ring-primary/30">{label}</Link>
         ))}
       </div>
     </div>

@@ -188,7 +188,7 @@ function ProviderPayoutsInner() {
             ['Bank payout', 'Stripe sends the money to your linked bank account, typically within 2 business days.'],
           ].map(([step, desc], i) => (
             <li key={step} className="flex gap-3">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-primary">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
                 {i + 1}
               </span>
               <div>

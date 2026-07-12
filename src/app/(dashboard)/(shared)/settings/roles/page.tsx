@@ -25,7 +25,7 @@ export default function ManageRolesPage() {
           const info = ROLE_INFO[role]
           const isActive = role === activeRole
           return (
-            <div key={role} className={'rounded-xl bg-white p-4 shadow-sm ring-1 ' + (isActive ? 'ring-blue-400 bg-primary/[0.06]' : 'ring-gray-100')}>
+            <div key={role} className={'rounded-xl bg-white p-4 shadow-sm ring-1 ' + (isActive ? 'ring-primary/40 bg-primary/[0.06]' : 'ring-gray-100')}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-semibold text-gray-900">{info.label}</p>
@@ -35,7 +35,7 @@ export default function ManageRolesPage() {
                   <span className="rounded-full bg-primary px-3 py-1 text-xs font-medium text-white">Active</span>
                 ) : (
                   <button onClick={() => switchRole(role)} disabled={isPending}
-                    className="rounded-lg border border-blue-300 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/[0.06] disabled:opacity-50">
+                    className="rounded-lg border border-primary/40 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/[0.06] disabled:opacity-50">
                     Switch
                   </button>
                 )}
@@ -47,7 +47,7 @@ export default function ManageRolesPage() {
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      <Link href="/settings/roles/add" className="block w-full rounded-xl border-2 border-dashed border-gray-200 py-4 text-center text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-primary transition">
+      <Link href="/settings/roles/add" className="block w-full rounded-xl border-2 border-dashed border-gray-200 py-4 text-center text-sm font-medium text-gray-500 hover:border-primary/40 hover:text-primary transition">
         + Add a Role
       </Link>
     </div>
