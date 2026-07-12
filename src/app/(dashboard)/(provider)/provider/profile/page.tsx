@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
 import { titleCase } from '@/lib/utils'
@@ -243,6 +244,7 @@ function EditableList({
 /* ─── main page ─── */
 export default function ProviderProfilePage() {
   const { user } = useAuth()
+  const router = useRouter()
   const [profile, setProfile] = useState<any>(null)
   const [latestReview, setLatestReview] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -387,8 +389,14 @@ export default function ProviderProfilePage() {
   const completionPct = COMPLETION_ITEMS.filter(i => i.done).reduce((s, i) => s + i.weight, 0)
   const pending = COMPLETION_ITEMS.filter(i => !i.done)
 
-  // Clicking a strength-meter pill scrolls to and briefly highlights the field.
+  // Fields that live on another page — the pill navigates there instead of scrolling.
+  const FIELD_ROUTES: Record<string, string> = { verified: '/provider/documents' }
+
+  // Clicking a strength-meter pill either navigates to the owning page or
+  // scrolls to and briefly highlights the field on this page.
   function goToField(key: string) {
+    const route = FIELD_ROUTES[key]
+    if (route) { router.push(route); return }
     const el = document.getElementById(`pf-${key}`)
     if (!el) return
     el.scrollIntoView({ behavior: 'smooth', block: 'center' })
