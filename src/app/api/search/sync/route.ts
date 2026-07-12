@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     const record: Record<string, any> = {
       objectID:       p.user_id,
       user_id:        p.user_id,
-      business_name:  p.business_name ?? `${p.first_name} ${p.last_name}`,
+      business_name:  p.business_name?.trim() || `${p.first_name} ${p.last_name}`,
       first_name:     p.first_name,
       last_name:      p.last_name,
       bio:            p.bio ?? '',
@@ -44,7 +44,9 @@ export async function POST(req: NextRequest) {
     return record
   })
 
-  await client.saveObjects({ indexName: 'providers', objects: records })
+  // replaceAllObjects atomically swaps the whole index: adds current verified
+  // providers and drops anything stale (e.g. old seed records like "p7").
+  await client.replaceAllObjects({ indexName: 'providers', objects: records })
 
   await client.setSettings({
     indexName: 'providers',
