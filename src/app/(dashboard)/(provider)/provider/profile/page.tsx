@@ -257,6 +257,7 @@ export default function ProviderProfilePage() {
   const portfolioInputRef = useRef<HTMLInputElement>(null)
   const [linkCopied, setLinkCopied] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
+  const [highlightKey, setHighlightKey] = useState<string | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -385,6 +386,17 @@ export default function ProviderProfilePage() {
   ]
   const completionPct = COMPLETION_ITEMS.filter(i => i.done).reduce((s, i) => s + i.weight, 0)
   const pending = COMPLETION_ITEMS.filter(i => !i.done)
+
+  // Clicking a strength-meter pill scrolls to and briefly highlights the field.
+  function goToField(key: string) {
+    const el = document.getElementById(`pf-${key}`)
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setHighlightKey(key)
+    setTimeout(() => setHighlightKey(k => (k === key ? null : k)), 1600)
+  }
+  const hl = (key: string) =>
+    'transition-all rounded-xl ' + (highlightKey === key ? 'ring-2 ring-primary/50 ring-offset-4 ring-offset-white' : '')
   const R = 28, CIRC = 2 * Math.PI * R
   const ringOffset = CIRC * (1 - completionPct / 100)
   const ringColour = completionPct >= 70 ? 'text-primary' : completionPct >= 40 ? 'text-amber-400' : 'text-rose-400'
@@ -453,28 +465,28 @@ export default function ProviderProfilePage() {
                 </div>
               </div>
 
-              {/* Completed items */}
+              {/* Completed items — click to jump to that field */}
               {COMPLETION_ITEMS.filter(i => i.done).length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-3">
                   {COMPLETION_ITEMS.filter(i => i.done).map(item => (
-                    <span key={item.key}
-                      className="inline-flex items-center gap-1 rounded-full bg-primary/[0.08] px-2.5 py-0.5 text-[11px] text-primary">
+                    <button key={item.key} onClick={() => goToField(item.key)}
+                      className="inline-flex items-center gap-1 rounded-full bg-primary/[0.08] px-2.5 py-0.5 text-[11px] text-primary hover:bg-primary/[0.14] transition-colors">
                       <CheckCircle2 size={9} className="shrink-0" />
                       {item.label}
-                    </span>
+                    </button>
                   ))}
                 </div>
               )}
 
-              {/* Pending items */}
+              {/* Pending items — click to jump to and edit that field */}
               {pending.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {pending.map(item => (
-                    <span key={item.key}
-                      className="inline-flex items-center gap-1 rounded-full border border-dashed border-gray-300 bg-gray-50 px-2.5 py-0.5 text-[11px] text-gray-500">
+                    <button key={item.key} onClick={() => goToField(item.key)}
+                      className="inline-flex items-center gap-1 rounded-full border border-dashed border-gray-300 bg-gray-50 px-2.5 py-0.5 text-[11px] text-gray-500 hover:border-primary hover:text-primary transition-colors">
                       <Plus size={9} className="shrink-0" />
                       {item.label}
-                    </span>
+                    </button>
                   ))}
                 </div>
               )}
@@ -498,7 +510,7 @@ export default function ProviderProfilePage() {
           <div className="flex items-start gap-5">
 
             {/* Avatar */}
-            <div className="relative shrink-0 group/av">
+            <div id="pf-photo" className={`relative shrink-0 group/av scroll-mt-24 ${hl('photo')}`}>
               <div className="h-[84px] w-[84px] rounded-full bg-primary flex items-center justify-center text-white text-3xl font-bold overflow-hidden ring-2 ring-gray-100">
                 {profile.profile_image_url
                   ? <img src={profile.profile_image_url} alt="" className="h-full w-full object-cover" />
@@ -543,7 +555,7 @@ export default function ProviderProfilePage() {
               )}
 
               {/* Location + live UK time */}
-              <div className="flex items-center gap-1 text-sm text-gray-500 mt-1.5">
+              <div id="pf-location" className={`flex items-center gap-1 text-sm text-gray-500 mt-1.5 scroll-mt-24 ${hl('location')}`}>
                 <MapPin size={13} className="shrink-0" />
                 {cityEditing ? (
                   <div className="flex items-center gap-1.5">
@@ -692,7 +704,7 @@ export default function ProviderProfilePage() {
           </div>
 
           {/* Editable rate */}
-          <div className="shrink-0">
+          <div id="pf-rate" className={`shrink-0 scroll-mt-24 ${hl('rate')}`}>
             <EditableNumber
               value={profile.hourly_rate ?? null}
               placeholder="Set hourly rate"
@@ -721,7 +733,7 @@ export default function ProviderProfilePage() {
             </div>
 
             {/* Phone */}
-            <div>
+            <div id="pf-phone" className={`scroll-mt-24 ${hl('phone')}`}>
               <p className="text-sm font-semibold text-gray-800 mb-1">Phone</p>
               <EditableText
                 value={profile.phone ?? ''}
@@ -741,7 +753,7 @@ export default function ProviderProfilePage() {
             </div>
 
             {/* Verifications */}
-            <div>
+            <div id="pf-verified" className={`scroll-mt-24 ${hl('verified')}`}>
               <p className="text-sm font-semibold text-gray-800 mb-2">Verifications</p>
               <div className="space-y-2">
                 <p className="text-sm text-gray-600">
@@ -760,28 +772,34 @@ export default function ProviderProfilePage() {
             </div>
 
             {/* Licenses */}
-            <EditableList
-              items={licenses}
-              label="Licenses"
-              placeholder="e.g. Gas Safe Registered"
-              onSave={v => save('licenses', v)}
-            />
+            <div id="pf-licenses" className={`scroll-mt-24 ${hl('licenses')}`}>
+              <EditableList
+                items={licenses}
+                label="Licenses"
+                placeholder="e.g. Gas Safe Registered"
+                onSave={v => save('licenses', v)}
+              />
+            </div>
 
             {/* Languages */}
-            <EditableList
-              items={languages}
-              label="Languages"
-              placeholder="e.g. English: Native"
-              onSave={v => save('languages', v)}
-            />
+            <div id="pf-languages" className={`scroll-mt-24 ${hl('languages')}`}>
+              <EditableList
+                items={languages}
+                label="Languages"
+                placeholder="e.g. English: Native"
+                onSave={v => save('languages', v)}
+              />
+            </div>
 
             {/* Where they work — service areas (editable) + travel radius */}
-            <EditableList
-              items={areas}
-              label="Service areas"
-              placeholder="e.g. North London"
-              onSave={v => save('service_areas', v)}
-            />
+            <div id="pf-areas" className={`scroll-mt-24 ${hl('areas')}`}>
+              <EditableList
+                items={areas}
+                label="Service areas"
+                placeholder="e.g. North London"
+                onSave={v => save('service_areas', v)}
+              />
+            </div>
 
             <div>
               <p className="text-sm font-semibold text-gray-800 mb-1">Travel radius</p>
@@ -798,7 +816,7 @@ export default function ProviderProfilePage() {
           <main className="flex-1 min-w-0 px-8 py-7 space-y-8">
 
             {/* Bio — editable inline */}
-            <div>
+            <div id="pf-bio" className={`scroll-mt-24 ${hl('bio')}`}>
               {bioTruncated && !bioExpanded ? (
                 <div className="group flex items-start gap-2">
                   <div className="flex-1">
@@ -824,7 +842,7 @@ export default function ProviderProfilePage() {
             </div>
 
             {/* Work history */}
-            <div className="border-t border-gray-100 pt-7">
+            <div id="pf-trades" className={`border-t border-gray-100 pt-7 scroll-mt-24 ${hl('trades')}`}>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-base font-bold text-gray-900">Work history</h3>
                 <button className="h-7 w-7 flex items-center justify-center rounded-full border border-gray-300 text-gray-400 hover:bg-gray-50">
