@@ -283,11 +283,11 @@ export default function ProviderBookingDetailPage() {
 
           {/* ── Escrow / payment status banner ── */}
           {['pending', 'accepted', 'in_progress'].includes(booking.status) && booking.total_amount > 0 && (
-            <div className="mx-6 mb-5 rounded-xl bg-blue-50 border border-blue-200 px-5 py-4 flex items-start gap-3">
-              <Lock size={16} className="mt-0.5 text-blue-500 shrink-0" />
+            <div className="mx-6 mb-5 rounded-xl bg-gray-50 border border-gray-200 px-5 py-4 flex items-start gap-3">
+              <Lock size={16} className="mt-0.5 text-gray-500 shrink-0" />
               <div>
-                <p className="text-sm font-semibold text-blue-900">Payment in escrow</p>
-                <p className="text-xs text-blue-600 mt-0.5">Released to you once the customer confirms job completion.</p>
+                <p className="text-sm font-semibold text-gray-900">Payment in escrow</p>
+                <p className="text-xs text-gray-500 mt-0.5">Released to you once the customer confirms job completion.</p>
               </div>
             </div>
           )}
