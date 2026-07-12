@@ -47,8 +47,8 @@ function ProviderBrowseCard({ provider, photoUrl }: { provider: any; photoUrl?: 
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/[0.10] to-primary/[0.20]">
-            <span className="text-6xl font-bold text-primary/25 select-none">{initial}</span>
+          <div className="flex h-full w-full items-center justify-center bg-gray-100">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white ring-1 ring-gray-200 text-xl font-bold text-gray-400 shadow-sm select-none">{initial}</div>
           </div>
         )}
         {/* Verified chip — bottom-left */}
@@ -181,12 +181,14 @@ function LocationSearch({
 
       {/* RIGHT PANEL */}
       <div className="flex-1 flex flex-col bg-white overflow-hidden">
-        {/* Thin progress bar */}
-        <div className="h-0.5 w-full bg-gray-100 shrink-0">
-          <div
-            className="h-full bg-primary transition-all duration-300"
-            style={{ width: `${((stepIndex + 1) / totalSteps) * 100}%` }}
-          />
+        {/* Segmented step progress bar */}
+        <div className="flex gap-1.5 px-6 lg:px-16 pt-5 shrink-0">
+          {Array.from({ length: totalSteps }).map((_, i) => (
+            <div
+              key={i}
+              className={'h-1.5 flex-1 rounded-full transition-all duration-300 ' + (i <= stepIndex ? 'bg-primary' : 'bg-gray-200')}
+            />
+          ))}
         </div>
 
         {/* Mobile-only header */}
@@ -406,12 +408,14 @@ function WizardStep({
 
       {/* RIGHT PANEL */}
       <div className="flex-1 flex flex-col bg-white overflow-hidden">
-        {/* Thin progress bar */}
-        <div className="h-0.5 w-full bg-gray-100 shrink-0">
-          <div
-            className="h-full bg-primary transition-all duration-300"
-            style={{ width: `${((stepIndex + 1) / totalSteps) * 100}%` }}
-          />
+        {/* Segmented step progress bar */}
+        <div className="flex gap-1.5 px-6 lg:px-16 pt-5 shrink-0">
+          {Array.from({ length: totalSteps }).map((_, i) => (
+            <div
+              key={i}
+              className={'h-1.5 flex-1 rounded-full transition-all duration-300 ' + (i <= stepIndex ? 'bg-primary' : 'bg-gray-200')}
+            />
+          ))}
         </div>
 
         {/* Mobile-only header */}

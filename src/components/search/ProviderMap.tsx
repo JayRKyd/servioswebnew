@@ -76,6 +76,20 @@ export function ProviderMap({
       map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right')
 
       map.on('load', () => {
+        // Tint the base map toward the Servios cream/green palette instead of
+        // the default light-gray. Guarded per layer so a style change can't break the map.
+        try {
+          const setPaint = (layer: string, prop: string, value: string) => {
+            if (map.getLayer(layer)) map.setPaintProperty(layer, prop, value)
+          }
+          setPaint('background', 'background-color', '#f7f5ee')  // cream land base
+          setPaint('land', 'background-color', '#f7f5ee')
+          setPaint('landcover', 'fill-color', '#e7ede4')
+          setPaint('national-park', 'fill-color', '#e3ebe1')
+          setPaint('landuse', 'fill-color', '#eef1e8')
+          setPaint('water', 'fill-color', '#cfe0d8')             // soft green water
+        } catch { /* style layer names vary — safe to ignore */ }
+
         map.addSource('providers', {
           type: 'geojson',
           data: { type: 'FeatureCollection', features: [] },

@@ -176,9 +176,8 @@ export function AirbnbProviderCard({
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gray-100">
-            <span className="text-3xl font-bold text-gray-400 select-none">{initial}</span>
-            <span className="text-[11px] text-gray-400 font-medium truncate max-w-[80%] text-center">{displayName}</span>
+          <div className="flex h-full w-full items-center justify-center bg-gray-100">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white ring-1 ring-gray-200 text-xl font-bold text-gray-400 shadow-sm select-none">{initial}</div>
           </div>
         )}
 

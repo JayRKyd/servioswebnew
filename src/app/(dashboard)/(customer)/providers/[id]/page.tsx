@@ -248,14 +248,18 @@ function CustomerProviderProfileInner() {
     count: reviews.filter(r => Math.round(r.rating) === star).length,
   }))
 
+  // ID documents are represented by the "Identity verified" badge, not shown
+  // as a public credential of their own.
+  const publicDocs = verifiedDocs.filter(d => d.document_type !== 'id')
+
   const highlights = [
     provider.identity_verified && {
       icon: <BadgeCheck size={24} className="text-primary" />,
       title: 'Identity verified',
       desc: 'This provider has confirmed their identity with Servios.',
     },
-    ...(verifiedDocs.length > 0
-      ? verifiedDocs.map(doc => ({
+    ...(publicDocs.length > 0
+      ? publicDocs.map(doc => ({
           icon: <Shield size={24} className="text-primary" />,
           title: doc.title ?? doc.document_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
           desc: 'This document has been reviewed and verified by Servios.',
@@ -347,8 +351,8 @@ function CustomerProviderProfileInner() {
               {provider.profile_image_url ? (
                 <img src={provider.profile_image_url} alt={displayName} className="h-full w-full object-cover" />
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/[0.18] to-primary/[0.32]">
-                  <span className="text-8xl font-bold text-primary/20 select-none">{initials}</span>
+                <div className="flex h-full w-full items-center justify-center bg-gray-100">
+                  <div className="flex h-24 w-24 items-center justify-center rounded-full bg-white ring-1 ring-gray-200 text-3xl font-bold text-gray-400 shadow-sm select-none">{initials}</div>
                 </div>
               )}
             </div>
@@ -372,8 +376,8 @@ function CustomerProviderProfileInner() {
               {provider.profile_image_url ? (
                 <img src={provider.profile_image_url} alt={displayName} className="h-full w-full object-cover" />
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/[0.18] to-primary/[0.32]">
-                  <span className="text-9xl font-bold text-primary/20 select-none">{initials}</span>
+                <div className="flex h-full w-full items-center justify-center bg-gray-100">
+                  <div className="flex h-28 w-28 items-center justify-center rounded-full bg-white ring-1 ring-gray-200 text-4xl font-bold text-gray-400 shadow-sm select-none">{initials}</div>
                 </div>
               )}
             </div>
@@ -827,8 +831,8 @@ function CustomerProviderProfileInner() {
                     <span>Identity verified</span>
                   </div>
                 )}
-                {verifiedDocs.length > 0 ? (
-                  verifiedDocs.map((doc, i) => (
+                {publicDocs.length > 0 ? (
+                  publicDocs.map((doc, i) => (
                     <div key={i} className="flex items-center gap-3 text-sm text-gray-600">
                       <Shield size={16} className="text-primary shrink-0" />
                       <span>
