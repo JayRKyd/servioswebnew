@@ -166,7 +166,11 @@ function Inner() {
     ? trades.map((t: string) => t.replace(/_/g, ' ')).join(' | ')
     : displayName
 
-  const rating = Number(profile.rating_average)
+  // Only trust the rating aggregate when actual review rows back it — otherwise
+  // a stale rating_average would contradict an empty Reviews section.
+  const hasReviews  = allReviews.length > 0
+  const rating      = hasReviews ? Number(profile.rating_average) : 0
+  const reviewCount = hasReviews ? Math.max(profile.total_reviews ?? 0, allReviews.length) : 0
   const jobs   = profile.total_jobs_completed ?? 0
   const isTopRated = rating >= 4.7 && jobs >= 3
 
