@@ -2,7 +2,7 @@
 import { useState } from 'react'
 
 const FAQS = [
-  { q: 'How do I book a service?', a: 'Go to the Services section or use Book a Service from your dashboard. Select a service, choose a provider, pick a date and time, then submit your booking request.' },
+  { q: 'How do I get quotes?', a: 'Choose Get Quotes from your dashboard, describe the job, and select your location. You can then compare matched providers and submit a booking request.' },
   { q: 'How do I become a provider?', a: 'Sign up and select Provider as your role. Complete your profile with your business information, services, and service areas. Your account will be verified before you can receive bookings.' },
   { q: 'What payment methods are accepted?', a: 'We accept major credit and debit cards via Stripe. Payments are processed securely at the time of booking confirmation.' },
   { q: 'How do I cancel a booking?', a: 'Open the booking from My Bookings and tap Cancel Booking. Cancellations are free if made at least 24 hours before the scheduled time.' },

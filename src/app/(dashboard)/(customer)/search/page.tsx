@@ -224,12 +224,25 @@ function SearchPageInner() {
   const ITEMS_PER_PAGE = 6
 
   const categoryParam = searchParams.get('category')
+  const islandParam   = searchParams.get('island')
   const context       = searchParams.get('context') ?? ''
+  const qParam        = searchParams.get('q')
 
   useEffect(() => {
     if (categoryParam) updateFilter('category', categoryParam)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryParam])
+
+  // Free-text handoff (e.g. homepage search terms that don't map to a trade)
+  useEffect(() => {
+    if (qParam) setQuery(qParam)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qParam])
+
+  useEffect(() => {
+    if (islandParam) updateFilter('island', islandParam)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [islandParam])
 
   // Reset to page 1 whenever category changes
   useEffect(() => { setCurrentPage(1) }, [filters.category])
@@ -390,7 +403,7 @@ function SearchPageInner() {
 
           {context && (
             <div className="shrink-0 rounded-xl bg-primary/[0.06] px-4 py-2.5 text-xs text-primary ring-1 ring-primary/10">
-              Showing providers matched to your job details.
+              Your quote details will be included when you contact a provider.
             </div>
           )}
           {error && (

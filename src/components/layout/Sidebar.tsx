@@ -20,8 +20,8 @@ interface SidebarProps { role: Role }
 
 const NAV_LABELS: Record<string, string> = {
   "/dashboard": "Dashboard",
-  "/book": "Book a Service",
-  "/search": "Find a Provider",
+  "/book": "Get Quotes",
+  "/search": "Browse Providers",
   "/saved": "Saved",
   "/providers": "Providers",
   "/services": "Services",
@@ -75,8 +75,8 @@ const NAV_LABELS: Record<string, string> = {
 
 const NAV_ICONS: Record<string, React.ElementType> = {
   "Dashboard":      LayoutDashboard,
-  "Book a Service": CalendarPlus,
-  "Find a Provider": Search,
+  "Get Quotes": CalendarPlus,
+  "Browse Providers": Search,
   "Saved":          Bookmark,
   "Services":       Wrench,
   "Bookings":       BookOpen,

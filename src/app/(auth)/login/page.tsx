@@ -30,7 +30,11 @@ export default function LoginPage() {
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirectTo = searchParams.get('redirectTo') ?? '/dashboard'
+  const requestedDestination = searchParams.get('redirectTo') ?? '/dashboard'
+  const redirectTo = requestedDestination.startsWith('/') && !requestedDestination.startsWith('//')
+    ? requestedDestination
+    : '/dashboard'
+  const signupHref = `/signup?redirectTo=${encodeURIComponent(redirectTo)}`
 
   // Messages from the auth callback (email confirmation / recovery links)
   const authNotice = searchParams.get('auth_notice') === 'confirmed_please_login'
@@ -94,7 +98,7 @@ function LoginForm() {
               <button className="flex-1 text-[13.5px] font-medium py-2.5 rounded-lg transition-all bg-white text-dark shadow-sm">
                 Log In
               </button>
-              <Link href="/signup" className="flex-1 text-[13.5px] font-medium py-2.5 rounded-lg transition-all text-muted hover:text-dark text-center">
+              <Link href={signupHref} className="flex-1 text-[13.5px] font-medium py-2.5 rounded-lg transition-all text-muted hover:text-dark text-center">
                 Sign Up
               </Link>
             </div>

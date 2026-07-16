@@ -46,7 +46,7 @@ function dateBlock(dateStr: string) {
 }
 
 const QUICK_LINKS = [
-  { label: 'Book a Service', href: '/book',      icon: <Search size={18} />,       color: 'text-primary bg-primary/[0.08]' },
+  { label: 'Get Quotes',     href: '/book',      icon: <Search size={18} />,       color: 'text-primary bg-primary/[0.08]' },
   { label: 'My Bookings',    href: '/bookings',  icon: <ClipboardList size={18} />, color: 'text-purple-600 bg-purple-50' },
   { label: 'Messages',       href: '/messages',  icon: <MessageSquare size={18} />, color: 'text-teal-600 bg-teal-50' },
   { label: 'Reviews',        href: '/reviews',   icon: <Star size={18} />,          color: 'text-amber-600 bg-amber-50' },
@@ -116,7 +116,7 @@ export default function CustomerDashboard() {
               href="/book"
               className="mt-4 inline-flex items-center gap-2 rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-white hover:bg-white/25 transition-colors"
             >
-              <Search size={14} /> Book a service
+              <Search size={14} /> Get quotes
             </Link>
           </div>
 
@@ -293,7 +293,7 @@ export default function CustomerDashboard() {
             </p>
             <Link href="/book"
               className="mt-1 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark transition-colors">
-              Book your first service →
+              Get your first quotes →
             </Link>
           </div>
         ) : (

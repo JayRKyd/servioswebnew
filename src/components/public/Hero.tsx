@@ -1,8 +1,20 @@
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Search, ArrowRight, Shield, Star, Users } from 'lucide-react'
 
 const services = ['a cleaner', 'a plumber', 'an electrician', 'a painter', 'a gardener']
 
 export default function Hero() {
+  const router = useRouter()
+  const [job, setJob] = useState('')
+
+  function startQuote(searchTerm = job) {
+    const term = searchTerm.trim()
+    router.push(term ? `/book?query=${encodeURIComponent(term)}` : '/book')
+  }
+
   return (
     <section className="relative bg-[#fafbfa] overflow-hidden">
       <div className="absolute top-[-200px] right-[-100px] w-[600px] h-[600px] bg-primary/[0.04] rounded-full blur-[120px] pointer-events-none" />
@@ -40,23 +52,33 @@ export default function Hero() {
             </p>
 
             <div className="animate-fade-up delay-300 mt-9">
-              <div className="relative flex items-center bg-white border border-border rounded-2xl p-2 shadow-[0_2px_8px_rgba(0,0,0,0.04)] focus-within:border-primary/30 focus-within:shadow-[0_2px_16px_rgba(17,94,86,0.08)] transition-all">
+              <form
+                onSubmit={e => { e.preventDefault(); startQuote() }}
+                className="relative flex items-center bg-white border border-border rounded-2xl p-2 shadow-[0_2px_8px_rgba(0,0,0,0.04)] focus-within:border-primary/30 focus-within:shadow-[0_2px_16px_rgba(17,94,86,0.08)] transition-all"
+              >
                 <Search size={20} className="ml-3 text-gray-400 shrink-0" />
                 <input
                   type="text"
+                  value={job}
+                  onChange={e => setJob(e.target.value)}
                   placeholder="What do you need help with?"
+                  aria-label="Describe the service you need"
                   className="flex-1 bg-transparent text-[15px] text-dark placeholder:text-gray-400 px-3 py-2.5 outline-none"
                 />
-                <button className="inline-flex items-center gap-2 bg-primary hover:bg-primary-dark text-white font-medium text-[14px] pl-5 pr-4 py-2.5 rounded-xl transition-all shrink-0">
+                <button type="submit" className="inline-flex items-center gap-2 bg-primary hover:bg-primary-dark text-white font-medium text-[14px] pl-5 pr-4 py-2.5 rounded-xl transition-all shrink-0">
                   Get Quotes
                   <ArrowRight size={15} />
                 </button>
-              </div>
+              </form>
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <span className="text-[12px] text-muted/60">Popular:</span>
                 {['End of tenancy clean', 'Boiler repair', 'Flat-pack assembly', 'Garden tidy'].map(tag => (
-                  <button key={tag} className="text-[12px] text-muted hover:text-dark bg-white hover:bg-gray-50 border border-border px-3 py-1 rounded-lg transition-all">
+                  <button
+                    key={tag}
+                    onClick={() => { setJob(tag); startQuote(tag) }}
+                    className="text-[12px] text-muted hover:text-dark bg-white hover:bg-gray-50 border border-border px-3 py-1 rounded-lg transition-all"
+                  >
                     {tag}
                   </button>
                 ))}
@@ -89,8 +111,8 @@ export default function Hero() {
                   <Shield size={16} className="text-emerald-600" />
                 </div>
                 <div>
-                  <p className="text-[15px] font-semibold text-dark leading-none">Guaranteed</p>
-                  <p className="text-[11.5px] text-muted mt-0.5">satisfaction pledge</p>
+                  <p className="text-[15px] font-semibold text-dark leading-none">90-day</p>
+                  <p className="text-[11.5px] text-muted mt-0.5">workmanship guarantee</p>
                 </div>
               </div>
             </div>

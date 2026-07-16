@@ -32,6 +32,10 @@ function SignupForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const roleParam = (searchParams.get('role') ?? 'customer') as Role
+  const requestedDestination = searchParams.get('redirectTo') ?? '/dashboard'
+  const redirectTo = requestedDestination.startsWith('/') && !requestedDestination.startsWith('//')
+    ? requestedDestination
+    : '/dashboard'
 
   const [role, setRole] = useState<Role>(roleParam)
   const [fullName, setFullName] = useState('')
@@ -56,7 +60,7 @@ function SignupForm() {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
         data: {
           full_name: fullName,
           first_name: firstName,

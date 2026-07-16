@@ -117,7 +117,8 @@ export async function middleware(request: NextRequest) {
     if (isPublicRoute(pathname)) return response
     const loginUrl = request.nextUrl.clone()
     loginUrl.pathname = '/login'
-    loginUrl.searchParams.set('redirectTo', pathname)
+    loginUrl.search = ''
+    loginUrl.searchParams.set('redirectTo', `${pathname}${request.nextUrl.search}`)
     return NextResponse.redirect(loginUrl)
   }
 

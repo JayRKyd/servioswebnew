@@ -7,6 +7,13 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+const TRADE_CATEGORY_MAP: Record<string, string> = {
+  plumber: 'Plumbing', electrician: 'Electrical', hvac: 'HVAC',
+  painter: 'Painting', carpenter: 'Carpentry', cleaner: 'Cleaning',
+  landscaper: 'Landscaping', roofer: 'Roofing', pest_control: 'Pest Control',
+  security: 'Security', handyman: 'Handyman',
+}
+
 export async function POST(req: NextRequest) {
   const secret = req.headers.get('x-sync-secret')
   if (secret !== process.env.SYNC_SECRET) {
@@ -36,7 +43,7 @@ export async function POST(req: NextRequest) {
       rating_average: parseFloat(p.rating_average) ?? 0,
       rating_count:   p.total_reviews ?? 0,
       avatar_url:     p.profile_image_url ?? null,
-      categories:     p.trade_category ? [p.trade_category] : [],
+      categories:     p.trade_category ? [TRADE_CATEGORY_MAP[p.trade_category] ?? p.trade_category] : [],
     }
     if (loc?.lat != null && loc?.lng != null) {
       record._geoloc = { lat: loc.lat, lng: loc.lng }

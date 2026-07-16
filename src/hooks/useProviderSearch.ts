@@ -40,6 +40,24 @@ const DEFAULT_FILTERS: SearchFilters = {
   sortBy: 'rating',
 }
 
+const TRADE_LABELS: Record<string, string> = {
+  plumber: 'Plumbing',
+  electrician: 'Electrical',
+  hvac: 'HVAC',
+  painter: 'Painting',
+  carpenter: 'Carpentry',
+  cleaner: 'Cleaning',
+  landscaper: 'Landscaping',
+  roofer: 'Roofing',
+  pest_control: 'Pest Control',
+  security: 'Security',
+  handyman: 'Handyman',
+}
+
+const TRADE_KEYS = Object.fromEntries(
+  Object.entries(TRADE_LABELS).map(([key, label]) => [label, key])
+)
+
 export function useProviderSearch() {
   const [query, setQuery]           = useState('')
   const [filters, setFilters]       = useState<SearchFilters>(DEFAULT_FILTERS)
@@ -69,7 +87,12 @@ export function useProviderSearch() {
     if (!searchClient) { await searchSupabase(q, f); return }
 
     const facetFilters: string[][] = []
-    if (f.category) facetFilters.push([`categories:${f.category}`])
+    if (f.category) {
+      const storedKey = TRADE_KEYS[f.category]
+      facetFilters.push(storedKey
+        ? [`categories:${f.category}`, `categories:${storedKey}`]
+        : [`categories:${f.category}`])
+    }
     if (f.island)   facetFilters.push([`islands:${f.island}`])
 
     const numericFilters: string[] = []
@@ -112,15 +135,20 @@ export function useProviderSearch() {
   async function searchSupabase(q: string, f: SearchFilters) {
     let builder = supabase
       .from('provider_profiles')
-      .select('user_id, business_name, first_name, last_name, bio, trade_category, hourly_rate, rating_average, total_reviews, profile_image_url')
+      .select('user_id, business_name, first_name, last_name, bio, trade_category, hourly_rate, rating_average, total_reviews, profile_image_url, service_areas')
       .eq('verification_status', 'verified')
 
     if (q.trim()) {
       builder = builder.or(`business_name.ilike.%${q}%,first_name.ilike.%${q}%,last_name.ilike.%${q}%,trade_category.ilike.%${q}%`)
     }
     if (f.minRating > 0) builder = builder.gte('rating_average', f.minRating)
+    if (f.maxPrice < 1000) builder = builder.lte('hourly_rate', f.maxPrice)
+    if (f.category) builder = builder.eq('trade_category', TRADE_KEYS[f.category] ?? f.category)
+    if (f.island) builder = builder.contains('service_areas', [f.island])
 
-    builder = builder.order('rating_average', { ascending: false })
+    if (f.sortBy === 'price_asc') builder = builder.order('hourly_rate', { ascending: true })
+    else if (f.sortBy === 'price_desc') builder = builder.order('hourly_rate', { ascending: false })
+    else builder = builder.order('rating_average', { ascending: false })
 
     const { data, error } = await builder.limit(40)
     if (error) throw error
@@ -130,8 +158,8 @@ export function useProviderSearch() {
       objectID:     p.user_id,
       avatar_url:   p.profile_image_url,
       rating_count: p.total_reviews,
-      islands:      [],
-      categories:   p.trade_category ? [p.trade_category] : [],
+      islands:      Array.isArray(p.service_areas) ? p.service_areas : [],
+      categories:   p.trade_category ? [TRADE_LABELS[p.trade_category] ?? p.trade_category] : [],
     })))
     setTotal(rows.length)
   }

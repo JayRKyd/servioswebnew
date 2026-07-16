@@ -48,13 +48,14 @@ function NewBookingForm() {
   const { user } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const quoteContext = searchParams.get('context') ?? ''
   const [services, setServices] = useState<any[]>([])
   const [form, setForm] = useState({
     service_id: searchParams.get('service') ?? '',
     provider_id: searchParams.get('provider') ?? '',
     scheduled_date: '',
     scheduled_time_start: '',
-    customer_notes: '',
+    customer_notes: quoteContext ? `Quote details: ${quoteContext}` : '',
     is_emergency: false,
   })
   const [submitting, setSubmitting] = useState(false)
