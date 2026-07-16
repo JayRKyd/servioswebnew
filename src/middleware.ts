@@ -15,6 +15,8 @@ const PUBLIC_ROUTES = [
   '/join-provider',
   '/forgot-password',
   '/verify-email',
+  '/reset-password',
+  '/auth',
   '/coming-soon',
   '/api/v1',
   '/api/webhooks/stripe',
@@ -22,6 +24,11 @@ const PUBLIC_ROUTES = [
   '/api/health',
   '/api/search/sync',
 ]
+
+/** Public routes that stay reachable even when already authenticated —
+ *  the auth callback must run its code exchange, and a logged-in user
+ *  clicking a recovery link still needs the reset form. */
+const AUTHED_ACCESSIBLE_PUBLIC = ['/coming-soon', '/auth', '/reset-password']
 
 function isPublicRoute(pathname: string) {
   return PUBLIC_ROUTES.some((r) => pathname === r || pathname.startsWith(r + '/'))
@@ -54,6 +61,14 @@ export async function middleware(request: NextRequest) {
     pathname.includes('.')
   ) {
     return NextResponse.next()
+  }
+
+  // Safety net: Supabase auth links that land on the homepage with a ?code=
+  // (the project Site URL default) get routed to the callback for exchange.
+  if (pathname === '/' && request.nextUrl.searchParams.has('code')) {
+    const callbackUrl = request.nextUrl.clone()
+    callbackUrl.pathname = '/auth/callback'
+    return NextResponse.redirect(callbackUrl)
   }
 
   // API routes handle their own auth — never block or redirect them
@@ -108,8 +123,10 @@ export async function middleware(request: NextRequest) {
 
   // Authenticated user hitting auth/public pages → redirect to their dashboard
   if (isPublicRoute(pathname) && !pathname.startsWith('/api')) {
-    // /coming-soon is always viewable even when logged in
-    if (pathname === '/coming-soon') return response
+    // Some public routes stay reachable when logged in (callback, reset form)
+    if (AUTHED_ACCESSIBLE_PUBLIC.some((r) => pathname === r || pathname.startsWith(r + '/'))) {
+      return response
+    }
     const activeRole = (user.user_metadata?.active_role ?? 'customer') as Role
     return NextResponse.redirect(new URL(getDefaultRoute(activeRole), request.url))
   }

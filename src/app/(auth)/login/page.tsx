@@ -32,6 +32,14 @@ function LoginForm() {
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirectTo') ?? '/dashboard'
 
+  // Messages from the auth callback (email confirmation / recovery links)
+  const authNotice = searchParams.get('auth_notice') === 'confirmed_please_login'
+    ? 'Your email is confirmed — log in to get started.'
+    : null
+  const authError = searchParams.get('auth_error') === 'link_invalid'
+    ? 'That link is invalid or has expired. Log in, or request a new link.'
+    : null
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -69,6 +77,17 @@ function LoginForm() {
             <h1 className="text-[1.75rem] sm:text-[2rem] font-bold text-dark tracking-[-0.02em]">Welcome back</h1>
             <p className="text-[15px] text-muted mt-2">Log in to manage your bookings and messages.</p>
           </div>
+
+          {authNotice && (
+            <div className="mb-5 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
+              ✓ {authNotice}
+            </div>
+          )}
+          {authError && (
+            <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+              {authError}
+            </div>
+          )}
 
           <div className="bg-white rounded-2xl border border-border/70 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6 sm:p-8">
             <div className="flex bg-[#f4f5f4] rounded-xl p-1 mb-6">
