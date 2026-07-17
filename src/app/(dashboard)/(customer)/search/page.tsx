@@ -256,7 +256,8 @@ function SearchPageInner() {
   }, [qParam])
 
   useEffect(() => {
-    if (islandParam) updateFilter('island', islandParam)
+    // 'other' = wizard's "Somewhere else" — don't restrict the area filter
+    if (islandParam && islandParam !== 'other') updateFilter('island', islandParam)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [islandParam])
 

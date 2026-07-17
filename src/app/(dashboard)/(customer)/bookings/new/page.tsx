@@ -1,5 +1,6 @@
 'use client'
 import { Suspense, useState, useEffect } from 'react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
@@ -175,6 +176,30 @@ function NewBookingForm() {
     }
 
     router.push('/bookings/' + data.id)
+  }
+
+  // A booking must be tied to a provider — a provider-less booking is never
+  // seen or accepted by anyone. Direct arrivals get routed into the funnel.
+  if (!searchParams.get('provider')) {
+    return (
+      <div className="mx-auto max-w-xl">
+        <div className="rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-gray-100">
+          <h1 className="text-xl font-bold text-gray-900">First, choose your provider</h1>
+          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-gray-500">
+            Bookings on Servios go to a specific professional. Answer a few quick questions
+            and we&apos;ll match you — or browse and compare providers yourself.
+          </p>
+          <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+            <Link href="/book" className="rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white hover:bg-primary-dark transition-colors">
+              Get matched — Get Quotes
+            </Link>
+            <Link href="/search" className="rounded-xl border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors">
+              Browse providers
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

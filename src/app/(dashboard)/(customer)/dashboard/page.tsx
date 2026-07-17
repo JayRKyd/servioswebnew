@@ -9,7 +9,17 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import {
   CalendarDays, MessageSquare, Star, PoundSterling,
   ClipboardList, Search, ChevronRight, CheckCircle, Clock,
+  Droplets, Zap, Sparkles, Wind, Paintbrush, Wrench,
 } from 'lucide-react'
+
+const CATEGORY_TILE_ICONS: Record<string, React.ElementType> = {
+  plumber:     Droplets,
+  electrician: Zap,
+  cleaner:     Sparkles,
+  hvac:        Wind,
+  painter:     Paintbrush,
+  handyman:    Wrench,
+}
 
 function greeting() {
   const h = new Date().getHours()
@@ -259,10 +269,11 @@ export default function CustomerDashboard() {
           <div className="grid grid-cols-3 gap-2">
             {heroCategories.map((key) => {
               const meta = CATEGORY_META[key]
+              const Icon = CATEGORY_TILE_ICONS[key] ?? Wrench
               return (
                 <Link key={key} href={`/book?category=${key}`}
                   className="flex flex-col items-center gap-1.5 rounded-xl bg-gray-50 px-2 py-3 text-center hover:bg-primary/[0.08] hover:ring-1 hover:ring-primary/20 transition-all">
-                  <span className="text-xl">{meta?.icon}</span>
+                  <Icon size={18} className="text-primary" />
                   <span className="text-[11px] font-medium text-gray-600">{meta?.label}</span>
                 </Link>
               )

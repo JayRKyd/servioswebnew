@@ -26,7 +26,7 @@ export default function CustomerBookingsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">My Bookings</h1>
-        <Link href="/bookings/new" className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark">+ New Booking</Link>
+        <Link href="/book" className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark">Book a service</Link>
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1">
@@ -41,7 +41,21 @@ export default function CustomerBookingsPage() {
       {loading ? (
         <div className="flex h-64 items-center justify-center"><div className="text-gray-400">Loading…</div></div>
       ) : bookings.length === 0 ? (
-        <div className="flex h-40 items-center justify-center rounded-xl border-2 border-dashed border-gray-200"><p className="text-gray-400">No bookings found</p></div>
+        <div className="flex h-52 flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-gray-200 text-center">
+          <p className="text-sm font-medium text-gray-700">
+            {filter === 'all' ? 'Your bookings will appear here' : `No ${filter.replace('_', ' ')} bookings`}
+          </p>
+          {filter === 'all' && (
+            <>
+              <p className="max-w-xs text-xs text-gray-500 leading-relaxed">
+                Once you book a provider you can track progress, message them, and pay securely — all from this page.
+              </p>
+              <Link href="/book" className="mt-1 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark transition-colors">
+                Book your first service
+              </Link>
+            </>
+          )}
+        </div>
       ) : (
         <div className="space-y-3">
           {bookings.map(b => (

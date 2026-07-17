@@ -122,7 +122,10 @@ const ROLE_LABEL: Record<Role, string> = {
 }
 
 const PROVIDER_SETUP_ROUTES = new Set(['/provider/setup/trade', '/provider/setup/services', '/provider/setup/documents', '/provider/setup/complete'])
-const NAV_HIDDEN = new Set(['/providers'])
+// Routes that stay accessible but don't appear in the nav: /providers is
+// reached from cards/links, /services is a legacy catalog superseded by
+// Get Quotes (deep links still work).
+const NAV_HIDDEN = new Set(['/providers', '/services'])
 
 export function Sidebar({ role }: SidebarProps) {
   const pathname = usePathname()

@@ -39,25 +39,20 @@ export const CATEGORY_META: Record<string, CategoryMeta> = {
 const DISCUSS = { label: "I'd like to discuss with the pro", value: 'discuss' }
 
 /** Appended as the final step for every category — answer maps to provider `location` facet */
+/** Values must match provider `service_areas` exactly — they drive the
+ *  search facet filter. 'other' is ignored by the filter (shows all areas). */
 export const LOCATION_STEP: QuestionStep = {
   id: 'location',
   type: 'single',
   question: 'Where do you need the service?',
-  hint: "We'll match you with providers in your area.",
+  hint: "We'll match you with providers covering your area.",
   options: [
-    { label: 'London',          value: 'london' },
-    { label: 'Manchester',      value: 'manchester' },
-    { label: 'Birmingham',      value: 'birmingham' },
-    { label: 'Leeds',           value: 'leeds' },
-    { label: 'Glasgow',         value: 'glasgow' },
-    { label: 'Liverpool',       value: 'liverpool' },
-    { label: 'Bristol',         value: 'bristol' },
-    { label: 'Sheffield',       value: 'sheffield' },
-    { label: 'Edinburgh',       value: 'edinburgh' },
-    { label: 'Cardiff',         value: 'cardiff' },
-    { label: 'Leicester',       value: 'leicester' },
-    { label: 'Nottingham',      value: 'nottingham' },
-    { label: 'Other',           value: 'other' },
+    { label: 'Central London',  value: 'Central London' },
+    { label: 'North London',    value: 'North London' },
+    { label: 'South London',    value: 'South London' },
+    { label: 'East London',     value: 'East London' },
+    { label: 'West London',     value: 'West London' },
+    { label: 'Somewhere else',  value: 'other' },
   ],
 }
 
