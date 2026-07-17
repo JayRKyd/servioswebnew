@@ -21,11 +21,18 @@ export async function POST(req: NextRequest) {
   }
 
   // trim() guards against stray whitespace in env values (the app ID carried
-  // a pasted tab that broke the client-side search the same way)
-  const appId    = (process.env.ALGOLIA_APP_ID ?? '').trim()
+  // a pasted tab that broke the client-side search the same way). The app ID
+  // falls back to the public one — same value; only the admin key is extra.
+  const appId    = (process.env.ALGOLIA_APP_ID ?? process.env.NEXT_PUBLIC_ALGOLIA_APP_ID ?? '').trim()
   const adminKey = (process.env.ALGOLIA_ADMIN_KEY ?? '').trim()
-  if (!appId || !adminKey) {
-    return NextResponse.json({ error: 'Algolia env vars not configured' }, { status: 500 })
+  if (!appId) {
+    return NextResponse.json({ error: 'ALGOLIA_APP_ID is not configured' }, { status: 500 })
+  }
+  if (!adminKey) {
+    return NextResponse.json(
+      { error: 'ALGOLIA_ADMIN_KEY is not configured — add the Admin API key from the Algolia dashboard to the Vercel environment variables' },
+      { status: 500 }
+    )
   }
   const client = algoliasearch(appId, adminKey)
 
