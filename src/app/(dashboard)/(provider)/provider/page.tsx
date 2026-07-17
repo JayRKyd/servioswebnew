@@ -122,19 +122,6 @@ export default function ProviderDashboard() {
   const name = profile?.first_name ?? 'there'
   const nextJob = upcoming[0]
 
-  // Static preview card shown when provider has no upcoming jobs yet
-  const mockDate = new Date(now); mockDate.setDate(mockDate.getDate() + 1)
-  const mockDateStr = mockDate.toISOString().split('T')[0]
-  const MOCK_JOB = {
-    scheduled_date: mockDateStr,
-    scheduled_time_start: '09:00:00',
-    service: { title: 'Bathroom Tap Repair' },
-    customer_profile: { first_name: 'Marcus', last_name: 'Reid', profile_image_url: null },
-    base_amount: 8500,
-    status: 'accepted',
-    is_emergency: false,
-  }
-
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -309,26 +296,21 @@ export default function ProviderDashboard() {
             </div>
 
             {upcoming.length === 0 ? (
-              <div className="flex items-center gap-4 px-5 py-4">
-                {dateBlock(MOCK_JOB.scheduled_date, false)}
-                <Avatar cp={MOCK_JOB.customer_profile} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-gray-900">{MOCK_JOB.service.title}</p>
-                  <div className="mt-0.5 flex items-center gap-2.5 text-xs text-gray-400">
-                    <span>James Taylor</span>
-                    <span className="text-gray-200">·</span>
-                    <span className="flex items-center gap-1">
-                      <Clock size={10} />{formatTime(MOCK_JOB.scheduled_time_start)}
-                    </span>
-                  </div>
+              <div className="flex flex-col items-center gap-3 px-5 py-10 text-center">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gray-50">
+                  <Calendar size={20} className="text-gray-400" />
                 </div>
-                <div className="flex shrink-0 flex-col items-end gap-1.5">
-                  <StatusBadge status="accepted" />
-                  <p className="text-xs font-semibold text-gray-500">
-                    {formatCurrency(MOCK_JOB.base_amount / 100)}
-                  </p>
-                </div>
-                <ChevronRight size={14} className="shrink-0 text-gray-200" />
+                <p className="text-sm font-medium text-gray-700">No upcoming jobs yet</p>
+                <p className="max-w-xs text-xs leading-relaxed text-gray-500">
+                  Jobs appear here when customers book you. Complete your profile and
+                  verification to rank higher in search and win your first booking.
+                </p>
+                <Link
+                  href="/provider/profile"
+                  className="mt-1 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark transition-colors"
+                >
+                  Complete your profile
+                </Link>
               </div>
             ) : (
               <div className="divide-y divide-gray-50">
