@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/auth'
 import { algoliaConfigured, searchClient, PROVIDERS_INDEX } from '@/lib/algolia'
+import { profileCompletenessScore } from '@/lib/profileScore'
 
 export type ProviderHit = {
   objectID: string
@@ -15,6 +16,7 @@ export type ProviderHit = {
   rating_average: number
   rating_count: number
   jobs_completed?: number
+  profile_score?: number
   categories: string[]
   avatar_url: string | null
   _geoloc?: { lat: number; lng: number }
@@ -135,9 +137,11 @@ export function useProviderSearch() {
     let sorted = hits.filter(h => UUID_RE.test(h.user_id))
     if (f.sortBy === 'price_asc')  sorted.sort((a, b) => a.hourly_rate - b.hourly_rate)
     if (f.sortBy === 'price_desc') sorted.sort((a, b) => b.hourly_rate - a.hourly_rate)
-    // "Recommended": rating first, proven track record breaks ties
+    // "Recommended": rating, then track record, then profile completeness
     if (f.sortBy === 'rating')     sorted.sort((a, b) =>
-      (b.rating_average - a.rating_average) || ((b.jobs_completed ?? 0) - (a.jobs_completed ?? 0)))
+      (b.rating_average - a.rating_average)
+      || ((b.jobs_completed ?? 0) - (a.jobs_completed ?? 0))
+      || ((b.profile_score ?? 0) - (a.profile_score ?? 0)))
     setResults(sorted)
     setTotal(sorted.length < hits.length ? sorted.length : nbHits)
   }
@@ -145,7 +149,7 @@ export function useProviderSearch() {
   async function searchSupabase(q: string, f: SearchFilters) {
     let builder = supabase
       .from('provider_profiles')
-      .select('user_id, business_name, first_name, last_name, bio, trade_category, hourly_rate, rating_average, total_reviews, total_jobs_completed, profile_image_url, service_areas')
+      .select('user_id, business_name, first_name, last_name, bio, trade_category, hourly_rate, rating_average, total_reviews, total_jobs_completed, profile_image_url, service_areas, city, licenses, languages, identity_verified')
       .eq('verification_status', 'verified')
 
     if (q.trim()) {
@@ -163,15 +167,25 @@ export function useProviderSearch() {
     const { data, error } = await builder.limit(40)
     if (error) throw error
     const rows = data ?? []
-    setResults(rows.map((p: any) => ({
+    const mapped = rows.map((p: any) => ({
       ...p,
       objectID:       p.user_id,
       avatar_url:     p.profile_image_url,
       rating_count:   p.total_reviews,
       jobs_completed: p.total_jobs_completed ?? 0,
+      profile_score:  profileCompletenessScore(p),
       islands:      Array.isArray(p.service_areas) ? p.service_areas : [],
       categories:   p.trade_category ? [TRADE_LABELS[p.trade_category] ?? p.trade_category] : [],
-    })))
+    }))
+    // "Recommended": complete profiles rank above bare ones when rating and
+    // track record tie (the DB order can't see completeness)
+    if (f.sortBy === 'rating') {
+      mapped.sort((a: any, b: any) =>
+        (b.rating_average - a.rating_average)
+        || (b.jobs_completed - a.jobs_completed)
+        || (b.profile_score - a.profile_score))
+    }
+    setResults(mapped)
     setTotal(rows.length)
   }
 

@@ -402,6 +402,9 @@ function Inner() {
                     <span key={area} className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-600">{area}</span>
                   ))}
                 </div>
+                {profile.max_travel_distance != null && (
+                  <p className="mt-2 text-xs text-gray-500">Travels up to {profile.max_travel_distance} miles</p>
+                )}
               </div>
             )}
 

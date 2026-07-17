@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { algoliasearch } from 'algoliasearch'
 import { createClient } from '@supabase/supabase-js'
+import { profileCompletenessScore } from '@/lib/profileScore'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
 
   const { data: providers, error } = await supabase
     .from('provider_profiles')
-    .select('user_id, business_name, first_name, last_name, bio, hourly_rate, rating_average, total_reviews, total_jobs_completed, profile_image_url, trade_category, base_location, service_areas')
+    .select('user_id, business_name, first_name, last_name, bio, hourly_rate, rating_average, total_reviews, total_jobs_completed, profile_image_url, trade_category, base_location, service_areas, city, licenses, languages, identity_verified')
     .eq('verification_status', 'verified')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
       rating_average: parseFloat(p.rating_average) ?? 0,
       rating_count:   p.total_reviews ?? 0,
       jobs_completed: p.total_jobs_completed ?? 0,
+      profile_score:  profileCompletenessScore(p),
       avatar_url:     p.profile_image_url ?? null,
       categories:     p.trade_category ? [TRADE_CATEGORY_MAP[p.trade_category] ?? p.trade_category] : [],
     }
@@ -76,7 +78,7 @@ export async function POST(req: NextRequest) {
       indexSettings: {
         searchableAttributes: ['business_name', 'first_name', 'last_name', 'bio', 'categories'],
         attributesForFaceting: ['islands', 'categories', 'hourly_rate', 'rating_average'],
-        customRanking: ['desc(rating_average)', 'desc(jobs_completed)', 'desc(rating_count)'],
+        customRanking: ['desc(rating_average)', 'desc(jobs_completed)', 'desc(profile_score)', 'desc(rating_count)'],
       },
     })
   } catch (e) {

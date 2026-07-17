@@ -379,14 +379,15 @@ export default function ProviderProfilePage() {
 
   // ── Profile completeness ──
   const COMPLETION_ITEMS = [
-    { key: 'photo',     label: 'Add a profile photo',          weight: 15, done: !!profile.profile_image_url },
+    { key: 'photo',     label: 'Add a profile photo',          weight: 10, done: !!profile.profile_image_url },
     { key: 'bio',       label: 'Write a bio',                  weight: 15, done: !!(profile.bio ?? '').trim() },
-    { key: 'trades',    label: 'Add trade categories',         weight: 10, done: (profile.trade_categories ?? []).length > 0 },
+    { key: 'trades',    label: 'Add trade categories',         weight: 10, done: (profile.trade_categories ?? []).length > 0 || !!profile.trade_category },
     { key: 'rate',      label: 'Set your hourly rate',         weight: 10, done: profile.hourly_rate != null },
-    { key: 'phone',     label: 'Add a phone number',           weight: 10, done: !!profile.phone },
+    { key: 'phone',     label: 'Add a phone number',           weight:  5, done: !!profile.phone },
     { key: 'location',  label: 'Add your location',            weight: 10, done: !!(profile.city || areas.length > 0) },
     { key: 'licenses',  label: 'Add licences / certifications',weight: 10, done: licenses.length > 0 },
     { key: 'verified',  label: 'Verify your identity',         weight: 10, done: !!profile.identity_verified },
+    { key: 'portfolio', label: 'Add work photos',              weight: 10, done: portfolioPhotos.length > 0 },
     { key: 'languages', label: 'Add languages you speak',      weight:  5, done: languages.length > 0 },
     { key: 'areas',     label: 'Set service areas',            weight:  5, done: areas.length > 0 },
   ]
@@ -914,7 +915,7 @@ export default function ProviderProfilePage() {
             </div>
 
             {/* ── PORTFOLIO ── */}
-            <div className="border-t border-gray-100 pt-7">
+            <div id="pf-portfolio" className={`border-t border-gray-100 pt-7 scroll-mt-24 ${hl('portfolio')}`}>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-base font-bold text-gray-900">Portfolio</h3>
                 <button
