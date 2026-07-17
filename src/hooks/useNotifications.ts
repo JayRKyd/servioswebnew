@@ -1,13 +1,20 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/auth'
 import { useAuth } from './useAuth'
+
+let instanceCounter = 0
 
 export function useNotifications() {
   const { user, session } = useAuth()
   const [notifications, setNotifications] = useState<any[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
+  // Channel topics must be unique per client: this hook mounts more than once
+  // (Sidebar badge + /notifications page), and supabase-js returns the existing
+  // channel for a duplicate topic — adding callbacks to an already-subscribed
+  // channel throws and crashes the page.
+  const instanceIdRef = useRef(++instanceCounter)
 
   const refetch = useCallback(async () => {
     if (!user) return
@@ -38,7 +45,7 @@ export function useNotifications() {
     supabase.realtime.setAuth(session.access_token)
 
     const channel = supabase
-      .channel(`notifications:${user.id}`)
+      .channel(`notifications:${user.id}:${instanceIdRef.current}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },

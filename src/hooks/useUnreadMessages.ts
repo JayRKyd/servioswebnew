@@ -11,10 +11,16 @@ const ROLE_COLUMN: Record<string, string> = {
   tenant: 'tenant_id',
 }
 
+let instanceCounter = 0
+
 export function useUnreadMessages() {
   const { user, activeRole } = useAuth()
   const [unreadIds, setUnreadIds] = useState<Set<string>>(new Set())
   const convIdsRef = useRef<Set<string>>(new Set())
+  // Channel topics must be unique per client — a second mount of this hook
+  // would otherwise collide with the first instance's subscribed channel
+  // (adding callbacks after subscribe() throws). See useNotifications.
+  const instanceIdRef = useRef(++instanceCounter)
 
   const col = activeRole ? ROLE_COLUMN[activeRole] : undefined
 
@@ -91,7 +97,7 @@ export function useUnreadMessages() {
   useEffect(() => {
     if (!user?.id) return
     const channel = supabase
-      .channel(`unread:${user.id}`)
+      .channel(`unread:${user.id}:${instanceIdRef.current}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'conversation_reads', filter: `user_id=eq.${user.id}` },
