@@ -62,8 +62,8 @@ export function ProviderCard({
       className={
         'block rounded-xl bg-white p-4 shadow-sm transition ' +
         (isSelected
-          ? 'ring-2 ring-primary shadow-md'
-          : 'ring-1 ring-gray-100 hover:ring-primary/30 hover:shadow-md')
+          ? 'ring-2 ring-inset ring-primary shadow-md'
+          : 'ring-1 ring-inset ring-gray-100 hover:ring-primary/30 hover:shadow-md')
       }
     >
       <div className="flex items-start gap-3">
@@ -175,7 +175,7 @@ export function AirbnbProviderCard({
     >
       {/* Photo / avatar area */}
       <div className={`relative aspect-[4/3] overflow-hidden rounded-2xl bg-surface transition-all duration-200 ${
-        isSelected ? 'ring-2 ring-primary shadow-md' : 'group-hover:shadow-md'
+        isSelected ? 'ring-2 ring-inset ring-primary shadow-md' : 'group-hover:shadow-md'
       }`}>
         {cardImage ? (
           <img
