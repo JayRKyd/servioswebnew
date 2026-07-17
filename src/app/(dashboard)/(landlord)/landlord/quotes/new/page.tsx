@@ -33,19 +33,21 @@ export default function NewQuoteRequestPage() {
     // Load properties, services, providers in parallel
     Promise.all([
       supabase.from('properties').select('id, address').eq('landlord_id', user.id),
-      supabase.from('services').select('id, name, category').order('category'),
+      supabase.from('services').select('id, title, service_categories(name)').eq('is_active', true).is('provider_id', null).order('title'),
       supabase
         .from('provider_profiles')
-        .select('user_id, business_name, full_name')
-        .eq('is_verified', true),
+        .select('user_id, business_name, first_name, last_name')
+        .eq('verification_status', 'verified'),
     ]).then(([{ data: props }, { data: svcs }, { data: provs }]) => {
       setProperties(props ?? [])
-      setServices(svcs ?? [])
+      setServices((svcs ?? []).map((s: any) => ({
+        id: s.id, name: s.title, category: s.service_categories?.name ?? '',
+      })))
       setProviders(
         (provs ?? []).map((p: any) => ({
           id: p.user_id,
-          business_name: p.business_name,
-          full_name: p.full_name,
+          business_name: p.business_name?.trim() || null,
+          full_name: `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || null,
         }))
       )
     })
@@ -100,6 +102,17 @@ export default function NewQuoteRequestPage() {
       setSubmitting(false)
       return
     }
+
+    // Notify invited providers so the request shows up beyond their Quote Requests page
+    await supabase.from('notifications').insert(
+      selectedProviders.map((pid) => ({
+        user_id: pid,
+        notification_type: 'quote_request',
+        title: 'New quote request',
+        body: `You've been invited to quote on "${title}".`,
+        data: { quote_request_id: qr.id },
+      }))
+    )
 
     router.push('/landlord/quotes/' + qr.id)
   }

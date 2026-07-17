@@ -3,6 +3,7 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/auth'
 import { UKDateInput } from '@/components/shared/UKDateInput'
+import { invalidateOnboardingCache } from '@/components/providers/OnboardingProvider'
 
 const DOC_TYPES = [
   { value: 'id',            label: 'Government ID',       required: true },
@@ -69,6 +70,7 @@ export default function SetupDocumentsPage() {
     setSubmitting(true)
     const { data: { user } } = await supabase.auth.getUser()
     await supabase.from('provider_profiles').update({ onboarding_complete: true, onboarding_step: 'complete', verification_status: 'pending' }).eq('user_id', user!.id)
+    invalidateOnboardingCache()
     router.push('/provider/setup/complete')
     setSubmitting(false)
   }

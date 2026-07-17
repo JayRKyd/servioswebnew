@@ -68,12 +68,12 @@ export default function LandlordQuoteDetailPage() {
       const providerIds = resps.map((r: QuoteResponse) => r.provider_id)
       const { data: profiles } = await supabase
         .from('provider_profiles')
-        .select('user_id, business_name, full_name')
+        .select('user_id, business_name, first_name, last_name')
         .in('user_id', providerIds)
 
       const nameMap: Record<string, string> = {}
       ;(profiles ?? []).forEach((p: any) => {
-        nameMap[p.user_id] = p.business_name ?? p.full_name ?? p.user_id
+        nameMap[p.user_id] = p.business_name?.trim() || `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || 'Provider'
       })
 
       setResponses(

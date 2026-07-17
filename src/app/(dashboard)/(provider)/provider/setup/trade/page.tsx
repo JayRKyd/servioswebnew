@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
 import { MapPin } from 'lucide-react'
+import { invalidateOnboardingCache } from '@/components/providers/OnboardingProvider'
 
 const TRADE_ICONS: Record<string, string> = {
   plumber: '🔧', electrician: '⚡', ac_hvac: '❄️', carpenter: '🪚',
@@ -49,6 +50,7 @@ export default function SetupTradePage() {
     await supabase.from('provider_profiles')
       .update({ trade_category: selected, service_areas: areas, onboarding_step: 'services' })
       .eq('user_id', user.id)
+    invalidateOnboardingCache()
     router.push('/provider/setup/services')
     setSaving(false)
   }

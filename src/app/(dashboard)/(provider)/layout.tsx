@@ -1,56 +1,28 @@
 'use client'
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/auth'
-import { useAuth } from '@/hooks/useAuth'
+import { useContext, useEffect } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import { OnboardingContext } from '@/contexts/OnboardingContext'
-import type { OnboardingCtx } from '@/contexts/OnboardingContext'
 
-// Module-level cache — onboarding status doesn't change mid-session
-let _onboardingCache: { userId: string; ctx: OnboardingCtx } | null = null
-
+// Onboarding status is fetched once in the dashboard shell (OnboardingProvider,
+// which also feeds the Sidebar lock). This layout just enforces the funnel:
+// providers who haven't finished setup are sent to their current step.
 export default function ProviderLayout({ children }: { children: React.ReactNode }) {
-  const { user, isLoading: authLoading } = useAuth()
+  const { complete, step } = useContext(OnboardingContext)
+  const pathname = usePathname()
+  const router = useRouter()
 
-  const cachedCtx = user && _onboardingCache?.userId === user.id ? _onboardingCache.ctx : null
-
-  const [ctx, setCtx] = useState<OnboardingCtx>(cachedCtx ?? { complete: true, step: 'complete' })
-  const [checked, setChecked] = useState(!!cachedCtx)
+  const inSetup = pathname.startsWith('/provider/setup')
+  const mustRedirect = !complete && !inSetup
 
   useEffect(() => {
-    if (authLoading) return
-    if (!user) { setChecked(true); return }
+    if (mustRedirect) router.replace(`/provider/setup/${step}`)
+  }, [mustRedirect, step, router])
 
-    // Cache hit
-    if (_onboardingCache?.userId === user.id) {
-      setCtx(_onboardingCache.ctx)
-      setChecked(true)
-      return
-    }
-
-    supabase
-      .from('provider_profiles')
-      .select('onboarding_complete, onboarding_step')
-      .eq('user_id', user.id)
-      .maybeSingle()
-      .then(({ data: profile }) => {
-        const complete = profile?.onboarding_complete === true || profile?.onboarding_step === 'complete'
-        const newCtx: OnboardingCtx = { complete, step: profile?.onboarding_step ?? 'trade' }
-        _onboardingCache = { userId: user.id, ctx: newCtx }
-        setCtx(newCtx)
-        setChecked(true)
-      })
-      .catch(() => setChecked(true))
-  }, [user?.id, authLoading])
-
-  if (!checked) return (
+  if (mustRedirect) return (
     <div className="flex h-full items-center justify-center">
       <span className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
     </div>
   )
 
-  return (
-    <OnboardingContext.Provider value={ctx}>
-      {children}
-    </OnboardingContext.Provider>
-  )
+  return <>{children}</>
 }

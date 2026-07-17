@@ -6,6 +6,7 @@ import { VerifiedBanner } from "@/components/shared/VerifiedBanner"
 import { useActiveRole } from "@/hooks/useActiveRole"
 import { useAuthContext } from "@/components/providers/AuthProvider"
 import { MessagesRealtimeProvider } from "@/components/providers/MessagesRealtimeProvider"
+import { OnboardingProvider } from "@/components/providers/OnboardingProvider"
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isLoading } = useAuthContext()
@@ -50,16 +51,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <MessagesRealtimeProvider>
-      <div className="flex h-screen">
-        <Sidebar role={activeRole} />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <Header />
-          <main className="flex-1 overflow-y-auto bg-[#f7f8f7] p-6 lg:p-8">
-            <Suspense fallback={null}><VerifiedBanner /></Suspense>
-            {children}
-          </main>
+      <OnboardingProvider isProvider={activeRole === 'provider'}>
+        <div className="flex h-screen">
+          <Sidebar role={activeRole} />
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <Header />
+            <main className="flex-1 overflow-y-auto bg-[#f7f8f7] p-6 lg:p-8">
+              <Suspense fallback={null}><VerifiedBanner /></Suspense>
+              {children}
+            </main>
+          </div>
         </div>
-      </div>
+      </OnboardingProvider>
     </MessagesRealtimeProvider>
   )
 }
