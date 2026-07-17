@@ -73,7 +73,14 @@ export function useProviderSearch() {
     setError(null)
     try {
       if (algoliaConfigured) {
-        await searchAlgolia(q, f)
+        try {
+          await searchAlgolia(q, f)
+        } catch (algoliaError) {
+          // Index unreachable/misconfigured — degrade to the database rather
+          // than showing an error and zero results
+          console.error('Algolia search failed, falling back to database:', algoliaError)
+          await searchSupabase(q, f)
+        }
       } else {
         await searchSupabase(q, f)
       }

@@ -1,7 +1,9 @@
 import { algoliasearch } from 'algoliasearch'
 
-const appId     = process.env.NEXT_PUBLIC_ALGOLIA_APP_ID    ?? ''
-const searchKey = process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_KEY ?? ''
+// trim() guards against stray whitespace in env values (a pasted tab in the
+// app ID once produced a 403 "Invalid Application-ID" in production)
+const appId     = (process.env.NEXT_PUBLIC_ALGOLIA_APP_ID    ?? '').trim()
+const searchKey = (process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_KEY ?? '').trim()
 
 export const algoliaConfigured = Boolean(appId && searchKey)
 
