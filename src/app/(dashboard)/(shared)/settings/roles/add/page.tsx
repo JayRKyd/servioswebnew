@@ -6,11 +6,17 @@ import { useAuth } from '@/hooks/useAuth'
 import { useActiveRole } from '@/hooks/useActiveRole'
 import type { Role } from '@/lib/permissions'
 
+const LANDLORD_TENANT_ENABLED = process.env.NEXT_PUBLIC_LANDLORD_TENANT_ENABLED === 'true'
+
 const ROLE_OPTIONS: { role: Role; label: string; description: string }[] = [
   { role: 'customer', label: 'Customer', description: 'Book home and property services' },
   { role: 'provider', label: 'Service Provider', description: 'Offer your services on the platform' },
-  { role: 'landlord', label: 'Landlord', description: 'Manage your rental properties' },
-  { role: 'tenant', label: 'Tenant', description: 'Access your rented property' },
+  ...(LANDLORD_TENANT_ENABLED
+    ? [
+        { role: 'landlord' as Role, label: 'Landlord', description: 'Manage your rental properties' },
+        { role: 'tenant' as Role, label: 'Tenant', description: 'Access your rented property' },
+      ]
+    : []),
 ]
 
 export default function AddRolePage() {
@@ -27,11 +33,25 @@ export default function AddRolePage() {
     if (!user || !selected) return
     setSaving(true)
     setError(null)
-    const newRoles = [...availableRoles, selected]
-    const { error } = await supabase.from('users').update({ roles: newRoles }).eq('id', user.id)
-    if (error) { setError(error.message); setSaving(false); return }
+
+    // Server route updates the users table, the auth metadata, and creates
+    // the role's profile row — the client can't (and shouldn't) do these.
+    const res = await fetch('/api/auth/add-role', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: selected }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => null)
+      setError(body?.error ?? 'Failed to add role')
+      setSaving(false)
+      return
+    }
+
+    // Pick up the new metadata so the role appears everywhere immediately
     await supabase.auth.refreshSession()
     router.push('/settings/roles')
+    router.refresh()
   }
 
   if (addable.length === 0) {
