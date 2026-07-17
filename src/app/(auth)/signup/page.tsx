@@ -2,7 +2,7 @@
 import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowRight, Eye, EyeOff, Mail, Lock, User, CheckCircle2 } from 'lucide-react'
+import { ArrowRight, Eye, EyeOff, Mail, Lock, User, CheckCircle2, Home, Wrench } from 'lucide-react'
 import { supabase } from '@/lib/auth'
 import { type Role } from '@/lib/permissions'
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel'
@@ -74,7 +74,7 @@ function SignupForm() {
     })
 
     if (error) { setError(error.message); setIsLoading(false); return }
-    router.push('/verify-email')
+    router.push(`/verify-email?email=${encodeURIComponent(email)}`)
   }
 
   return (
@@ -141,11 +141,12 @@ function SignupForm() {
                       type="button"
                       onClick={() => setRole(r)}
                       className={
-                        'flex-1 py-2.5 text-[13.5px] font-medium capitalize transition ' +
+                        'flex-1 inline-flex items-center justify-center gap-2 py-2.5 text-[13.5px] font-medium capitalize transition ' +
                         (role === r ? 'bg-primary text-white' : 'bg-white text-muted hover:bg-gray-50')
                       }
                     >
-                      {r === 'customer' ? '🏠 Customer' : '🔧 Provider'}
+                      {r === 'customer' ? <Home size={15} /> : <Wrench size={15} />}
+                      {r === 'customer' ? 'Customer' : 'Provider'}
                     </button>
                   ))}
                 </div>
