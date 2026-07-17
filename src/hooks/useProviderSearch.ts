@@ -14,6 +14,7 @@ export type ProviderHit = {
   hourly_rate: number
   rating_average: number
   rating_count: number
+  jobs_completed?: number
   categories: string[]
   avatar_url: string | null
   _geoloc?: { lat: number; lng: number }
@@ -127,7 +128,9 @@ export function useProviderSearch() {
     let sorted = hits.filter(h => UUID_RE.test(h.user_id))
     if (f.sortBy === 'price_asc')  sorted.sort((a, b) => a.hourly_rate - b.hourly_rate)
     if (f.sortBy === 'price_desc') sorted.sort((a, b) => b.hourly_rate - a.hourly_rate)
-    if (f.sortBy === 'rating')     sorted.sort((a, b) => b.rating_average - a.rating_average)
+    // "Recommended": rating first, proven track record breaks ties
+    if (f.sortBy === 'rating')     sorted.sort((a, b) =>
+      (b.rating_average - a.rating_average) || ((b.jobs_completed ?? 0) - (a.jobs_completed ?? 0)))
     setResults(sorted)
     setTotal(sorted.length < hits.length ? sorted.length : nbHits)
   }
@@ -135,7 +138,7 @@ export function useProviderSearch() {
   async function searchSupabase(q: string, f: SearchFilters) {
     let builder = supabase
       .from('provider_profiles')
-      .select('user_id, business_name, first_name, last_name, bio, trade_category, hourly_rate, rating_average, total_reviews, profile_image_url, service_areas')
+      .select('user_id, business_name, first_name, last_name, bio, trade_category, hourly_rate, rating_average, total_reviews, total_jobs_completed, profile_image_url, service_areas')
       .eq('verification_status', 'verified')
 
     if (q.trim()) {
@@ -148,16 +151,17 @@ export function useProviderSearch() {
 
     if (f.sortBy === 'price_asc') builder = builder.order('hourly_rate', { ascending: true })
     else if (f.sortBy === 'price_desc') builder = builder.order('hourly_rate', { ascending: false })
-    else builder = builder.order('rating_average', { ascending: false })
+    else builder = builder.order('rating_average', { ascending: false }).order('total_jobs_completed', { ascending: false })
 
     const { data, error } = await builder.limit(40)
     if (error) throw error
     const rows = data ?? []
     setResults(rows.map((p: any) => ({
       ...p,
-      objectID:     p.user_id,
-      avatar_url:   p.profile_image_url,
-      rating_count: p.total_reviews,
+      objectID:       p.user_id,
+      avatar_url:     p.profile_image_url,
+      rating_count:   p.total_reviews,
+      jobs_completed: p.total_jobs_completed ?? 0,
       islands:      Array.isArray(p.service_areas) ? p.service_areas : [],
       categories:   p.trade_category ? [TRADE_LABELS[p.trade_category] ?? p.trade_category] : [],
     })))

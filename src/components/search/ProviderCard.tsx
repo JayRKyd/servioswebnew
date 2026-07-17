@@ -92,6 +92,14 @@ export function ProviderCard({
             <span className="text-xs text-gray-400">({provider.rating_count} reviews)</span>
           </div>
 
+          {/* Track record */}
+          {(provider.jobs_completed ?? 0) > 0 && (
+            <p className="mt-1 flex items-center gap-1 text-xs text-gray-600">
+              <BadgeCheck size={12} className="shrink-0 text-primary" />
+              {provider.jobs_completed} job{provider.jobs_completed !== 1 ? 's' : ''} completed on Servios
+            </p>
+          )}
+
           {/* Service category tags */}
           {provider.categories.length > 0 && (
             <div className="mt-1.5 flex flex-wrap gap-1">
@@ -222,6 +230,13 @@ export function AirbnbProviderCard({
 
         {provider.rating_count > 0 && (
           <p className="text-xs text-muted">{provider.rating_count} review{provider.rating_count !== 1 ? 's' : ''}</p>
+        )}
+
+        {(provider.jobs_completed ?? 0) > 0 && (
+          <p className="flex items-center gap-1 text-xs text-muted">
+            <BadgeCheck size={11} className="shrink-0 text-primary" />
+            {provider.jobs_completed} job{provider.jobs_completed !== 1 ? 's' : ''} completed
+          </p>
         )}
 
         {provider.hourly_rate > 0 && (

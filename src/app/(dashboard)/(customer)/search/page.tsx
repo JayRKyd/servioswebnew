@@ -1,11 +1,14 @@
 'use client'
 import { Suspense, useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import dynamic from 'next/dynamic'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useProviderSearch } from '@/hooks/useProviderSearch'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { usePortfolioThumbs } from '@/hooks/usePortfolioThumbs'
+import { useProviderAvailability } from '@/hooks/useProviderAvailability'
 import { AirbnbProviderCard, ProviderCard } from '@/components/search/ProviderCard'
+import { CATEGORY_META } from '@/lib/service-questions'
 import {
   ChevronLeft, ChevronRight, Search, SlidersHorizontal, Map as MapIcon, X, MapPin,
 } from 'lucide-react'
@@ -19,11 +22,18 @@ const ProviderMap = dynamic(
 const CATEGORY_ORDER = ['Plumbing', 'Electrical', 'Cleaning', 'Painting', 'HVAC']
 const AREAS = ['', 'Central London', 'North London', 'South London', 'East London', 'West London']
 const SORT_OPTIONS = [
-  { value: 'rating',     label: 'Top Rated' },
+  { value: 'rating',     label: 'Recommended' },
   { value: 'price_asc',  label: 'Price: Low–High' },
   { value: 'price_desc', label: 'Price: High–Low' },
   { value: 'distance',   label: 'Nearest First' },
 ] as const
+
+const AVAILABILITY_CHIPS = [
+  { value: 'any',   label: 'Any time' },
+  { value: 'today', label: 'Available today' },
+  { value: 'week',  label: 'Available this week' },
+] as const
+type AvailabilityWindow = typeof AVAILABILITY_CHIPS[number]['value']
 
 // ─── Filters modal ─────────────────────────────────────────────────────────────
 function FiltersModal({
@@ -228,6 +238,12 @@ function SearchPageInner() {
   const context       = searchParams.get('context') ?? ''
   const qParam        = searchParams.get('q')
 
+  // "Edit answers" jumps back into the trade's quote wizard
+  const editAnswersHref = useMemo(() => {
+    const key = Object.entries(CATEGORY_META).find(([, m]) => m.label === (categoryParam ?? ''))?.[0]
+    return key ? `/book?category=${key}` : '/book'
+  }, [categoryParam])
+
   useEffect(() => {
     if (categoryParam) updateFilter('category', categoryParam)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -244,8 +260,11 @@ function SearchPageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [islandParam])
 
-  // Reset to page 1 whenever category changes
-  useEffect(() => { setCurrentPage(1) }, [filters.category])
+  // Availability chips — live signal from provider schedules, filters results
+  const [availabilityWindow, setAvailabilityWindow] = useState<AvailabilityWindow>('any')
+
+  // Reset to page 1 whenever category or availability window changes
+  useEffect(() => { setCurrentPage(1) }, [filters.category, availabilityWindow])
 
   useEffect(() => {
     if (location) {
@@ -282,7 +301,15 @@ function SearchPageInner() {
     rowRefs.current[cat]?.scrollBy({ left: dir === 'right' ? 536 : -536, behavior: 'smooth' })
   }
 
-  const displayProviders: ProviderHit[] = results
+  const availability = useProviderAvailability(
+    useMemo(() => results.map(p => p.user_id), [results])
+  )
+  const displayProviders: ProviderHit[] = useMemo(() =>
+    availabilityWindow === 'any'
+      ? results
+      : results.filter(p => availability[p.user_id]?.[availabilityWindow]),
+    [results, availability, availabilityWindow]
+  )
   const portfolioThumbs = usePortfolioThumbs(
     useMemo(() => results.filter(p => !p.avatar_url).map(p => p.user_id), [results])
   )
@@ -389,6 +416,23 @@ function SearchPageInner() {
               </button>
             )
           })}
+
+          <div className="mx-1 my-auto h-5 w-px shrink-0 bg-gray-200" />
+
+          {/* Availability chips */}
+          {AVAILABILITY_CHIPS.map(chip => (
+            <button
+              key={chip.value}
+              onClick={() => setAvailabilityWindow(chip.value)}
+              className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-medium transition ${
+                availabilityWindow === chip.value
+                  ? 'border-primary bg-primary/[0.08] text-primary'
+                  : 'border-gray-200 bg-white text-dark hover:border-gray-300'
+              }`}
+            >
+              {chip.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -402,8 +446,26 @@ function SearchPageInner() {
         >
 
           {context && (
-            <div className="shrink-0 rounded-xl bg-primary/[0.06] px-4 py-2.5 text-xs text-primary ring-1 ring-primary/10">
-              Your quote details will be included when you contact a provider.
+            <div className="shrink-0 rounded-xl bg-primary/[0.05] px-4 py-3 ring-1 ring-primary/10">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Your request</p>
+                <Link
+                  href={editAnswersHref}
+                  className="shrink-0 text-xs font-medium text-primary hover:underline"
+                >
+                  Edit answers
+                </Link>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {context.split(' · ').map(part => (
+                  <span key={part} className="rounded-full bg-white px-2.5 py-1 text-xs text-gray-700 ring-1 ring-gray-200">
+                    {part}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-2 text-[11px] text-primary/70">
+                These details are shared with the provider when you book or send a message.
+              </p>
             </div>
           )}
           {error && (
@@ -518,33 +580,37 @@ function SearchPageInner() {
             </>
           )}
 
-          {/* ── NORMAL MODE: Single category — grid + pagination ── */}
+          {/* ── NORMAL MODE: Single category — comparison list + pagination ── */}
           {!showMap && filters.category && (
             <div className="shrink-0 space-y-5">
               <div>
                 <h2 className="text-base font-bold text-dark">{filters.category}</h2>
                 <p className="text-xs text-muted mt-0.5">
                   {displayProviders.length} provider{displayProviders.length !== 1 ? 's' : ''} available
+                  <span className="mx-1.5">·</span>
+                  Sorted by: {SORT_OPTIONS.find(o => o.value === filters.sortBy)?.label ?? 'Recommended'}
                 </p>
               </div>
 
               {paginatedProviders.length > 0 ? (
-                <div className="grid grid-cols-2 gap-5 lg:grid-cols-3 xl:grid-cols-4">
+                <div className="max-w-3xl space-y-3">
                   {paginatedProviders.map(p => (
-                    <AirbnbProviderCard
+                    <ProviderCard
                       key={p.user_id}
                       provider={p}
                       isSelected={selectedId === p.user_id}
                       onHover={setSelectedId}
                       context={context}
-                      fill
-                      photoUrl={portfolioThumbs[p.user_id]}
                     />
                   ))}
                 </div>
               ) : (
                 <div className="flex h-40 items-center justify-center rounded-2xl border-2 border-dashed border-gray-200">
-                  <p className="text-sm text-muted">No providers found. Try adjusting your filters.</p>
+                  <p className="text-sm text-muted">
+                    {availabilityWindow !== 'any'
+                      ? 'No providers available in that time window — try "Any time" or adjust your filters.'
+                      : 'No providers found. Try adjusting your filters.'}
+                  </p>
                 </div>
               )}
 
