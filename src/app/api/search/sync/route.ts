@@ -20,7 +20,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const client = algoliasearch(process.env.ALGOLIA_APP_ID!, process.env.ALGOLIA_ADMIN_KEY!)
+  // trim() guards against stray whitespace in env values (the app ID carried
+  // a pasted tab that broke the client-side search the same way)
+  const appId    = (process.env.ALGOLIA_APP_ID ?? '').trim()
+  const adminKey = (process.env.ALGOLIA_ADMIN_KEY ?? '').trim()
+  if (!appId || !adminKey) {
+    return NextResponse.json({ error: 'Algolia env vars not configured' }, { status: 500 })
+  }
+  const client = algoliasearch(appId, adminKey)
 
   const { data: providers, error } = await supabase
     .from('provider_profiles')
@@ -52,18 +59,25 @@ export async function POST(req: NextRequest) {
     return record
   })
 
-  // replaceAllObjects atomically swaps the whole index: adds current verified
-  // providers and drops anything stale (e.g. old seed records like "p7").
-  await client.replaceAllObjects({ indexName: 'providers', objects: records })
+  try {
+    // replaceAllObjects atomically swaps the whole index: adds current verified
+    // providers and drops anything stale (e.g. old seed records like "p7").
+    await client.replaceAllObjects({ indexName: 'providers', objects: records })
 
-  await client.setSettings({
-    indexName: 'providers',
-    indexSettings: {
-      searchableAttributes: ['business_name', 'first_name', 'last_name', 'bio', 'categories'],
-      attributesForFaceting: ['islands', 'categories', 'hourly_rate', 'rating_average'],
-      customRanking: ['desc(rating_average)', 'desc(jobs_completed)', 'desc(rating_count)'],
-    },
-  })
+    await client.setSettings({
+      indexName: 'providers',
+      indexSettings: {
+        searchableAttributes: ['business_name', 'first_name', 'last_name', 'bio', 'categories'],
+        attributesForFaceting: ['islands', 'categories', 'hourly_rate', 'rating_average'],
+        customRanking: ['desc(rating_average)', 'desc(jobs_completed)', 'desc(rating_count)'],
+      },
+    })
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : 'Algolia sync failed' },
+      { status: 500 }
+    )
+  }
 
   return NextResponse.json({ indexed: records.length })
 }
