@@ -21,7 +21,7 @@ export default function NewProviderServicePage() {
       .then(async ({ data: profile }) => {
         if (!profile) return
         const { data: cat } = await supabase.from('service_categories').select('id, name').eq('slug', profile.trade_category ?? '').maybeSingle()
-        const query = supabase.from('services').select('id, title, service_categories(name)').eq('is_active', true).order('title')
+        const query = supabase.from('services').select('id, title, service_categories(name)').eq('is_active', true).is('provider_id', null).order('title')
         if (cat) query.eq('category_id', cat.id)
         const { data } = await query
         setServices((data ?? []).map((s: any) => ({ ...s, category: s.service_categories?.name ?? '' })))
@@ -45,11 +45,12 @@ export default function NewProviderServicePage() {
 
     if (isCustom) {
       const { data: cat } = await supabase.from('service_categories').select('id').eq('slug', profile.trade_category ?? '').maybeSingle()
+      if (!cat) { setError('Set your trade category in your profile before adding a custom service'); setSaving(false); return }
       const { data: newService, error: svcErr } = await supabase.from('services').insert({
         provider_id: profile.id,
-        category_id: cat?.id ?? null,
+        category_id: cat.id,
         title: customName.trim(),
-        description: customDesc.trim() || null,
+        description: customDesc.trim(),
         price_type: form.price_type,
         base_price: form.base_price ? parseFloat(form.base_price) : null,
         is_active: true,
@@ -58,13 +59,14 @@ export default function NewProviderServicePage() {
       serviceId = newService.id
     }
 
-    const { error } = await supabase.from('provider_services').insert({
+    const { error } = await supabase.from('provider_services').upsert({
       provider_id: profile.id,
       service_id: serviceId,
       custom_price: form.base_price ? parseFloat(form.base_price) : null,
       price_type: form.price_type,
       duration_minutes: form.duration_minutes ? parseInt(form.duration_minutes) : null,
-    })
+      is_active: true,
+    }, { onConflict: 'provider_id,service_id' })
     if (error) { setError(error.message); setSaving(false); return }
     router.push('/provider/services')
   }

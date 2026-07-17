@@ -10,8 +10,8 @@ export default function ServicesPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.from('services').select('*').eq('is_active', true).order('category').then(({ data }) => {
-      const all = data ?? []
+    supabase.from('services').select('*, service_categories(name)').eq('is_active', true).order('title').then(({ data }) => {
+      const all = (data ?? []).map((s: any) => ({ ...s, category: s.service_categories?.name ?? 'Other' }))
       setServices(all)
       const cats = Array.from(new Set(all.map((s: any) => s.category))) as string[]
       setCategories(cats)

@@ -26,6 +26,11 @@ export default function ProviderServicesPage() {
       .catch(() => setLoading(false))
   }, [user?.id])
 
+  function priceLabel(o: any) {
+    if (o.price_type === 'quote' || o.custom_price == null) return 'Price on request'
+    return o.price_type === 'hourly' ? `£${o.custom_price}/hr` : `£${o.custom_price} fixed`
+  }
+
   async function toggle(id: string, current: boolean) {
     await supabase.from('provider_services').update({ is_active: !current }).eq('id', id)
     setOfferings(o => o.map(s => s.id === id ? { ...s, is_active: !current } : s))
@@ -58,8 +63,7 @@ export default function ProviderServicesPage() {
               <div key={o.id} className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
                 <div>
                   <p className="font-semibold text-gray-900">{o.services?.title}</p>
-                  <p className="text-xs text-gray-400">{o.services?.service_categories?.name} · £{o.custom_price ?? '—'}/{o.price_type}</p>
-                  {o.duration_minutes && <p className="text-xs text-gray-400">{o.duration_minutes} min</p>}
+                  <p className="text-xs text-gray-400">{[o.services?.service_categories?.name, priceLabel(o), o.duration_minutes ? `${o.duration_minutes} min` : null].filter(Boolean).join(' · ')}</p>
                 </div>
                 <button onClick={() => toggle(o.id, o.is_active)}
                   className={'rounded-full px-3 py-1 text-xs font-medium transition ' + (o.is_active ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200')}>

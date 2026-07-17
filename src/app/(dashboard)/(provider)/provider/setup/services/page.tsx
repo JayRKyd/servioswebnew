@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/auth'
+import { invalidateOnboardingCache } from '@/components/providers/OnboardingProvider'
 
 interface Template {
   id: string; name: string; description: string | null
@@ -17,6 +18,7 @@ interface Selected {
 export default function SetupServicesPage() {
   const router = useRouter()
   const [templates, setTemplates] = useState<Template[]>([])
+  const [categoryId, setCategoryId] = useState<string | null>(null)
   const [selected, setSelected] = useState<Record<string, Selected>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -32,10 +34,11 @@ export default function SetupServicesPage() {
       if (!profile?.trade_category) { router.replace('/provider/setup/trade'); return }
       const { data: cat } = await supabase.from('service_categories').select('id').eq('slug', profile.trade_category).maybeSingle()
       if (cat) {
-        const { data: svcs } = await supabase.from('services').select('id, title, description, base_price, pricing_type').eq('category_id', cat.id).eq('is_active', true).order('title')
+        setCategoryId(cat.id)
+        const { data: svcs } = await supabase.from('services').select('id, title, description, base_price, price_type').eq('category_id', cat.id).eq('is_active', true).is('provider_id', null).order('title')
         setTemplates((svcs ?? []).map((s: any) => ({
           id: s.id, name: s.title, description: s.description,
-          price_min: s.base_price, price_max: null, price_type: s.pricing_type ?? 'fixed',
+          price_min: s.base_price, price_max: null, price_type: s.price_type ?? 'fixed',
         })))
       }
       setLoading(false)
@@ -74,17 +77,38 @@ export default function SetupServicesPage() {
     const { data: { user } } = await supabase.auth.getUser()
     const { data: profile } = await supabase.from('provider_profiles').select('id').eq('user_id', user!.id).maybeSingle()
     if (profile) {
-      await supabase.from('provider_services').upsert(
-        services.map((s) => ({
-          provider_id: profile.id,
-          service_id: s.templateId,
-          custom_price: s.priceType === 'quote' ? null : Number(s.price) || null,
-          is_active: true,
-        })).filter((s) => s.service_id !== null),
-        { onConflict: 'provider_id,service_id' }
-      )
+      const links: any[] = []
+      for (const s of services) {
+        let serviceId = s.templateId
+        if (!serviceId && categoryId) {
+          // Custom offering: create the service row first, owned by this provider
+          const { data: created } = await supabase.from('services').insert({
+            provider_id: profile.id,
+            category_id: categoryId,
+            title: s.name,
+            description: s.description || '',
+            price_type: s.priceType,
+            base_price: s.priceType === 'quote' ? null : Number(s.price) || null,
+            is_active: true,
+          }).select('id').maybeSingle()
+          serviceId = created?.id ?? null
+        }
+        if (serviceId) {
+          links.push({
+            provider_id: profile.id,
+            service_id: serviceId,
+            custom_price: s.priceType === 'quote' ? null : Number(s.price) || null,
+            price_type: s.priceType,
+            is_active: true,
+          })
+        }
+      }
+      if (links.length > 0) {
+        await supabase.from('provider_services').upsert(links, { onConflict: 'provider_id,service_id' })
+      }
       await supabase.from('provider_profiles').update({ onboarding_step: 'documents' }).eq('id', profile.id)
     }
+    invalidateOnboardingCache()
     router.push('/provider/setup/documents')
     setSaving(false)
   }

@@ -24,9 +24,12 @@ interface DaySchedule {
 }
 type WeekSchedule = Record<string, DaySchedule>
 
+// New providers start with every day off — hours only exist once they set
+// and save them. Until then they're excluded from availability filters and
+// can't be booked.
 const DEFAULT: WeekSchedule = Object.fromEntries(
   KEYS.map(d => [d, {
-    enabled: !['saturday','sunday'].includes(d),
+    enabled: false,
     start: '09:00', end: '17:00',
     breakEnabled: false, breakStart: '12:00', breakEnd: '13:00',
   }])

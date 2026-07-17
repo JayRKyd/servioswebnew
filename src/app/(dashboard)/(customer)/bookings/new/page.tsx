@@ -2,6 +2,7 @@
 import { Suspense, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { Camera } from 'lucide-react'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
 import { UKDateInput } from '@/components/shared/UKDateInput'
@@ -64,6 +65,8 @@ function NewBookingForm() {
   const [photos, setPhotos] = useState<File[]>([])
   const [providerAvailability, setProviderAvailability] = useState<any>(null)
   const [availabilityError, setAvailabilityError] = useState<string | null>(null)
+  const [providerBookable, setProviderBookable] = useState(true)
+  const [providerHasServices, setProviderHasServices] = useState(true)
 
   useEffect(() => {
     const providerId = searchParams.get('provider')
@@ -79,11 +82,16 @@ function NewBookingForm() {
             supabase.from('provider_availability')
               .select('*').eq('provider_id', providerId).maybeSingle(),
           ])
-          setServices((svcData ?? []).map((d: any) => d.service).filter(Boolean))
+          const svcs = (svcData ?? []).map((d: any) => d.service).filter(Boolean)
+          setServices(svcs)
+          setProviderHasServices(svcs.length > 0)
           if (avail) setProviderAvailability(avail)
+          // No working hours saved (or every day off) = not bookable yet
+          const hasWorkingDay = avail && DAY_KEYS.some(k => avail[`${k}_enabled`])
+          setProviderBookable(!!hasWorkingDay)
         })
     } else {
-      supabase.from('services').select('id, title, base_price, service_categories(name)').eq('is_active', true).order('title').then(({ data }) => setServices(data ?? []))
+      supabase.from('services').select('id, title, base_price, service_categories(name)').eq('is_active', true).is('provider_id', null).order('title').then(({ data }) => setServices(data ?? []))
     }
   }, [])
 
@@ -102,7 +110,7 @@ function NewBookingForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!user) return
-    if (availabilityError) return
+    if (availabilityError || !providerBookable || !providerHasServices) return
     setSubmitting(true)
     setError(null)
 
@@ -206,6 +214,24 @@ function NewBookingForm() {
     <div className="mx-auto max-w-xl space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Book a Service</h1>
 
+      {!providerHasServices && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm font-medium text-amber-800">This provider hasn&apos;t listed any services yet</p>
+          <p className="mt-0.5 text-xs text-amber-700">
+            There&apos;s nothing to book until they add one — send them a message instead, or choose another provider.
+          </p>
+        </div>
+      )}
+
+      {!providerBookable && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm font-medium text-amber-800">This provider hasn&apos;t set their working hours yet</p>
+          <p className="mt-0.5 text-xs text-amber-700">
+            You can&apos;t book them until they do — send them a message instead, or choose another provider.
+          </p>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-5 rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Service</label>
@@ -257,7 +283,7 @@ function NewBookingForm() {
                 setPhotos(ps => [...ps, ...files])
                 e.target.value = ''
               }} />
-              📷 Add photos
+              <Camera size={15} /> Add photos
             </label>
           </div>
         </div>
@@ -270,7 +296,7 @@ function NewBookingForm() {
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <button type="submit" disabled={submitting || !!availabilityError}
+        <button type="submit" disabled={submitting || !!availabilityError || !providerBookable || !providerHasServices}
           className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50">
           {submitting ? 'Submitting…' : 'Submit Booking Request'}
         </button>
