@@ -468,16 +468,30 @@ function BookPageInner() {
 
   function buildContextAndNavigate(finalSingles: Record<string, string>, finalMultis: Record<string, string[]>, island: string) {
     const meta = CATEGORY_META[category]
-    const contextParts: string[] = []
-    for (const [id, val] of Object.entries(finalSingles)) contextParts.push(`${id}:${val}`)
-    for (const [id, vals] of Object.entries(finalMultis)) {
-      if (vals.length > 0) contextParts.push(`${id}:${vals.join('|')}`)
+
+    // Serialize answers as readable labels — this string ends up verbatim in
+    // the provider-facing booking notes, so no machine keys or values.
+    const stepById = (id: string) => steps.find(s => s.id === id)
+    const questionTitle = (id: string) => {
+      const spaced = id.replace(/_/g, ' ')
+      return spaced.charAt(0).toUpperCase() + spaced.slice(1)
     }
+    const labelFor = (id: string, val: string) =>
+      stepById(id)?.options.find(o => o.value === val)?.label ?? val // free text passes through
+
+    const contextParts: string[] = []
+    for (const [id, val] of Object.entries(finalSingles)) {
+      contextParts.push(`${questionTitle(id)}: ${labelFor(id, val)}`)
+    }
+    for (const [id, vals] of Object.entries(finalMultis)) {
+      if (vals.length > 0) contextParts.push(`${questionTitle(id)}: ${vals.map(v => labelFor(id, v)).join(', ')}`)
+    }
+    if (jobQuery) contextParts.unshift(`Request: ${jobQuery}`)
+
     const params = new URLSearchParams()
     if (meta?.label) params.set('category', meta.label)
     if (island) params.set('island', island)
-    if (jobQuery) contextParts.unshift(`request:${jobQuery}`)
-    if (contextParts.length > 0) params.set('context', contextParts.join(','))
+    if (contextParts.length > 0) params.set('context', contextParts.join(' · '))
     router.push(`/search?${params.toString()}`)
   }
 
