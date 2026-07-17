@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ArrowRight, Eye, EyeOff, Mail, Lock, User, CheckCircle2 } from 'lucide-react'
 import { supabase } from '@/lib/auth'
 import { type Role } from '@/lib/permissions'
+import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel'
 
 function GoogleIcon() {
   return (
@@ -77,28 +78,33 @@ function SignupForm() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fafbfa] flex flex-col">
-      <div className="h-[64px] flex items-center px-5 lg:px-8 shrink-0">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="relative w-8 h-8">
-            <div className="absolute inset-0 bg-primary rounded-lg" />
-            <svg className="relative" width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <path d="M10 20.5c0-2.5 3-4.5 6-4.5s6 2 6 4.5" stroke="white" strokeWidth="2" strokeLinecap="round" />
-              <circle cx="16" cy="12" r="3.5" stroke="white" strokeWidth="2" />
-            </svg>
-          </div>
-          <span className="text-[18px] font-semibold text-dark tracking-[-0.03em]">Servios</span>
-        </Link>
-      </div>
+    <div className="min-h-screen flex bg-white">
+      {/* ── Left: form column ── */}
+      <div className="flex w-full flex-col lg:w-[46%] lg:min-w-[520px]">
+        <div className="h-[72px] flex items-center px-5 sm:px-10 lg:px-14 shrink-0">
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="relative w-8 h-8">
+              <div className="absolute inset-0 bg-primary rounded-lg" />
+              <svg className="relative" width="32" height="32" viewBox="0 0 32 32" fill="none">
+                <path d="M10 20.5c0-2.5 3-4.5 6-4.5s6 2 6 4.5" stroke="white" strokeWidth="2" strokeLinecap="round" />
+                <circle cx="16" cy="12" r="3.5" stroke="white" strokeWidth="2" />
+              </svg>
+            </div>
+            <span className="text-[18px] font-semibold text-dark tracking-[-0.03em]">Servios</span>
+          </Link>
+        </div>
 
-      <div className="flex-1 flex items-start justify-center pt-8 sm:pt-16 pb-16 px-5">
-        <div className="w-full max-w-[440px]">
-          <div className="text-center mb-8">
-            <h1 className="text-[1.75rem] sm:text-[2rem] font-bold text-dark tracking-[-0.02em]">Create your account</h1>
-            <p className="text-[15px] text-muted mt-2">Join thousands finding trusted local professionals.</p>
-          </div>
+        <div className="flex flex-1 items-center justify-center px-5 sm:px-10 lg:px-14 pb-14">
+          <div className="w-full max-w-[400px]">
+            <div className="mb-8">
+              <h1 className="text-[1.9rem] font-bold text-dark tracking-[-0.02em]">Create your account</h1>
+              <p className="text-[15px] text-muted mt-2">
+                {role === 'provider'
+                  ? 'Start winning local jobs in minutes.'
+                  : 'Join thousands finding trusted local professionals.'}
+              </p>
+            </div>
 
-          <div className="bg-white rounded-2xl border border-border/70 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6 sm:p-8">
             <div className="flex bg-[#f4f5f4] rounded-xl p-1 mb-6">
               <Link href="/login" className="flex-1 text-[13.5px] font-medium py-2.5 rounded-lg transition-all text-muted hover:text-dark text-center">
                 Log In
@@ -212,23 +218,42 @@ function SignupForm() {
                 <ArrowRight size={16} />
               </button>
             </form>
-          </div>
 
-          <p className="text-center text-[13px] text-muted mt-6">
-            Already have an account?{' '}
-            <Link href="/login" className="text-primary hover:text-primary-dark font-medium">Log in</Link>
-          </p>
+            <p className="text-center text-[13px] text-muted mt-6">
+              Already have an account?{' '}
+              <Link href="/login" className="text-primary hover:text-primary-dark font-medium">Log in</Link>
+            </p>
 
-          <div className="mt-8 flex flex-col items-center gap-3">
-            {['Free to create an account', 'No credit card required', 'Join 250K+ users'].map(text => (
-              <div key={text} className="flex items-center gap-2 text-[12.5px] text-muted">
-                <CheckCircle2 size={14} className="text-primary" />
-                <span>{text}</span>
-              </div>
-            ))}
+            <div className="mt-7 flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+              {['Free to join', 'No credit card required'].map(text => (
+                <div key={text} className="flex items-center gap-1.5 text-[12.5px] text-muted">
+                  <CheckCircle2 size={14} className="text-primary" />
+                  <span>{text}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
+
+      {/* ── Right: brand panel (copy follows the selected role) ── */}
+      {role === 'provider' ? (
+        <AuthBrandPanel
+          headline={<>Grow your business<br />with Servios.</>}
+          subline="Get matched with local customers ready to book. You set your rates, your hours, and your service area — we handle secure payment."
+          quote="Servios keeps my diary full. The jobs come with all the details upfront, so I can quote accurately before I even pick up the phone."
+          quoteAuthor="Pete Grant"
+          quoteMeta="Pete's Plumbing Co, North London"
+        />
+      ) : (
+        <AuthBrandPanel
+          headline={<>Every job done,<br />by someone you trust.</>}
+          subline="Tell us what you need, get matched with vetted local pros, and pay securely — your money is only released when the job is done."
+          quote="Found a brilliant plumber within the hour. He turned up on time, fixed the leak, and the payment was all handled in the app. Couldn't be easier."
+          quoteAuthor="Sarah Mitchell"
+          quoteMeta="Homeowner, North London"
+        />
+      )}
     </div>
   )
 }

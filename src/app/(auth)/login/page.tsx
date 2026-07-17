@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowRight, Eye, EyeOff, Mail, Lock } from 'lucide-react'
 import { supabase } from '@/lib/auth'
+import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel'
 
 function GoogleIcon() {
   return (
@@ -61,39 +62,40 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fafbfa] flex flex-col">
-      <div className="h-[64px] flex items-center px-5 lg:px-8 shrink-0">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="relative w-8 h-8">
-            <div className="absolute inset-0 bg-primary rounded-lg" />
-            <svg className="relative" width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <path d="M10 20.5c0-2.5 3-4.5 6-4.5s6 2 6 4.5" stroke="white" strokeWidth="2" strokeLinecap="round" />
-              <circle cx="16" cy="12" r="3.5" stroke="white" strokeWidth="2" />
-            </svg>
-          </div>
-          <span className="text-[18px] font-semibold text-dark tracking-[-0.03em]">Servios</span>
-        </Link>
-      </div>
-
-      <div className="flex-1 flex items-start justify-center pt-8 sm:pt-16 pb-16 px-5">
-        <div className="w-full max-w-[440px]">
-          <div className="text-center mb-8">
-            <h1 className="text-[1.75rem] sm:text-[2rem] font-bold text-dark tracking-[-0.02em]">Welcome back</h1>
-            <p className="text-[15px] text-muted mt-2">Log in to manage your bookings and messages.</p>
-          </div>
-
-          {authNotice && (
-            <div className="mb-5 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
-              ✓ {authNotice}
+    <div className="min-h-screen flex bg-white">
+      {/* ── Left: form column ── */}
+      <div className="flex w-full flex-col lg:w-[46%] lg:min-w-[520px]">
+        <div className="h-[72px] flex items-center px-5 sm:px-10 lg:px-14 shrink-0">
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="relative w-8 h-8">
+              <div className="absolute inset-0 bg-primary rounded-lg" />
+              <svg className="relative" width="32" height="32" viewBox="0 0 32 32" fill="none">
+                <path d="M10 20.5c0-2.5 3-4.5 6-4.5s6 2 6 4.5" stroke="white" strokeWidth="2" strokeLinecap="round" />
+                <circle cx="16" cy="12" r="3.5" stroke="white" strokeWidth="2" />
+              </svg>
             </div>
-          )}
-          {authError && (
-            <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
-              {authError}
-            </div>
-          )}
+            <span className="text-[18px] font-semibold text-dark tracking-[-0.03em]">Servios</span>
+          </Link>
+        </div>
 
-          <div className="bg-white rounded-2xl border border-border/70 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-6 sm:p-8">
+        <div className="flex flex-1 items-center justify-center px-5 sm:px-10 lg:px-14 pb-14">
+          <div className="w-full max-w-[400px]">
+            <div className="mb-8">
+              <h1 className="text-[1.9rem] font-bold text-dark tracking-[-0.02em]">Welcome back</h1>
+              <p className="text-[15px] text-muted mt-2">Log in to manage your bookings and messages.</p>
+            </div>
+
+            {authNotice && (
+              <div className="mb-5 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
+                ✓ {authNotice}
+              </div>
+            )}
+            {authError && (
+              <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+                {authError}
+              </div>
+            )}
+
             <div className="flex bg-[#f4f5f4] rounded-xl p-1 mb-6">
               <button className="flex-1 text-[13.5px] font-medium py-2.5 rounded-lg transition-all bg-white text-dark shadow-sm">
                 Log In
@@ -168,14 +170,23 @@ function LoginForm() {
                 <ArrowRight size={16} />
               </button>
             </form>
-          </div>
 
-          <p className="text-center text-[13px] text-muted mt-6">
-            Don&apos;t have an account?{' '}
-            <Link href="/signup" className="text-primary hover:text-primary-dark font-medium">Sign up</Link>
-          </p>
+            <p className="text-center text-[13px] text-muted mt-6">
+              Don&apos;t have an account?{' '}
+              <Link href={signupHref} className="text-primary hover:text-primary-dark font-medium">Sign up</Link>
+            </p>
+          </div>
         </div>
       </div>
+
+      {/* ── Right: brand panel ── */}
+      <AuthBrandPanel
+        headline={<>Trusted local pros,<br />one booking away.</>}
+        subline="Book vetted professionals, chat directly, and pay securely — your money is only released when the job is done."
+        quote="Found a brilliant plumber within the hour. He turned up on time, fixed the leak, and the payment was all handled in the app. Couldn't be easier."
+        quoteAuthor="Sarah Mitchell"
+        quoteMeta="Homeowner, North London"
+      />
     </div>
   )
 }
