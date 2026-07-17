@@ -201,6 +201,12 @@ offers.put(
 )
 
 // ─── POST /api/v1/conversations/:conversationId/offers/:offerId/accept ────────
+//
+// Accepting an offer forms the contract: the conversation's booking is
+// created (or updated) with the agreed financials, and the offer's proposed
+// milestones become real booking_milestones.
+
+const COMMISSION_RATE = 0.12
 
 offers.post('/:conversationId/offers/:offerId/accept', async (c) => {
   const conversationId = c.req.param('conversationId')
@@ -220,33 +226,144 @@ offers.post('/:conversationId/offers/:offerId/accept', async (c) => {
   if (offer.proposed_by === userId) throw new HTTPException(400, { message: 'You cannot accept your own offer' })
   if (offer.status !== 'sent') throw new HTTPException(400, { message: `Offer is already ${offer.status}` })
 
-  // Create booking_milestones from the offer
-  const milestoneInserts = (offer.milestones as any[]).map((m: any) => ({
-    booking_id:   null, // will be updated once booking is linked
-    title:        m.title,
-    description:  m.description ?? null,
-    amount_cents: m.amount_cents,
-    due_date:     m.due_date ?? null,
-    status:       'pending',
-    offer_id:     offerId,
-  }))
+  const { data: conv } = await supabase
+    .from('conversations')
+    .select('id, booking_id, customer_id, provider_id')
+    .eq('id', conversationId)
+    .single()
+  if (!conv) throw new HTTPException(404, { message: 'Conversation not found' })
 
-  // Mark offer as accepted and link to the accepting user
+  const totalCents  = offer.total_cents ?? 0
+  const platformFee = Math.round(totalCents * COMMISSION_RATE)
+
+  // ── Resolve or create the booking ──
+  let bookingId: string | null = conv.booking_id
+
+  if (bookingId) {
+    // Existing booking: apply the agreed contract financials; move a pending
+    // request to accepted (never downgrade an in-progress/completed job)
+    await supabase.from('bookings').update({
+      base_amount:     totalCents,
+      platform_fee:    platformFee,
+      total_amount:    totalCents + platformFee,
+      commission_rate: COMMISSION_RATE,
+    }).eq('id', bookingId)
+    await supabase.from('bookings').update({ status: 'accepted' })
+      .eq('id', bookingId).eq('status', 'pending')
+  } else {
+    // No booking yet (conversation started from the provider's profile) —
+    // acceptance is the moment the contract, and therefore the booking, exists
+    const [{ data: cp }, { data: pp }] = await Promise.all([
+      supabase.from('customer_profiles').select('id').eq('user_id', conv.customer_id).maybeSingle(),
+      supabase.from('provider_profiles').select('id').eq('user_id', conv.provider_id).maybeSingle(),
+    ])
+    if (!cp || !pp) throw new HTTPException(400, { message: 'Conversation participants are missing profiles' })
+
+    // bookings.service_id is required — use the provider's primary service
+    const { data: ps } = await supabase
+      .from('provider_services')
+      .select('service_id')
+      .eq('provider_id', pp.id)
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle()
+    let serviceId: string | undefined = ps?.service_id
+    if (!serviceId) {
+      const { data: anySvc } = await supabase
+        .from('services').select('id').eq('is_active', true).limit(1).maybeSingle()
+      serviceId = anySvc?.id
+    }
+    if (!serviceId) throw new HTTPException(400, { message: 'No service available to attach the contract to' })
+
+    const milestones = (offer.milestones as any[]) ?? []
+    const firstDue = milestones.find((m) => m.due_date)?.due_date
+    const scheduledDate = firstDue
+      ?? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+
+    const { data: booking, error: bookingError } = await supabase.from('bookings').insert({
+      customer_id:          cp.id,
+      provider_id:          pp.id,
+      service_id:           serviceId,
+      scheduled_date:       scheduledDate,
+      scheduled_time_start: '09:00',
+      status:               'accepted',
+      booking_type:         'direct_customer',
+      base_amount:          totalCents,
+      platform_fee:         platformFee,
+      total_amount:         totalCents + platformFee,
+      commission_rate:      COMMISSION_RATE,
+      customer_notes:       `Contract: ${offer.title}`,
+    }).select('id').single()
+
+    if (bookingError || !booking) {
+      throw new HTTPException(400, { message: bookingError?.message ?? 'Failed to create booking' })
+    }
+    bookingId = booking.id
+    await supabase.from('conversations').update({ booking_id: bookingId }).eq('id', conversationId)
+  }
+
+  // ── Materialise the offer's milestones ──
+  const { data: maxRow } = await supabase
+    .from('booking_milestones')
+    .select('milestone_number')
+    .eq('booking_id', bookingId)
+    .order('milestone_number', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const startNumber = (maxRow?.milestone_number ?? 0) + 1
+
+  const milestoneInserts = ((offer.milestones as any[]) ?? []).map((m: any, i: number) => {
+    const amount     = m.amount_cents / 100
+    const commission = Math.round(m.amount_cents * COMMISSION_RATE) / 100
+    return {
+      booking_id:          bookingId,
+      milestone_number:    startNumber + i,
+      title:               m.title,
+      description:         m.description ?? null,
+      amount,
+      platform_commission: commission,
+      provider_amount:     amount - commission,
+      commission_rate:     COMMISSION_RATE * 100,
+      currency:            'GBP',
+      status:              'pending',
+      due_date:            m.due_date ?? null,
+    }
+  })
+
+  if (milestoneInserts.length > 0) {
+    const { error: milestoneError } = await supabase.from('booking_milestones').insert(milestoneInserts)
+    if (milestoneError) throw new HTTPException(400, { message: milestoneError.message })
+  }
+
+  // ── Mark the offer accepted and link it to the booking ──
   await supabase
     .from('job_offers')
-    .update({ status: 'accepted', updated_at: new Date().toISOString() })
+    .update({
+      status:      'accepted',
+      accepted_at: new Date().toISOString(),
+      booking_id:  bookingId,
+      updated_at:  new Date().toISOString(),
+    })
     .eq('id', offerId)
 
-  // Post system message
   await postSystemMessage(
     conversationId,
     userId,
     'offer_accepted',
     `Accepted the offer: "${offer.title}"`,
-    { offer_id: offerId, title: offer.title, total_cents: offer.total_cents },
+    { offer_id: offerId, title: offer.title, total_cents: offer.total_cents, booking_id: bookingId },
   )
 
-  return c.json({ accepted: true, offer_id: offerId })
+  // Tell the proposer their offer was accepted
+  await supabase.from('notifications').insert({
+    user_id: offer.proposed_by,
+    notification_type: 'offer_accepted',
+    title: 'Offer accepted',
+    body: `Your offer "${offer.title}" was accepted. The contract and milestones are now live.`,
+    data: { conversation_id: conversationId, booking_id: bookingId },
+  })
+
+  return c.json({ accepted: true, offer_id: offerId, booking_id: bookingId })
 })
 
 // ─── POST /api/v1/conversations/:conversationId/offers/:offerId/decline ───────
@@ -270,7 +387,7 @@ offers.post('/:conversationId/offers/:offerId/decline', async (c) => {
 
   await supabase
     .from('job_offers')
-    .update({ status: 'declined', updated_at: new Date().toISOString() })
+    .update({ status: 'declined', declined_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq('id', offerId)
 
   await postSystemMessage(
@@ -280,6 +397,15 @@ offers.post('/:conversationId/offers/:offerId/decline', async (c) => {
     `Declined the offer: "${offer.title}"`,
     { offer_id: offerId, title: offer.title },
   )
+
+  // Tell the proposer, so they can follow up or revise
+  await supabase.from('notifications').insert({
+    user_id: offer.proposed_by,
+    notification_type: 'offer_declined',
+    title: 'Offer declined',
+    body: `Your offer "${offer.title}" was declined. You can send a revised offer from the conversation.`,
+    data: { conversation_id: conversationId },
+  })
 
   return c.json({ declined: true })
 })

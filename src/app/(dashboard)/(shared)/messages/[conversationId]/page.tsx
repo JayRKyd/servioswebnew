@@ -95,6 +95,16 @@ export default function ConversationPage() {
     setOffer(data?.offer ?? null)
   }
 
+  // ── Refresh the conversation row (acceptance can create/link a booking) ───
+  async function refetchConversation() {
+    const { data: conv } = await supabase
+      .from('conversations')
+      .select('*, booking:bookings(id, booking_number, status, base_amount, total_amount, platform_fee, scheduled_date, scheduled_time_start, service:services(title))')
+      .eq('id', conversationId)
+      .single()
+    if (conv) setConversation(conv)
+  }
+
   // ── Load conversation + messages + offer ──────────────────────────────────
   useEffect(() => {
     if (!conversationId) return
@@ -179,6 +189,13 @@ export default function ConversationPage() {
     if (msg.conversation_id !== conversationId) return
     setMessages((prev) => prev.some(m => m.id === msg.id) ? prev : [...prev, msg])
     if (msg.sender_id !== user?.id) markRead()
+    // Offer lifecycle events (sent/updated/accepted/declined) ride the same
+    // broadcast — refresh the offer panel so both sides stay in sync live.
+    // Acceptance also creates/updates the booking, so refresh that too.
+    if (typeof msg.message_type === 'string' && msg.message_type.startsWith('offer_')) {
+      fetchOffer()
+      if (msg.message_type === 'offer_accepted') refetchConversation()
+    }
   })
 
   // Auto-scroll
