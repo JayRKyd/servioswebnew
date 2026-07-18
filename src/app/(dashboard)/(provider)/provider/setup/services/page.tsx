@@ -119,7 +119,7 @@ export default function SetupServicesPage() {
   if (loading) return <div className="flex h-64 items-center justify-center text-gray-400">Loading…</div>
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 py-10">
+    <div className="space-y-6 pb-10">
       {/* Progress */}
       <div className="flex items-center gap-2">
         {['Trade', 'Services', 'Documents'].map((label, i) => (

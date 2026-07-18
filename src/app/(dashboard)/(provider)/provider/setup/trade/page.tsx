@@ -62,7 +62,7 @@ export default function SetupTradePage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8 py-10">
+    <div className="space-y-8 pb-10">
       {/* Progress */}
       <div className="flex items-center gap-2">
         {['Trade', 'Services', 'Documents'].map((label, i) => (
@@ -81,7 +81,7 @@ export default function SetupTradePage() {
         <p className="mt-1 text-gray-500">Select the primary service you provide</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {Object.entries(CATEGORY_META).map(([key, meta]) => {
           const Icon = TRADE_ICONS[key] ?? Wrench
           const isSelected = selected === key
