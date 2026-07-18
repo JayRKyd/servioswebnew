@@ -250,9 +250,9 @@ export default function AvailabilityPage() {
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5">
 
                   {/* Day name + toggle */}
-                  <div className="flex w-28 shrink-0 items-center gap-3">
+                  <div className="flex w-36 shrink-0 items-center gap-3">
                     <Toggle on={day.enabled} onToggle={() => toggle(key)} />
-                    <span className={`text-sm font-semibold ${day.enabled ? 'text-gray-900' : 'text-gray-400'}`}>
+                    <span className={`whitespace-nowrap text-sm font-semibold ${day.enabled ? 'text-gray-900' : 'text-gray-400'}`}>
                       {DAYS[i]}
                     </span>
                   </div>
