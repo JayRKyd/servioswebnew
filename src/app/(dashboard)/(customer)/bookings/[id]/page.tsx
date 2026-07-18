@@ -13,22 +13,37 @@ import { loadStripe } from '@stripe/stripe-js'
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
 
-function ReviewModal({ bookingId, revieweeId, onClose }: { bookingId: string; revieweeId?: string | null; onClose: () => void }) {
+function ReviewModal({ bookingId, revieweeId, serviceTitle, onClose }: { bookingId: string; revieweeId?: string | null; serviceTitle?: string | null; onClose: () => void }) {
   const [rating, setRating] = useState(0)
   const [comment, setComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function submit() {
     if (rating === 0) return
+    if (!revieweeId) { setError('This booking has no provider attached, so it can’t be reviewed.'); return }
     setSubmitting(true)
+    setError(null)
     const { data: { user } } = await supabase.auth.getUser()
-    await supabase.from('reviews').insert({
+    const { error: insertError } = await supabase.from('reviews').insert({
       booking_id: bookingId,
       reviewer_id: user?.id,
-      reviewee_id: revieweeId ?? null,
+      reviewee_id: revieweeId,
       rating,
       review_text: comment || null,
+    })
+    if (insertError) {
+      setSubmitting(false)
+      setError(insertError.code === '23505' ? 'You’ve already reviewed this booking.' : insertError.message)
+      return
+    }
+    await supabase.from('notifications').insert({
+      user_id: revieweeId,
+      notification_type: 'review_new',
+      title: 'New review received',
+      body: `You received a ${rating}-star review for ${serviceTitle ?? 'a recent job'}.`,
+      data: { booking_id: bookingId },
     })
     setDone(true)
     setSubmitting(false)
@@ -39,7 +54,9 @@ function ReviewModal({ bookingId, revieweeId, onClose }: { bookingId: string; re
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl space-y-4">
         {done ? (
           <>
-            <div className="text-center text-4xl">🎉</div>
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-50">
+              <CheckCircle size={26} className="text-green-600" />
+            </div>
             <h2 className="text-center text-lg font-bold text-gray-900">Review submitted!</h2>
             <p className="text-center text-sm text-gray-500">Thank you for your feedback.</p>
             <button onClick={onClose} className="w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary-dark">Close</button>
@@ -62,6 +79,7 @@ function ReviewModal({ bookingId, revieweeId, onClose }: { bookingId: string; re
               placeholder="Share your experience (optional)"
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
+            {error && <p className="text-xs text-red-600">{error}</p>}
             <div className="flex gap-2">
               <button onClick={onClose} className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm text-gray-600 hover:bg-gray-50">Skip</button>
               <button
@@ -99,7 +117,9 @@ function ClaimModal({ bookingId, onClose }: { bookingId: string; onClose: () => 
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl space-y-4">
         {done ? (
           <>
-            <div className="text-center text-4xl">📋</div>
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-orange-50">
+              <Shield size={26} className="text-orange-600" />
+            </div>
             <h2 className="text-center text-lg font-bold text-gray-900">Claim submitted</h2>
             <p className="text-center text-sm text-gray-500">Our team will review your workmanship claim and follow up within 3–5 business days.</p>
             <button onClick={onClose} className="w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary-dark">Close</button>
@@ -273,7 +293,8 @@ export default function CustomerBookingDetailPage() {
       {showReview && (
         <ReviewModal
           bookingId={id as string}
-          revieweeId={booking?.provider_id ?? null}
+          revieweeId={booking?.provider_profile?.user_id ?? null}
+          serviceTitle={booking?.service?.title ?? null}
           onClose={() => setShowReview(false)}
         />
       )}
