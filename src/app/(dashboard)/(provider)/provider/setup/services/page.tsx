@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/auth'
+import { Check } from 'lucide-react'
 import { invalidateOnboardingCache } from '@/components/providers/OnboardingProvider'
 
 interface Template {
@@ -124,7 +125,7 @@ export default function SetupServicesPage() {
         {['Trade', 'Services', 'Documents'].map((label, i) => (
           <div key={label} className="flex items-center gap-2">
             <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${i <= 1 ? 'bg-primary text-white' : 'bg-gray-100 text-gray-400'}`}>
-              {i < 1 ? '✓' : i + 1}
+              {i < 1 ? <Check size={13} strokeWidth={3} /> : i + 1}
             </div>
             <span className={`text-sm ${i === 1 ? 'font-semibold text-gray-900' : i < 1 ? 'text-gray-400' : 'text-gray-400'}`}>{label}</span>
             {i < 2 && <div className="mx-1 h-px w-8 bg-gray-200" />}
@@ -145,7 +146,7 @@ export default function SetupServicesPage() {
             <div key={t.id} className={`rounded-xl border-2 bg-white transition ${isSel ? 'border-primary' : 'border-gray-100'}`}>
               <button className="flex w-full items-center gap-3 p-4 text-left" onClick={() => toggle(t)}>
                 <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition ${isSel ? 'border-primary bg-primary' : 'border-gray-300'}`}>
-                  {isSel && <span className="text-[11px] font-bold text-white">✓</span>}
+                  {isSel && <Check size={12} strokeWidth={3} className="text-white" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-gray-900">{t.name}</p>

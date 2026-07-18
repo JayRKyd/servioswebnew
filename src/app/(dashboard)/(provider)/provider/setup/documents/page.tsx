@@ -3,6 +3,7 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/auth'
 import { UKDateInput } from '@/components/shared/UKDateInput'
+import { Check } from 'lucide-react'
 import { invalidateOnboardingCache } from '@/components/providers/OnboardingProvider'
 
 const DOC_TYPES = [
@@ -82,7 +83,7 @@ export default function SetupDocumentsPage() {
         {['Trade', 'Services', 'Documents'].map((label, i) => (
           <div key={label} className="flex items-center gap-2">
             <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${i <= 2 ? 'bg-primary text-white' : 'bg-gray-100 text-gray-400'}`}>
-              {i < 2 ? '✓' : 3}
+              {i < 2 ? <Check size={13} strokeWidth={3} /> : 3}
             </div>
             <span className={`text-sm ${i === 2 ? 'font-semibold text-gray-900' : 'text-gray-400'}`}>{label}</span>
             {i < 2 && <div className="mx-1 h-px w-8 bg-gray-200" />}
@@ -107,7 +108,9 @@ export default function SetupDocumentsPage() {
                   {uploaded && <p className="text-xs text-gray-400 mt-0.5 truncate max-w-xs">{uploaded.fileName}</p>}
                 </div>
                 {uploaded && (
-                  <span className="rounded-full bg-green-100 px-3 py-0.5 text-xs font-medium text-green-700">✓ Uploaded</span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-0.5 text-xs font-medium text-green-700">
+                    <Check size={11} strokeWidth={3} /> Uploaded
+                  </span>
                 )}
               </div>
 

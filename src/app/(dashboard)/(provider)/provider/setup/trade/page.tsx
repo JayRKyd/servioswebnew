@@ -3,13 +3,25 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
-import { MapPin } from 'lucide-react'
+import { MapPin, Check, Droplets, Zap, Wind, Paintbrush, Hammer, Sparkles, Leaf, Home, Bug, Shield, Wrench } from 'lucide-react'
+import { CATEGORY_META } from '@/lib/service-questions'
 import { invalidateOnboardingCache } from '@/components/providers/OnboardingProvider'
 
-const TRADE_ICONS: Record<string, string> = {
-  plumber: '🔧', electrician: '⚡', ac_hvac: '❄️', carpenter: '🪚',
-  painter: '🎨', cleaner: '🧹', landscaper: '🌿', mason: '🧱',
-  roofer: '🏠', handyman: '🛠️',
+// Same iconography as the customer Get Quotes wizard — providers onboard into
+// the trades customers can actually request, so every downstream feature
+// (intake questions, search, service catalog) works from day one.
+const TRADE_ICONS: Record<string, React.ElementType> = {
+  plumber:      Droplets,
+  electrician:  Zap,
+  hvac:         Wind,
+  painter:      Paintbrush,
+  carpenter:    Hammer,
+  cleaner:      Sparkles,
+  landscaper:   Leaf,
+  roofer:       Home,
+  pest_control: Bug,
+  security:     Shield,
+  handyman:     Wrench,
 }
 
 const SERVICE_AREAS = [
@@ -20,15 +32,9 @@ const SERVICE_AREAS = [
 export default function SetupTradePage() {
   const { user } = useAuth()
   const router = useRouter()
-  const [trades, setTrades] = useState<{ value: string; label: string }[]>([])
   const [selected, setSelected] = useState<string | null>(null)
   const [areas, setAreas] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    supabase.from('service_categories').select('slug, name').eq('is_active', true).order('name')
-      .then(({ data }) => setTrades((data ?? []).map((c: any) => ({ value: c.slug, label: c.name }))))
-  }, [])
 
   // Pre-fill if the provider is returning to this step
   useEffect(() => {
@@ -71,29 +77,45 @@ export default function SetupTradePage() {
       </div>
 
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">What's your trade?</h1>
+        <h1 className="text-3xl font-bold text-gray-900">What&apos;s your trade?</h1>
         <p className="mt-1 text-gray-500">Select the primary service you provide</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {trades.map((trade) => (
-          <button
-            key={trade.value}
-            onClick={() => setSelected(trade.value)}
-            className={`relative flex flex-col items-center gap-2 rounded-2xl border-2 p-5 text-center transition hover:border-primary/40 hover:bg-primary/[0.06] ${
-              selected === trade.value ? 'border-primary bg-primary/[0.06]' : 'border-gray-100 bg-white'
-            }`}
-          >
-            <span className="text-3xl">{TRADE_ICONS[trade.value] ?? '🔨'}</span>
-            <span className={`text-sm font-semibold ${selected === trade.value ? 'text-primary' : 'text-gray-700'}`}>
-              {trade.label}
-            </span>
-            {selected === trade.value && (
-              <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-white font-bold">✓</span>
-            )}
-          </button>
-        ))}
+        {Object.entries(CATEGORY_META).map(([key, meta]) => {
+          const Icon = TRADE_ICONS[key] ?? Wrench
+          const isSelected = selected === key
+          return (
+            <button
+              key={key}
+              onClick={() => setSelected(key)}
+              className={`group relative flex flex-col items-center gap-3 rounded-2xl border p-5 text-center transition-all ${
+                isSelected
+                  ? 'border-primary bg-primary/[0.04] shadow-[0_4px_16px_rgba(17,94,86,0.10)]'
+                  : 'border-border bg-white hover:border-primary/30 hover:shadow-[0_4px_16px_rgba(17,94,86,0.08)]'
+              }`}
+            >
+              <div className={`flex h-12 w-12 items-center justify-center rounded-xl transition-colors ${
+                isSelected ? 'bg-primary/[0.08]' : 'bg-surface group-hover:bg-primary/[0.08]'
+              }`}>
+                <Icon size={20} className={isSelected ? 'text-primary' : 'text-muted transition-colors group-hover:text-primary'} />
+              </div>
+              <span className={`text-sm font-semibold ${isSelected ? 'text-primary' : 'text-gray-700'}`}>
+                {meta.label}
+              </span>
+              {isSelected && (
+                <span className="absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white">
+                  <Check size={12} strokeWidth={3} />
+                </span>
+              )}
+            </button>
+          )
+        })}
       </div>
+
+      <p className="text-xs text-gray-400">
+        Don&apos;t see your trade? These are the categories customers can request today — more are on the way.
+      </p>
 
       {/* Service areas — required so customers always know where you work */}
       <div className="space-y-4">
@@ -112,13 +134,14 @@ export default function SetupTradePage() {
               <button
                 key={area}
                 onClick={() => toggleArea(area)}
-                className={`rounded-full border-2 px-4 py-1.5 text-sm font-medium transition ${
+                className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-medium transition ${
                   active
                     ? 'border-primary bg-primary/[0.06] text-primary'
-                    : 'border-gray-100 bg-white text-gray-600 hover:border-primary/40'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-primary/40'
                 }`}
               >
-                {active ? '✓ ' : ''}{area}
+                {active && <Check size={13} strokeWidth={3} />}
+                {area}
               </button>
             )
           })}
