@@ -247,7 +247,7 @@ export default function ProviderBookingDetailPage() {
             {booking.is_emergency && (
               <div className="py-3.5 border-b border-gray-50">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 border border-red-200 px-3 py-1 text-xs font-semibold text-red-600">
-                  ⚡ Emergency booking — 15% commission
+                  Emergency booking — 15% commission
                 </span>
               </div>
             )}

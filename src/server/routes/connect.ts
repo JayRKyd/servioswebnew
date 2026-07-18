@@ -8,6 +8,11 @@ const connect = new Hono()
 
 connect.use('*', authMiddleware)
 
+// Stripe Connect ships with the payments milestone — until the key exists,
+// /status reports unavailable (the page shows a coming-soon state) and the
+// action routes return a clear message instead of a raw 500.
+const stripeConfigured = () => !!process.env.STRIPE_SECRET_KEY?.trim()
+
 /**
  * POST /api/v1/connect/onboard
  * Creates (or retrieves) a Stripe Express account for the provider
@@ -17,6 +22,9 @@ connect.use('*', authMiddleware)
  * Stripe redirects back to return_url on completion.
  */
 connect.post('/onboard', async (c) => {
+  if (!stripeConfigured()) {
+    throw new HTTPException(503, { message: 'Online payouts are not live yet — bank account connection opens with the payments launch.' })
+  }
   const userId = c.get('userId')
 
   // Look up existing Connect account
@@ -86,8 +94,12 @@ connect.get('/status', async (c) => {
 
   if (!profile) throw new HTTPException(404, { message: 'Provider profile not found' })
 
+  if (!stripeConfigured()) {
+    return c.json({ connected: false, status: 'not_connected', available: false })
+  }
+
   if (!profile.stripe_account_id) {
-    return c.json({ connected: false, status: 'not_connected' })
+    return c.json({ connected: false, status: 'not_connected', available: true })
   }
 
   // Fetch live status from Stripe
@@ -125,6 +137,9 @@ connect.get('/status', async (c) => {
  * view their balance, payouts, and transaction history.
  */
 connect.post('/dashboard', async (c) => {
+  if (!stripeConfigured()) {
+    throw new HTTPException(503, { message: 'Online payouts are not live yet.' })
+  }
   const userId = c.get('userId')
 
   const { data: profile } = await supabase

@@ -5,6 +5,7 @@ import { apiClient } from '@/lib/api-client'
 
 type ConnectStatus = {
   connected: boolean
+  available?: boolean
   status: 'not_connected' | 'pending' | 'active' | 'restricted'
   chargesEnabled?: boolean
   payoutsEnabled?: boolean
@@ -102,7 +103,24 @@ function ProviderPayoutsInner() {
           <StatusBadge status={status?.status ?? 'not_connected'} />
         </div>
 
-        {status?.status === 'not_connected' && (
+        {status?.status === 'not_connected' && status?.available === false && (
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600">
+              Online payouts launch with the payments milestone. When they go live you&apos;ll
+              connect your bank account here and get paid automatically after each completed job.
+            </p>
+            <ul className="text-sm text-gray-500 list-disc list-inside space-y-1">
+              <li>Verify your identity and business details</li>
+              <li>Add your bank account for payouts</li>
+              <li>Funds are released after each job is completed</li>
+            </ul>
+            <div className="rounded-lg bg-gray-50 border border-gray-200 px-4 py-3 text-center text-sm font-medium text-gray-500">
+              Coming soon
+            </div>
+          </div>
+        )}
+
+        {status?.status === 'not_connected' && status?.available !== false && (
           <div className="space-y-3">
             <p className="text-sm text-gray-600">
               Connect your bank account to start receiving payments. This takes about 5 minutes.
