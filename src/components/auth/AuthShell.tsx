@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { AuthBrandPanel } from './AuthBrandPanel'
+import { ServiosMark } from '@/components/brand/Logo'
 
 /** Split-screen shell shared by the secondary auth pages (verify email,
  *  forgot/reset password). Form column left, brand panel right — same
@@ -10,15 +11,9 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
       {/* Left: content column */}
       <div className="flex w-full flex-col lg:w-[46%] lg:min-w-[520px]">
         <div className="h-[72px] flex items-center px-5 sm:px-10 lg:px-14 shrink-0">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="relative w-8 h-8">
-              <div className="absolute inset-0 bg-primary rounded-lg" />
-              <svg className="relative" width="32" height="32" viewBox="0 0 32 32" fill="none">
-                <path d="M10 20.5c0-2.5 3-4.5 6-4.5s6 2 6 4.5" stroke="white" strokeWidth="2" strokeLinecap="round" />
-                <circle cx="16" cy="12" r="3.5" stroke="white" strokeWidth="2" />
-              </svg>
-            </div>
-            <span className="text-[18px] font-semibold text-dark tracking-[-0.03em]">Servios</span>
+          <Link href="/" className="flex items-center gap-2">
+            <ServiosMark size={30} />
+            <span className="text-[19px] font-semibold text-[#171717] tracking-[-0.03em]">servios</span>
           </Link>
         </div>
 

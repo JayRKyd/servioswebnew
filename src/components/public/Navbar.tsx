@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { Menu, X, ArrowUpRight } from 'lucide-react'
 import Link from 'next/link'
+import { ServiosMark } from '@/components/brand/Logo'
 
 export default function Navbar() {
   const [open, setOpen] = useState(false)
@@ -17,15 +18,9 @@ export default function Navbar() {
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'nav-scrolled' : 'bg-white/0'}`}>
       <div className="mx-auto w-[80%] max-w-[1800px] px-5 lg:px-8">
         <div className="flex h-[64px] items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 shrink-0">
-            <div className="relative w-8 h-8">
-              <div className="absolute inset-0 bg-primary rounded-lg" />
-              <svg className="relative" width="32" height="32" viewBox="0 0 32 32" fill="none">
-                <path d="M10 20.5c0-2.5 3-4.5 6-4.5s6 2 6 4.5" stroke="white" strokeWidth="2" strokeLinecap="round" />
-                <circle cx="16" cy="12" r="3.5" stroke="white" strokeWidth="2" />
-              </svg>
-            </div>
-            <span className="text-[18px] font-semibold text-dark tracking-[-0.03em]">Servios</span>
+          <Link href="/" className="flex items-center gap-2 shrink-0">
+            <ServiosMark size={30} />
+            <span className="text-[19px] font-semibold text-[#171717] tracking-[-0.03em]">servios</span>
           </Link>
 
           <div className="hidden lg:flex items-center gap-1 bg-dark/[0.04] rounded-full px-1.5 py-1">

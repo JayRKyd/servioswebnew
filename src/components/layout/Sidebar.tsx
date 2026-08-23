@@ -7,6 +7,7 @@ import { useUnreadMessages } from "@/hooks/useUnreadMessages"
 import type { Role } from "@/lib/permissions"
 import { ROLE_ROUTES, SHARED_ROUTES } from "@/lib/permissions"
 import { OnboardingContext } from "@/contexts/OnboardingContext"
+import { ServiosMark } from "@/components/brand/Logo"
 import {
   LayoutDashboard, Search, Wrench, CalendarDays, Clock,
   DollarSign, User, FileText, BarChart3, MessageSquare,
@@ -151,15 +152,9 @@ export function Sidebar({ role }: SidebarProps) {
   return (
     <aside className="flex h-screen w-[220px] shrink-0 flex-col border-r border-border bg-[#fafbfa]">
       {/* Logo */}
-      <div className="flex h-[64px] items-center gap-2.5 px-5 border-b border-border shrink-0">
-        <div className="relative w-7 h-7 shrink-0">
-          <div className="absolute inset-0 bg-primary rounded-lg" />
-          <svg className="relative" width="28" height="28" viewBox="0 0 32 32" fill="none">
-            <path d="M10 20.5c0-2.5 3-4.5 6-4.5s6 2 6 4.5" stroke="white" strokeWidth="2" strokeLinecap="round" />
-            <circle cx="16" cy="12" r="3.5" stroke="white" strokeWidth="2" />
-          </svg>
-        </div>
-        <span className="text-[16px] font-semibold text-dark tracking-[-0.02em]">Servios</span>
+      <div className="flex h-[64px] items-center gap-2 px-5 border-b border-border shrink-0">
+        <ServiosMark size={26} />
+        <span className="text-[16px] font-semibold text-[#171717] tracking-[-0.02em]">servios</span>
       </div>
 
       {/* Role badge */}
