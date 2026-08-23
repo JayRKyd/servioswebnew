@@ -31,7 +31,6 @@ export default function Navbar() {
           <div className="hidden lg:flex items-center gap-1 bg-dark/[0.04] rounded-full px-1.5 py-1">
             <a href="#categories" className="text-[13px] font-medium text-muted hover:text-dark px-4 py-1.5 rounded-full hover:bg-white/80 transition-all">Services</a>
             <a href="#how-it-works" className="text-[13px] font-medium text-muted hover:text-dark px-4 py-1.5 rounded-full hover:bg-white/80 transition-all">How It Works</a>
-            <a href="#" className="text-[13px] font-medium text-muted hover:text-dark px-4 py-1.5 rounded-full hover:bg-white/80 transition-all">Pricing</a>
           </div>
 
           <div className="hidden lg:flex items-center gap-3">
@@ -56,7 +55,6 @@ export default function Navbar() {
         <div className="lg:hidden bg-white/95 backdrop-blur-xl border-t border-border/60 px-5 pb-6 pt-4">
           <a href="#categories" className="block py-3 text-[15px] font-medium text-dark border-b border-border/40">Services</a>
           <a href="#how-it-works" className="block py-3 text-[15px] font-medium text-dark border-b border-border/40">How It Works</a>
-          <a href="#" className="block py-3 text-[15px] font-medium text-dark border-b border-border/40">Pricing</a>
           <div className="mt-5 space-y-3">
             <Link href="/join-provider" className="block w-full text-center py-3 text-[14px] font-medium text-primary border border-primary/20 rounded-xl">Join as a Provider</Link>
             <div className="flex gap-3">

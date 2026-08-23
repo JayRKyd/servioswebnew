@@ -25,9 +25,11 @@ export default function Hero() {
         backgroundSize: '80px 80px'
       }} />
 
-      <div className="relative mx-auto w-[80%] max-w-[1800px] px-5 lg:px-8 pt-[120px] sm:pt-[140px] pb-16 sm:pb-20 lg:pb-0">
+      <div className="relative mx-auto w-[92%] lg:w-[80%] max-w-[1800px] px-5 lg:px-8 pt-[120px] sm:pt-[140px] pb-16 sm:pb-20 lg:pb-0">
         <div className="grid lg:grid-cols-[1fr,0.85fr] gap-12 lg:gap-16 items-end">
-          <div className="max-w-[600px] lg:pb-20">
+          {/* Below lg the gallery column is hidden — center the content so the
+              hero doesn't read as a broken half-empty layout */}
+          <div className="max-w-[600px] mx-auto lg:mx-0 lg:pb-20">
             <div className="animate-fade-up inline-flex items-center gap-2.5 bg-primary/[0.06] border border-primary/[0.08] rounded-full pl-1.5 pr-4 py-1.5 mb-8">
               <span className="inline-flex items-center gap-1 bg-primary text-white text-[11px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full">New</span>
               <span className="text-[13px] text-muted font-medium">Now in 200+ UK cities</span>
