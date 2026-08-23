@@ -42,7 +42,7 @@ function VerifyEmailContent() {
       <p className="mt-3 text-[15px] leading-relaxed text-muted">
         We sent a confirmation link to{' '}
         {email ? <span className="font-semibold text-dark">{email}</span> : 'your email address'}.
-        Click the link to verify your account, then log in to get started.
+        Click the link to verify your account and you&apos;ll be signed in automatically.
       </p>
 
       <div className="mt-6 rounded-xl bg-[#fafbfa] border border-border px-4 py-3.5">

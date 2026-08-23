@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Lock, Eye, EyeOff, CheckCircle2, ArrowRight, TimerOff } from 'lucide-react'
 import { supabase } from '@/lib/auth'
+import { type Role, getDefaultRoute } from '@/lib/permissions'
 import { AuthShell } from '@/components/auth/AuthShell'
 
 export default function ResetPasswordPage() {
@@ -36,13 +37,8 @@ export default function ResetPasswordPage() {
 
     setDone(true)
     const meta = data.user?.user_metadata ?? {}
-    const role = (meta.active_role ?? meta.role) as string | undefined
-    const dest = role === 'provider' ? '/provider'
-      : role === 'landlord' ? '/landlord'
-      : role === 'tenant' ? '/tenant'
-      : role === 'admin' ? '/admin'
-      : '/dashboard'
-    setTimeout(() => { router.push(dest); router.refresh() }, 1500)
+    const role = (meta.active_role ?? meta.role ?? 'customer') as Role
+    setTimeout(() => { router.push(getDefaultRoute(role)); router.refresh() }, 1500)
   }
 
   return (

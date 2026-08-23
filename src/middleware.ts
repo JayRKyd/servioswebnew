@@ -1,12 +1,9 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { type Role, ROLE_ROUTES, SHARED_ROUTES } from '@/lib/permissions'
+import { type Role, ROLE_ROUTES, SHARED_ROUTES, getDefaultRoute } from '@/lib/permissions'
 
 // Feature flags — read at edge runtime
 const LANDLORD_TENANT_ENABLED = process.env.NEXT_PUBLIC_LANDLORD_TENANT_ENABLED === 'true'
-
-/** Roles only accessible when LANDLORD_TENANT flag is on */
-const LANDLORD_TENANT_ROLES: Role[] = ['landlord', 'tenant']
 
 const PUBLIC_ROUTES = [
   '/',
@@ -36,18 +33,6 @@ function isPublicRoute(pathname: string) {
 
 function isLandlordTenantRoute(pathname: string) {
   return pathname.startsWith('/landlord') || pathname.startsWith('/tenant')
-}
-
-function getDefaultRoute(role: Role): string {
-  // If landlord/tenant is disabled, fall back to customer dashboard
-  if (!LANDLORD_TENANT_ENABLED && LANDLORD_TENANT_ROLES.includes(role)) return '/dashboard'
-  switch (role) {
-    case 'provider': return '/provider'
-    case 'landlord': return '/landlord'
-    case 'tenant': return '/tenant'
-    case 'admin': return '/admin'
-    default: return '/dashboard'
-  }
 }
 
 export async function middleware(request: NextRequest) {
