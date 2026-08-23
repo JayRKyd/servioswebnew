@@ -1,8 +1,29 @@
 import { supabase } from '../db/client'
 
 export async function sendEmail(to: string, subject: string, body: string): Promise<void> {
-  // TODO: integrate SendGrid / Resend
-  console.log(`[EMAIL] To: ${to} | Subject: ${subject}`)
+  const apiKey = (process.env.RESEND_API_KEY ?? '').trim()
+  const from   = (process.env.RESEND_FROM_EMAIL ?? '').trim()
+
+  // Degrade gracefully until Resend is configured — log instead of throwing
+  // so booking flows never fail because email isn't set up yet.
+  if (!apiKey || !from) {
+    console.log(`[EMAIL not configured] To: ${to} | Subject: ${subject}`)
+    return
+  }
+
+  // Resend API — no SDK required, plain HTTP (same approach as Expo push below)
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ from, to, subject, html: body }),
+  })
+
+  if (!res.ok) {
+    console.error('[EMAIL] Resend API error:', await res.text())
+  }
 }
 
 export async function sendSMS(to: string, body: string): Promise<void> {
