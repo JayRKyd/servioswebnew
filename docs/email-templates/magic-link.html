@@ -1,0 +1,58 @@
+<!-- Supabase Auth template: Magic link
+     Paste into: Supabase Dashboard → Authentication → Emails → Templates → Magic link
+     Suggested subject: Your Servios sign-in link -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f5f4;padding:40px 16px;">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;background-color:#ffffff;border-radius:16px;padding:40px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+        <tr>
+          <td style="padding-bottom:32px;">
+            <!-- TODO: replace with hosted logo <img> once the brand logo + domain are live -->
+            <table role="presentation" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="background-color:#115e56;border-radius:8px;width:32px;height:32px;text-align:center;vertical-align:middle;color:#ffffff;font-size:18px;font-weight:700;">S</td>
+                <td style="padding-left:10px;font-size:18px;font-weight:600;color:#111827;letter-spacing:-0.03em;">Servios</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="font-size:22px;font-weight:700;color:#111827;letter-spacing:-0.02em;padding-bottom:12px;">Sign in to Servios</td>
+        </tr>
+        <tr>
+          <td style="font-size:15px;line-height:1.6;color:#6b7280;padding-bottom:28px;">
+            Click the button below to sign in to your Servios account. No password needed.
+          </td>
+        </tr>
+        <tr>
+          <td style="padding-bottom:28px;">
+            <a href="{{ .ConfirmationURL }}" style="display:inline-block;background-color:#115e56;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 32px;border-radius:12px;">Sign in</a>
+          </td>
+        </tr>
+        <tr>
+          <td style="font-size:13px;line-height:1.6;color:#9ca3af;padding-bottom:8px;">
+            If the button doesn&rsquo;t work, copy and paste this link into your browser:
+          </td>
+        </tr>
+        <tr>
+          <td style="font-size:13px;line-height:1.6;padding-bottom:28px;word-break:break-all;">
+            <a href="{{ .ConfirmationURL }}" style="color:#115e56;">{{ .ConfirmationURL }}</a>
+          </td>
+        </tr>
+        <tr>
+          <td style="font-size:13px;line-height:1.6;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:24px;">
+            This link expires in 24 hours and can only be used once. If you didn&rsquo;t request it, you can safely ignore this email.
+          </td>
+        </tr>
+      </table>
+      <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;">
+        <tr>
+          <td style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#9ca3af;text-align:center;padding-top:24px;">
+            Servios Group Ltd<br>
+            You received this email because a sign-in link was requested for this address.
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
