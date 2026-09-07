@@ -105,7 +105,7 @@ function CustomerProviderProfileInner() {
           .select('id, service:services(title, description, base_price)')
           .eq('provider_id', pp.id).eq('is_active', true).limit(12),
         supabase.from('reviews')
-          .select('id, rating, review_text, created_at')
+          .select('id, rating, review_text, created_at, reviewer_id')
           .eq('reviewee_id', pp.user_id).order('created_at', { ascending: false }).limit(20),
         supabase.from('provider_portfolio_photos')
           .select('id, url, caption')
@@ -120,7 +120,16 @@ function CustomerProviderProfileInner() {
       ])
 
       setServices((svcs ?? []) as any)
-      setReviews((revs ?? []) as any)
+
+      // Resolve reviewer first names — reviews used to hardcode "Customer"
+      const reviewerIds = Array.from(new Set((revs ?? []).map((r: any) => r.reviewer_id).filter(Boolean)))
+      let namesById: Record<string, string> = {}
+      if (reviewerIds.length > 0) {
+        const { data: reviewers } = await supabase
+          .from('customer_profiles').select('user_id, first_name').in('user_id', reviewerIds)
+        namesById = Object.fromEntries((reviewers ?? []).map((c: any) => [c.user_id, c.first_name]))
+      }
+      setReviews(((revs ?? []) as any[]).map(r => ({ ...r, reviewer_name: namesById[r.reviewer_id] || 'Customer' })))
       setVerifiedDocs((docs ?? []) as any)
       setPortfolioPhotos((photos ?? []) as PortfolioPhoto[])
       setLoading(false)
@@ -279,7 +288,7 @@ function CustomerProviderProfileInner() {
     memberSince && {
       icon: <Clock size={24} className="text-primary" />,
       title: `Member since ${memberSince}`,
-      desc: 'A trusted and established member of the Servios community.',
+      desc: 'On Servios — all bookings, payments and reviews handled on the platform.',
     },
   ].filter(Boolean) as { icon: React.ReactNode; title: string; desc: string }[]
 
@@ -368,50 +377,37 @@ function CustomerProviderProfileInner() {
               </p>
             </div>
           </div>
-        ) : (
-          <div
-            className="h-[420px] overflow-hidden rounded-2xl gap-2 grid"
-            style={{ gridTemplateColumns: '2fr 1fr 1fr', gridTemplateRows: '1fr 1fr' }}
-          >
-            {/* Main large photo */}
-            <div className="row-span-2 overflow-hidden">
-              {provider.profile_image_url ? (
-                <img src={provider.profile_image_url} alt={displayName} className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-gray-100">
-                  <div className="flex h-28 w-28 items-center justify-center rounded-full bg-white ring-1 ring-gray-200 text-4xl font-bold text-gray-400 shadow-sm select-none">{initials}</div>
-                </div>
-              )}
-            </div>
-
-            {/* Smaller slots — filled with portfolio photos if available */}
-            {[0, 1, 2].map((idx) => {
-              const photo = portfolioPhotos[idx]
-              return (
-                <div
-                  key={idx}
-                  className={`overflow-hidden ${photo ? 'cursor-pointer' : ''}`}
-                  onClick={photo ? () => { setShowPhotoGallery(true); setLightboxIdx(idx) } : undefined}
-                >
-                  {photo ? (
-                    <img src={photo.url} alt={photo.caption ?? ''} className="h-full w-full object-cover hover:scale-105 transition-transform duration-300" />
-                  ) : (
-                    <div className="h-full w-full bg-gray-50" />
-                  )}
-                </div>
-              )
-            })}
-
-            {/* Bottom-right: "Show all" button */}
+        ) : (() => {
+          /* Work photos lead the gallery (the square avatar stays in the
+             profile card — stretching it into the wide hero looked broken)
+             and the grid shape adapts to how many photos exist, so there are
+             never empty grey tiles. */
+          const sidePhotos = portfolioPhotos.slice(1, portfolioPhotos.length >= 5 ? 5 : 3)
+          const cols = sidePhotos.length >= 3 ? '2fr 1fr 1fr' : sidePhotos.length >= 1 ? '2fr 1fr' : '1fr'
+          const rows = sidePhotos.length >= 2 ? '1fr 1fr' : '1fr'
+          return (
             <div
-              className={`relative overflow-hidden ${portfolioPhotos[3] ? 'cursor-pointer' : ''}`}
-              onClick={portfolioPhotos[3] ? () => { setShowPhotoGallery(true); setLightboxIdx(3) } : undefined}
+              className="relative h-[420px] overflow-hidden rounded-2xl gap-2 grid"
+              style={{ gridTemplateColumns: cols, gridTemplateRows: rows }}
             >
-              {portfolioPhotos[3] ? (
-                <img src={portfolioPhotos[3].url} alt={portfolioPhotos[3].caption ?? ''} className="h-full w-full object-cover hover:scale-105 transition-transform duration-300" />
-              ) : (
-                <div className="h-full w-full bg-gray-50" />
-              )}
+              {/* Hero: the first work photo */}
+              <div
+                className={`${sidePhotos.length >= 2 ? 'row-span-2' : ''} overflow-hidden cursor-pointer`}
+                onClick={() => { setShowPhotoGallery(true); setLightboxIdx(0) }}
+              >
+                <img src={portfolioPhotos[0].url} alt={portfolioPhotos[0].caption ?? displayName} className="h-full w-full object-cover hover:scale-105 transition-transform duration-300" />
+              </div>
+
+              {sidePhotos.map((photo, i) => (
+                <div
+                  key={photo.id ?? i}
+                  className="overflow-hidden cursor-pointer"
+                  onClick={() => { setShowPhotoGallery(true); setLightboxIdx(i + 1) }}
+                >
+                  <img src={photo.url} alt={photo.caption ?? ''} className="h-full w-full object-cover hover:scale-105 transition-transform duration-300" />
+                </div>
+              ))}
+
               <div className="absolute bottom-3 right-3">
                 <button
                   onClick={(e) => { e.stopPropagation(); setShowPhotoGallery(true); setLightboxIdx(null) }}
@@ -422,8 +418,8 @@ function CustomerProviderProfileInner() {
                 </button>
               </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
       </div>
 
       {/* ── Main content ── */}
@@ -585,8 +581,8 @@ function CustomerProviderProfileInner() {
                 {/* Review cards — 2 column */}
                 <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
                   {displayedReviews.map(rv => {
-                    const reviewerName = 'Customer'
-                    const reviewerInitial = 'C'
+                    const reviewerName = (rv as any).reviewer_name || 'Customer'
+                    const reviewerInitial = reviewerName.charAt(0).toUpperCase()
                     return (
                       <div key={rv.id} className="space-y-3">
                         <div className="flex items-center gap-3">

@@ -29,13 +29,15 @@
   .text-balance { text-wrap: balance; }
 }
 
+/* Ends on a duplicated first word (-500%) so the loop restart is seamless —
+   snapping from -400% back to 0 scrolled through every word mid-transition */
 @keyframes word-slide {
   0%, 16% { transform: translateY(0); }
   20%, 36% { transform: translateY(-100%); }
   40%, 56% { transform: translateY(-200%); }
   60%, 76% { transform: translateY(-300%); }
   80%, 96% { transform: translateY(-400%); }
-  100% { transform: translateY(0); }
+  100% { transform: translateY(-500%); }
 }
 .word-rotator { animation: word-slide 10s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
 

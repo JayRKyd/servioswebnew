@@ -26,9 +26,6 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
       <AuthBrandPanel
         headline={<>Every job done,<br />by someone you trust.</>}
         subline="Tell us what you need, get matched with vetted local pros, and pay securely — your money is only released when the job is done."
-        quote="Found a brilliant plumber within the hour. He turned up on time, fixed the leak, and the payment was all handled in the app. Couldn't be easier."
-        quoteAuthor="Sarah Mitchell"
-        quoteMeta="Homeowner, North London"
       />
     </div>
   )

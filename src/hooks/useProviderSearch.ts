@@ -43,7 +43,7 @@ const DEFAULT_FILTERS: SearchFilters = {
   sortBy: 'rating',
 }
 
-const TRADE_LABELS: Record<string, string> = {
+export const TRADE_LABELS: Record<string, string> = {
   plumber: 'Plumbing',
   electrician: 'Electrical',
   hvac: 'HVAC',

@@ -50,8 +50,14 @@ export default function NotificationsPage() {
       </div>
       {isLoading ? <div className="flex h-40 items-center justify-center text-gray-400">Loading…</div> :
         notifications.length === 0 ? (
-          <div className="flex h-40 items-center justify-center rounded-xl border-2 border-dashed border-gray-200">
-            <p className="text-gray-400">No notifications yet</p>
+          <div className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 py-12 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/[0.08]">
+              <Bell size={22} className="text-primary" />
+            </div>
+            <p className="mt-1 font-semibold text-gray-900">You&apos;re all caught up</p>
+            <p className="max-w-xs text-sm text-gray-500">
+              Booking updates, messages and reviews will land here as they happen.
+            </p>
           </div>
         ) : (
           <div className="space-y-2">

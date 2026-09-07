@@ -5,6 +5,7 @@ import { supabase } from '@/lib/auth'
 import { useProfileIds } from '@/hooks/useProfileIds'
 import { formatDate, formatCurrency, formatTime } from '@/lib/utils'
 import { StatusBadge } from '@/components/shared/StatusBadge'
+import { CalendarDays } from 'lucide-react'
 
 const FILTERS = ['all', 'pending', 'accepted', 'in_progress', 'completed', 'rejected']
 
@@ -36,7 +37,20 @@ export default function ProviderBookingsPage() {
       </div>
 
       {loading ? <div className="flex h-40 items-center justify-center text-gray-400">Loading…</div> :
-        bookings.length === 0 ? <div className="flex h-40 items-center justify-center rounded-xl border-2 border-dashed border-gray-200"><p className="text-gray-400">No bookings</p></div> : (
+        bookings.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 py-12 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/[0.08]">
+              <CalendarDays size={22} className="text-primary" />
+            </div>
+            <p className="mt-1 font-semibold text-gray-900">No booking requests yet</p>
+            <p className="max-w-xs text-sm text-gray-500">
+              When a customer books you, the request lands here. Keeping your availability up to date makes you bookable.
+            </p>
+            <Link href="/provider/availability" className="mt-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark">
+              Check my availability
+            </Link>
+          </div>
+        ) : (
           <div className="space-y-3">
             {bookings.map(b => (
               <Link key={b.id} href={'/provider/bookings/' + b.id} className="block rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100 transition hover:ring-primary/30">

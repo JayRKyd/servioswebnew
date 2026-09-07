@@ -178,9 +178,6 @@ function LoginForm() {
       <AuthBrandPanel
         headline={<>Trusted local pros,<br />one booking away.</>}
         subline="Book vetted professionals, chat directly, and pay securely — your money is only released when the job is done."
-        quote="Found a brilliant plumber within the hour. He turned up on time, fixed the leak, and the payment was all handled in the app. Couldn't be easier."
-        quoteAuthor="Sarah Mitchell"
-        quoteMeta="Homeowner, North London"
       />
     </div>
   )

@@ -106,17 +106,14 @@ function ProviderPayoutsInner() {
         {status?.status === 'not_connected' && status?.available === false && (
           <div className="space-y-3">
             <p className="text-sm text-gray-600">
-              Online payouts launch with the payments milestone. When they go live you&apos;ll
-              connect your bank account here and get paid automatically after each completed job.
+              Bank payouts aren&apos;t open on your account yet. Your earnings from completed
+              jobs are held safely and paid out by the Servios team in the meantime —
+              contact support if you have a question about a payment.
             </p>
-            <ul className="text-sm text-gray-500 list-disc list-inside space-y-1">
-              <li>Verify your identity and business details</li>
-              <li>Add your bank account for payouts</li>
-              <li>Funds are released after each job is completed</li>
-            </ul>
-            <div className="rounded-lg bg-gray-50 border border-gray-200 px-4 py-3 text-center text-sm font-medium text-gray-500">
-              Coming soon
-            </div>
+            <a href="mailto:support@servios.co.uk"
+              className="inline-block rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+              Ask about a payout
+            </a>
           </div>
         )}
 

@@ -3,7 +3,6 @@ import Hero from '@/components/public/Hero'
 import Categories from '@/components/public/Categories'
 import PopularServices from '@/components/public/PopularServices'
 import HowItWorks from '@/components/public/HowItWorks'
-import Testimonials from '@/components/public/Testimonials'
 import CTABanner from '@/components/public/CTABanner'
 import Footer from '@/components/public/Footer'
 
@@ -15,7 +14,7 @@ export default function LandingPage() {
       <Categories />
       <PopularServices />
       <HowItWorks />
-      <Testimonials />
+      {/* Testimonials return when real ones exist — invented quotes removed */}
       <CTABanner />
       <Footer />
     </>

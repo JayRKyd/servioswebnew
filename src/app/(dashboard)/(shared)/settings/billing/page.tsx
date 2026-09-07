@@ -6,7 +6,7 @@ export default function BillingPage() {
       <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100 space-y-4">
         <div className="flex h-24 flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-gray-200">
           <p className="text-sm text-gray-400">No payment methods added</p>
-          <p className="text-xs text-gray-400">Saved payment methods arrive with online payments — coming soon.</p>
+          <p className="text-xs text-gray-400">Cards you pay with will appear here after your first booking.</p>
         </div>
       </div>
       <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">

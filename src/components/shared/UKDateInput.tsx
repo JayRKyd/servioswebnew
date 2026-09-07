@@ -35,7 +35,9 @@ function toISO(display: string): string {
 
 /** Auto-inserts slashes as the user types: 2 → 2/, 25 → 25/ */
 function autoSlash(raw: string, prev: string): string {
-  let s = raw.replace(/[^\d/]/g, '')
+  // Collapse doubled slashes — typing your own "/" after the auto-insert
+  // used to produce "25//12/202"
+  let s = raw.replace(/[^\d/]/g, '').replace(/\/{2,}/g, '/')
   // Remove trailing slash when deleting
   if (raw.length < prev.length) return s
   if (s.length === 2 && !s.includes('/')) s += '/'

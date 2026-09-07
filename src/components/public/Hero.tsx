@@ -32,7 +32,7 @@ export default function Hero() {
           <div className="max-w-[600px] mx-auto lg:mx-0 lg:pb-20">
             <div className="animate-fade-up inline-flex items-center gap-2.5 bg-primary/[0.06] border border-primary/[0.08] rounded-full pl-1.5 pr-4 py-1.5 mb-8">
               <span className="inline-flex items-center gap-1 bg-primary text-white text-[11px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full">New</span>
-              <span className="text-[13px] text-muted font-medium">Now in 200+ UK cities</span>
+              <span className="text-[13px] text-muted font-medium">Now live across London</span>
             </div>
 
             <h1 className="animate-fade-up delay-100">
@@ -40,8 +40,10 @@ export default function Hero() {
               <span className="block text-[3rem] sm:text-[3.75rem] lg:text-[4.25rem] font-bold leading-[1.05] tracking-[-0.035em]">
                 <span className="inline-flex h-[1.1em] overflow-hidden align-bottom">
                   <span className="word-rotator flex flex-col">
-                    {services.map((word) => (
-                      <span key={word} className="text-primary h-[1.1em] flex items-center">{word}</span>
+                    {/* First word repeated at the end — the keyframes land on it
+                        so the loop restart doesn't visibly scroll back */}
+                    {[...services, services[0]].map((word, i) => (
+                      <span key={`${word}-${i}`} className="text-primary h-[1.1em] flex items-center">{word}</span>
                     ))}
                   </span>
                 </span>
@@ -87,14 +89,16 @@ export default function Hero() {
               </div>
             </div>
 
+            {/* True-from-day-one signals only — real stats join once they
+                clear the display threshold (fake 4.8/12K/50K removed) */}
             <div className="animate-fade-up delay-400 mt-10 flex flex-wrap items-center gap-6 sm:gap-8">
               <div className="flex items-center gap-2.5">
-                <div className="flex items-center justify-center w-9 h-9 rounded-full bg-amber-50 border border-amber-100/80">
-                  <Star size={16} className="text-amber-500" />
+                <div className="flex items-center justify-center w-9 h-9 rounded-full bg-emerald-50 border border-emerald-100/80">
+                  <Shield size={16} className="text-emerald-600" />
                 </div>
                 <div>
-                  <p className="text-[15px] font-semibold text-dark leading-none">4.8/5</p>
-                  <p className="text-[11.5px] text-muted mt-0.5">12K+ reviews</p>
+                  <p className="text-[15px] font-semibold text-dark leading-none">90-day</p>
+                  <p className="text-[11.5px] text-muted mt-0.5">workmanship guarantee</p>
                 </div>
               </div>
               <div className="w-px h-8 bg-border" />
@@ -103,18 +107,18 @@ export default function Hero() {
                   <Users size={16} className="text-primary" />
                 </div>
                 <div>
-                  <p className="text-[15px] font-semibold text-dark leading-none">50K+</p>
-                  <p className="text-[11.5px] text-muted mt-0.5">verified pros</p>
+                  <p className="text-[15px] font-semibold text-dark leading-none">Vetted pros</p>
+                  <p className="text-[11.5px] text-muted mt-0.5">ID &amp; documents checked</p>
                 </div>
               </div>
               <div className="w-px h-8 bg-border hidden sm:block" />
               <div className="hidden sm:flex items-center gap-2.5">
-                <div className="flex items-center justify-center w-9 h-9 rounded-full bg-emerald-50 border border-emerald-100/80">
-                  <Shield size={16} className="text-emerald-600" />
+                <div className="flex items-center justify-center w-9 h-9 rounded-full bg-amber-50 border border-amber-100/80">
+                  <Star size={16} className="text-amber-500" />
                 </div>
                 <div>
-                  <p className="text-[15px] font-semibold text-dark leading-none">90-day</p>
-                  <p className="text-[11.5px] text-muted mt-0.5">workmanship guarantee</p>
+                  <p className="text-[15px] font-semibold text-dark leading-none">Free for customers</p>
+                  <p className="text-[11.5px] text-muted mt-0.5">no fees, ever</p>
                 </div>
               </div>
             </div>
@@ -139,40 +143,21 @@ export default function Hero() {
               </div>
             </div>
 
-            <div className="absolute -left-8 bottom-16 float-slower z-10">
-              <div className="bg-white rounded-xl p-3.5 shadow-[0_4px_24px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.03] max-w-[210px]">
-                <div className="flex items-center gap-2 mb-2">
-                  <img src="https://i.pravatar.cc/32?img=47" alt="" className="w-7 h-7 rounded-full ring-1 ring-black/5" />
-                  <div>
-                    <p className="text-[12px] font-semibold text-dark leading-tight">Sarah T.</p>
-                    <div className="flex gap-px mt-0.5">
-                      {[...Array(5)].map((_, i) => <Star key={i} size={10} className="text-amber-400 fill-amber-400" />)}
-                    </div>
-                  </div>
-                </div>
-                <p className="text-[11.5px] text-muted leading-[1.5]">&quot;Absolutely brilliant. Kitchen deep clean done in 90 mins flat.&quot;</p>
-              </div>
-            </div>
-
+            {/* Floating cards: no invented reviews or live-counter theatrics —
+                a real review card can return here once genuine ones exist */}
             <div className="absolute -right-2 top-8 float-slow z-10" style={{ animationDelay: '3s' }}>
               <div className="bg-white rounded-lg px-4 py-3 shadow-[0_4px_24px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.03]">
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                  <span className="text-[12px] font-semibold text-dark">247 jobs posted today</span>
+                  <Shield size={13} className="text-emerald-600" />
+                  <span className="text-[12px] font-semibold text-dark">Every job guaranteed for 90 days</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="animate-fade-up delay-500 border-t border-border/60 mt-12 lg:mt-0 py-8 lg:py-10">
-          <p className="text-[11.5px] text-muted/50 uppercase tracking-widest font-medium mb-5">Trusted by teams at</p>
-          <div className="flex flex-wrap items-center gap-x-10 gap-y-4">
-            {['Rightmove', 'Zoopla', 'OpenRent', 'Purplebricks', 'Foxtons'].map((name) => (
-              <span key={name} className="text-[15px] font-semibold text-dark/[0.12] tracking-[-0.01em] select-none">{name}</span>
-            ))}
-          </div>
-        </div>
+        {/* Fake partner-logo row removed — real partnerships earn their place */}
+        <div className="mt-12 lg:mt-0 py-4 lg:py-6" />
       </div>
     </section>
   )

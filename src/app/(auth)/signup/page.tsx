@@ -247,17 +247,11 @@ function SignupForm() {
         <AuthBrandPanel
           headline={<>Grow your business<br />with Servios.</>}
           subline="Get matched with local customers ready to book. You set your rates, your hours, and your service area — we handle secure payment."
-          quote="Servios keeps my diary full. The jobs come with all the details upfront, so I can quote accurately before I even pick up the phone."
-          quoteAuthor="Pete Grant"
-          quoteMeta="Pete's Plumbing Co, North London"
         />
       ) : (
         <AuthBrandPanel
           headline={<>Every job done,<br />by someone you trust.</>}
           subline="Tell us what you need, get matched with vetted local pros, and pay securely — your money is only released when the job is done."
-          quote="Found a brilliant plumber within the hour. He turned up on time, fixed the leak, and the payment was all handled in the app. Couldn't be easier."
-          quoteAuthor="Sarah Mitchell"
-          quoteMeta="Homeowner, North London"
         />
       )}
     </div>

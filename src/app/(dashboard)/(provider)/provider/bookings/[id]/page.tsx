@@ -157,7 +157,9 @@ export default function ProviderBookingDetailPage() {
           <div>
             <h1 className="text-xl font-bold text-gray-900">
               {booking.service?.title ?? 'Booking'}
-              {cp ? ` — ${titleCase(cp.first_name)} ${titleCase(cp.last_name)}` : ''}
+              {cp && `${cp.first_name ?? ''}${cp.last_name ?? ''}`.trim()
+                ? ` — ${titleCase(cp.first_name)} ${titleCase(cp.last_name)}`.trimEnd()
+                : ''}
             </h1>
             <p className="text-xs text-gray-400 mt-0.5">
               {booking.booking_number ? `#${String(booking.booking_number).slice(-3)}` : ''}

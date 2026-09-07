@@ -41,19 +41,13 @@ const categories = [
   'Photography', 'Catering', 'Personal Training',
 ]
 
-const testimonials = [
-  { name: 'Daniel Roberts', trade: 'Plumber', location: 'Manchester', text: "Within my first month I had 14 booked jobs. The leads are genuine and customers are serious — best platform I've used by a mile.", rating: 5, earnings: '£3,200', period: '/month avg', img: 'https://i.pravatar.cc/80?img=12' },
-  { name: 'Amara Koroma', trade: 'Cleaner', location: 'London', text: 'I went from 2 regular clients to 15 in three months. Being verified makes a huge difference — customers trust you immediately.', rating: 5, earnings: '£2,800', period: '/month avg', img: 'https://i.pravatar.cc/80?img=45' },
-  { name: 'Tom Shelby', trade: 'Electrician', location: 'Birmingham', text: "No one's taking a 20% cut. I set my own prices, pick my own jobs, and I'm genuinely earning more while working less.", rating: 5, earnings: '£4,500', period: '/month avg', img: 'https://i.pravatar.cc/80?img=53' },
-]
-
 const faqs = [
-  { q: 'Is it free to sign up?', a: 'Yes, creating your profile is completely free. We offer a free tier with limited leads per month, and paid plans that give you unlimited leads and priority placement.' },
-  { q: 'What do I need to get verified?', a: 'A valid UK photo ID, proof of address, and relevant qualifications or certifications for your trade. The process usually takes 24–48 hours.' },
-  { q: 'How do I get paid?', a: "You agree pricing directly with the customer. Payments can be handled through our secure platform or arranged directly — it's up to you." },
-  { q: 'What areas do you cover?', a: "Servios is available across 200+ cities in England, Scotland, and Wales. We're expanding to Northern Ireland soon." },
-  { q: 'Do I need insurance?', a: 'We recommend public liability insurance for all trades. We partner with leading insurers to offer discounted policies to our verified providers.' },
-  { q: 'Can I pause my account?', a: "Absolutely. Toggle your availability on or off anytime. Going on holiday? Pause leads with one click and resume when you're back." },
+  { q: 'Is it free to sign up?', a: 'Yes — creating your profile, getting verified, and appearing in search are all free. Servios takes a 12% commission on completed jobs; there are no monthly fees or lead charges.' },
+  { q: 'What do I need to get verified?', a: 'A valid photo ID and proof of liability insurance, plus any qualifications or certifications for your trade. Our team reviews documents before your profile goes live.' },
+  { q: 'How do I get paid?', a: 'You set your own prices. Customers pay through Servios when they book, the money is held securely, and it’s released to you when the job is confirmed complete.' },
+  { q: 'What areas do you cover?', a: 'Servios is live across London — Central, North, South, East, West and Greater London — with more UK areas coming.' },
+  { q: 'Do I need insurance?', a: 'Yes — public liability insurance is required as part of verification. It protects you and gives customers confidence to book.' },
+  { q: 'Can I pause my account?', a: 'Absolutely. Your availability page controls when customers can book you — block dates or switch days off any time.' },
 ]
 
 function FaqItem({ q, a }: { q: string; a: string }) {
@@ -93,7 +87,7 @@ export default function JoinProviderPage() {
             <div className="max-w-[560px] lg:pt-6">
               <div className="animate-fade-up inline-flex items-center gap-2 text-[13px] font-medium text-primary bg-primary/[0.06] px-3.5 py-1.5 rounded-md mb-6">
                 <MapPin size={14} />
-                50,000+ professionals across the UK
+                Now onboarding professionals across London
               </div>
 
               <h1 className="animate-fade-up delay-100 text-[2.5rem] sm:text-[3.25rem] lg:text-[3.75rem] font-bold text-dark leading-[1.06] tracking-[-0.035em]">
@@ -116,20 +110,8 @@ export default function JoinProviderPage() {
                 ))}
               </div>
 
-              <div className="animate-fade-up delay-400 mt-10 flex items-center gap-4">
-                <div className="flex -space-x-2">
-                  {[11, 23, 33, 45, 53].map(n => (
-                    <img key={n} src={`https://i.pravatar.cc/36?img=${n}`} alt="" className="w-8 h-8 rounded-full ring-2 ring-[#fafbfa] object-cover" />
-                  ))}
-                </div>
-                <div>
-                  <div className="flex items-center gap-1">
-                    {[...Array(5)].map((_, i) => <Star key={i} size={12} className="text-amber-400 fill-amber-400" />)}
-                    <span className="text-[13px] font-semibold text-dark ml-1">4.8</span>
-                  </div>
-                  <p className="text-[12px] text-muted mt-0.5">from 12,400+ provider reviews</p>
-                </div>
-              </div>
+              {/* Fake avatar stack + invented rating removed — real numbers
+                  return once they clear the display threshold */}
             </div>
 
             {/* Signup card */}
@@ -172,7 +154,7 @@ export default function JoinProviderPage() {
                     </div>
                     <div className="flex items-center gap-2 text-muted">
                       <Users size={14} className="text-primary" />
-                      <span>50K+ pros</span>
+                      <span>Keep 88% per job</span>
                     </div>
                   </div>
                 </div>
@@ -299,41 +281,9 @@ export default function JoinProviderPage() {
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="py-20 sm:py-24 lg:py-28 bg-[#fafbfa]">
-        <div className="mx-auto w-[80%] max-w-[1800px] px-5 lg:px-8">
-          <div className="text-center max-w-xl mx-auto mb-12 sm:mb-14">
-            <p className="text-[13px] font-medium text-primary uppercase tracking-wide mb-2">Provider stories</p>
-            <h2 className="text-[1.85rem] sm:text-[2.25rem] font-bold text-dark tracking-[-0.025em] leading-tight">Real pros. Real earnings.</h2>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-5">
-            {testimonials.map((t) => (
-              <div key={t.name} className="bg-white rounded-2xl border border-border/60 overflow-hidden flex flex-col">
-                <div className="bg-primary/[0.03] px-6 py-4 border-b border-border/40 flex items-center justify-between">
-                  <div>
-                    <p className="text-[24px] font-bold text-dark tracking-tight leading-none">{t.earnings}</p>
-                    <p className="text-[12px] text-muted mt-0.5">{t.period}</p>
-                  </div>
-                  <div className="flex gap-0.5">
-                    {Array.from({ length: t.rating }).map((_, i) => <Star key={i} size={13} className="text-amber-400 fill-amber-400" />)}
-                  </div>
-                </div>
-                <div className="p-6 flex-1">
-                  <p className="text-[14.5px] text-dark leading-[1.65]">&quot;{t.text}&quot;</p>
-                </div>
-                <div className="px-6 pb-6 flex items-center gap-3">
-                  <img src={t.img} alt={t.name} className="w-10 h-10 rounded-full object-cover ring-1 ring-black/5" />
-                  <div>
-                    <p className="text-[14px] font-semibold text-dark">{t.name}</p>
-                    <p className="text-[12.5px] text-muted">{t.trade} · {t.location}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Testimonials deliberately absent — invented providers with invented
+          earnings figures were worse than none. Real stories go here once
+          real providers volunteer them. */}
 
       {/* FAQ */}
       <section className="py-20 sm:py-24 lg:py-28">

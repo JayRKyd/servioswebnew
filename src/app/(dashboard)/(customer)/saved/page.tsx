@@ -5,7 +5,7 @@ import { Bookmark, Search } from 'lucide-react'
 import { supabase } from '@/lib/auth'
 import { AirbnbProviderCard, BOOKMARKS_KEY } from '@/components/search/ProviderCard'
 import { usePortfolioThumbs } from '@/hooks/usePortfolioThumbs'
-import type { ProviderHit } from '@/hooks/useProviderSearch'
+import { TRADE_LABELS, type ProviderHit } from '@/hooks/useProviderSearch'
 
 export default function SavedProvidersPage() {
   const [providers, setProviders] = useState<ProviderHit[]>([])
@@ -43,7 +43,7 @@ export default function SavedProvidersPage() {
           hourly_rate:    p.hourly_rate ?? 0,
           rating_average: Number(p.rating_average) || 0,
           rating_count:   p.total_reviews ?? 0,
-          categories:     p.trade_category ? [p.trade_category] : [],
+          categories:     p.trade_category ? [TRADE_LABELS[p.trade_category] ?? p.trade_category] : [],
           avatar_url:     p.profile_image_url ?? null,
         })))
         setLoading(false)

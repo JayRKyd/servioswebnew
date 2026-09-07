@@ -151,10 +151,16 @@ export default function ProviderDashboard() {
                   {profile.trade_category.replace(/_/g, ' ')}
                 </span>
               )}
-              {profile?.identity_verified ? (
+              {profile?.identity_verified || profile?.verification_status === 'verified' ? (
                 <span className="flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-medium">
                   <CheckCircle size={10} /> Verified
                 </span>
+              ) : profile?.verification_status === 'pending' ? (
+                // Docs uploaded and awaiting review — don't tell them to upload again
+                <Link href="/provider/documents"
+                  className="flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-medium hover:bg-white/25 transition-colors">
+                  <Shield size={10} /> Documents in review
+                </Link>
               ) : (
                 <Link href="/provider/documents"
                   className="flex items-center gap-1 rounded-full bg-amber-400/30 px-3 py-1 text-xs font-medium text-amber-100 hover:bg-amber-400/40 transition-colors">
