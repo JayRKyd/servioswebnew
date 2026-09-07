@@ -15,6 +15,8 @@ const PUBLIC_ROUTES = [
   '/reset-password',
   '/auth',
   '/coming-soon',
+  '/terms',
+  '/privacy',
   '/api/v1',
   '/api/webhooks/stripe',
   '/api/webhooks/twilio',

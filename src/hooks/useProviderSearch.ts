@@ -149,7 +149,7 @@ export function useProviderSearch() {
   async function searchSupabase(q: string, f: SearchFilters) {
     let builder = supabase
       .from('provider_profiles')
-      .select('user_id, business_name, first_name, last_name, bio, trade_category, hourly_rate, rating_average, total_reviews, total_jobs_completed, profile_image_url, service_areas, city, licenses, languages, identity_verified')
+      .select('user_id, business_name, first_name, last_name, bio, trade_category, hourly_rate, rating_average, total_reviews, total_jobs_completed, profile_image_url, service_areas, city, licenses, languages, identity_verified, base_location')
       .eq('verification_status', 'verified')
 
     if (q.trim()) {
@@ -176,6 +176,10 @@ export function useProviderSearch() {
       profile_score:  profileCompletenessScore(p),
       islands:      Array.isArray(p.service_areas) ? p.service_areas : [],
       categories:   p.trade_category ? [TRADE_LABELS[p.trade_category] ?? p.trade_category] : [],
+      // Map pins need coordinates on the fallback path too
+      _geoloc: p.base_location?.lat != null && p.base_location?.lng != null
+        ? { lat: p.base_location.lat, lng: p.base_location.lng }
+        : undefined,
     }))
     // "Recommended": complete profiles rank above bare ones when rating and
     // track record tie (the DB order can't see completeness)

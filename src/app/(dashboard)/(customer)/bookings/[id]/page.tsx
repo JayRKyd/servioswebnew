@@ -156,6 +156,7 @@ export default function CustomerBookingDetailPage() {
   const [loading, setLoading] = useState(true)
   const [cancelling, setCancelling] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const [openingMessage, setOpeningMessage] = useState(false)
   const [paying, setPaying] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
   const [showReview, setShowReview] = useState(false)
@@ -252,19 +253,24 @@ export default function CustomerBookingDetailPage() {
   }
 
   async function handleOpenMessage() {
-    if (!booking) return
+    if (!booking || openingMessage) return
+    setOpeningMessage(true)
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const customerId = booking.customer_profile?.id
-    const providerId = booking.provider_profile?.id
-    if (!customerId || !providerId) return
+    if (!user) { setOpeningMessage(false); return }
+    // Conversations store USER ids, not profile ids — inserting profile ids
+    // failed RLS silently and the button never navigated
+    const customerUserId = booking.customer_profile?.user_id
+    const providerUserId = booking.provider_profile?.user_id
+    if (!customerUserId || !providerUserId) { setOpeningMessage(false); return }
     // Find or create conversation linked to this booking
     const { data: existing } = await supabase.from('conversations').select('id').eq('booking_id', id).maybeSingle()
     if (existing) { router.push(`/messages/${existing.id}`); return }
-    const { data: conv } = await supabase.from('conversations').insert({
-      booking_id: id, customer_id: customerId, provider_id: providerId, conversation_type: 'booking', status: 'active',
+    const { data: conv, error: convError } = await supabase.from('conversations').insert({
+      booking_id: id, customer_id: customerUserId, provider_id: providerUserId, conversation_type: 'booking', status: 'active',
     }).select('id').single()
-    if (conv) router.push(`/messages/${conv.id}`)
+    if (conv) { router.push(`/messages/${conv.id}`); return }
+    console.error('Conversation create failed:', convError)
+    setOpeningMessage(false)
   }
 
   async function handleCancel() {
@@ -486,9 +492,9 @@ export default function CustomerBookingDetailPage() {
           </button>
         )}
         {['pending','accepted','in_progress'].includes(booking.status) && (
-          <button onClick={handleOpenMessage}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-            <MessageCircle size={14} /> Message
+          <button onClick={handleOpenMessage} disabled={openingMessage}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60">
+            <MessageCircle size={14} /> {openingMessage ? 'Opening…' : 'Message'}
           </button>
         )}
       </div>

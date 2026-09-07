@@ -219,7 +219,7 @@ export default function SearchPage() {
 
 function SearchPageInner() {
   const searchParams = useSearchParams()
-  const { query, setQuery, filters, updateFilter, setMapBounds, setMapViewport, clearMapViewport, results, total, loading, error } = useProviderSearch()
+  const { query, setQuery, filters, updateFilter, setMapBounds, clearMapViewport, results, loading, error } = useProviderSearch()
   const { location, granted: geoGranted, requestLocation } = useGeolocation()
   const [showMap, setShowMap]         = useState(false)
   const [showFilters, setShowFilters] = useState(false)
@@ -277,12 +277,15 @@ function SearchPageInner() {
   }, [location])
 
   const handleRequestLocation = useCallback(() => requestLocation(), [requestLocation])
+  // Viewport only drives the client-side in-view/outside split. It must NOT
+  // feed Algolia's insideBoundingBox: a server-side geo filter silently drops
+  // every provider without coordinates, which showed "No providers in this
+  // area" the moment the map opened.
   const handleBoundsChange    = useCallback(
     (ne: { lat: number; lng: number }, sw: { lat: number; lng: number }) => {
       setCurrentMapBounds({ ne, sw })
-      setMapViewport(ne, sw)
     },
-    [setMapViewport]
+    []
   )
 
   function openMap()  { setShowMap(true) }
@@ -329,7 +332,10 @@ function SearchPageInner() {
     return map
   }, [displayProviders, filters.category])
 
-  const providerCount = total > 0 ? total : displayProviders.length
+  // Count exactly what the list renders — the server total can disagree with
+  // the client-side availability/category grouping and made the Filters
+  // button promise more providers than appeared
+  const providerCount = displayProviders.length
 
   // Map mode: split providers into in-viewport vs outside
   const inBoundsProviders  = showMap ? displayProviders.filter(p => isInMapBounds(p))  : displayProviders

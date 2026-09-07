@@ -58,7 +58,7 @@ function SignupForm() {
     const firstName = nameParts[0] ?? ''
     const lastName = nameParts.slice(1).join(' ') || ''
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -75,6 +75,16 @@ function SignupForm() {
     })
 
     if (error) { setError(error.message); setIsLoading(false); return }
+
+    // Supabase masks existing accounts as a fake success (anti-enumeration) but
+    // gives it away with an empty identities array — no email is coming, so
+    // don't strand them on the "check your email" screen
+    if (data.user && data.user.identities?.length === 0) {
+      setError('An account with this email already exists. Log in instead — or use "Forgot password" if you can\'t remember it.')
+      setIsLoading(false)
+      return
+    }
+
     router.push(`/verify-email?email=${encodeURIComponent(email)}`)
   }
 
@@ -199,7 +209,7 @@ function SignupForm() {
               <div className="flex items-start gap-2.5 pt-1">
                 <input type="checkbox" id="terms" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} className="mt-1 accent-primary" />
                 <label htmlFor="terms" className="text-[12.5px] text-muted leading-[1.5]">
-                  I agree to the <a href="#" className="text-primary hover:text-primary-dark underline underline-offset-2">Terms of Service</a> and <a href="#" className="text-primary hover:text-primary-dark underline underline-offset-2">Privacy Policy</a>
+                  I agree to the <Link href="/terms" target="_blank" className="text-primary hover:text-primary-dark underline underline-offset-2">Terms of Service</Link> and <Link href="/privacy" target="_blank" className="text-primary hover:text-primary-dark underline underline-offset-2">Privacy Policy</Link>
                 </label>
               </div>
 
