@@ -490,7 +490,7 @@ function BookPageInner() {
 
     const params = new URLSearchParams()
     if (meta?.label) params.set('category', meta.label)
-    if (island) params.set('island', island)
+    if (island) params.set('area', island)
     if (contextParts.length > 0) params.set('context', contextParts.join(' · '))
     router.push(`/search?${params.toString()}`)
   }

@@ -4,7 +4,7 @@ export const BOOKING_STATUSES = ['pending', 'accepted', 'rejected', 'in_progress
 
 export const MAINTENANCE_PRIORITIES = ['low', 'medium', 'high', 'emergency'] as const
 
-export const BAHAMAS_ISLANDS = [
+export const LONDON_AREAS = [
   'Central London', 'North London', 'South London', 'East London', 'West London',
   'Greater London',
 ] as const

@@ -234,7 +234,8 @@ function SearchPageInner() {
   const ITEMS_PER_PAGE = 6
 
   const categoryParam = searchParams.get('category')
-  const islandParam   = searchParams.get('island')
+  // 'island' accepted for backwards compatibility with pre-rename links
+  const islandParam   = searchParams.get('area') ?? searchParams.get('island')
   const context       = searchParams.get('context') ?? ''
   const qParam        = searchParams.get('q')
 

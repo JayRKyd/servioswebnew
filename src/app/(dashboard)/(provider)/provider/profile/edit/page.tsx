@@ -1,9 +1,9 @@
-'use client'
+﻿'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
-import { BAHAMAS_ISLANDS } from '@/lib/constants'
+import { LONDON_AREAS } from '@/lib/constants'
 
 export default function EditProviderProfilePage() {
   const { user } = useAuth()
@@ -85,13 +85,13 @@ export default function EditProviderProfilePage() {
           <textarea rows={3} value={form.bio} onChange={e => set('bio', e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Hourly Rate (£/hr)</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Hourly Rate (Â£/hr)</label>
           <input type="number" step="0.01" value={form.hourly_rate} onChange={e => set('hourly_rate', e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Service Areas</label>
           <div className="flex flex-wrap gap-2">
-            {BAHAMAS_ISLANDS.map(area => (
+            {LONDON_AREAS.map(area => (
               <button key={area} type="button" onClick={() => toggleArea(area)}
                 className={'rounded-full px-3 py-1 text-xs font-medium transition ' + (form.service_areas.includes(area) ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200')}>
                 {area}
@@ -103,19 +103,19 @@ export default function EditProviderProfilePage() {
           <label className="block text-sm font-medium text-gray-700 mb-2">Your Location</label>
           {locationSet
             ? <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700 ring-1 ring-green-200">
-                <span>📍</span><span>Location saved</span>
+                <span>ðŸ“</span><span>Location saved</span>
                 <button type="button" onClick={() => { setLocationSet(false); setBaseLocation(null) }} className="ml-auto text-xs text-gray-400 hover:text-red-500">Remove</button>
               </div>
             : <button type="button" onClick={detectLocation} disabled={locating}
                 className="w-full rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-500 hover:border-primary hover:text-primary transition disabled:opacity-50">
-                {locating ? 'Detecting…' : '📍 Use my current location'}
+                {locating ? 'Detectingâ€¦' : 'ðŸ“ Use my current location'}
               </button>
           }
           <p className="mt-1 text-xs text-gray-400">Used to show your distance to customers on search</p>
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button type="submit" disabled={saving} className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50">
-          {saving ? 'Saving…' : 'Save Profile'}
+          {saving ? 'Savingâ€¦' : 'Save Profile'}
         </button>
       </form>
     </div>

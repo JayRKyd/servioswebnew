@@ -48,7 +48,7 @@ connect.post('/onboard', async (c) => {
 
     const account = await stripe.accounts.create({
       type: 'express',
-      country: 'BS', // Bahamas
+      country: 'GB',
       email: user?.email,
       capabilities: {
         transfers: { requested: true },

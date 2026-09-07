@@ -3,14 +3,14 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
-import { BAHAMAS_ISLANDS } from '@/lib/constants'
+import { LONDON_AREAS } from '@/lib/constants'
 
 const PROPERTY_TYPES = ['residential', 'commercial', 'vacation_rental', 'multi_unit']
 
 export default function NewPropertyPage() {
   const { user } = useAuth()
   const router = useRouter()
-  const [form, setForm] = useState({ name: '', property_type: 'residential', street: '', city: 'Nassau', island: 'New Providence', bedrooms: '', bathrooms: '', units: '', notes: '' })
+  const [form, setForm] = useState({ name: '', property_type: 'residential', street: '', city: 'London', island: 'Central London', bedrooms: '', bathrooms: '', units: '', notes: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -41,7 +41,7 @@ export default function NewPropertyPage() {
       <form onSubmit={handleSubmit} className="space-y-5 rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Property Name</label>
-          <input required value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. Ocean View Condo A" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+          <input required value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. Garden Flat, Elm Road" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
@@ -59,9 +59,9 @@ export default function NewPropertyPage() {
             <input value={form.city} onChange={e => set('city', e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Island</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Area</label>
             <select value={form.island} onChange={e => set('island', e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-              {BAHAMAS_ISLANDS.map(i => <option key={i} value={i}>{i}</option>)}
+              {LONDON_AREAS.map(i => <option key={i} value={i}>{i}</option>)}
             </select>
           </div>
         </div>

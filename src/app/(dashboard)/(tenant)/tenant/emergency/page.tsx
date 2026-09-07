@@ -1,17 +1,17 @@
 'use client'
 export default function EmergencyPage() {
   const contacts = [
-    { label: 'Emergency Services', number: '911', description: 'Police, Fire, Ambulance', color: 'bg-red-600' },
-    { label: 'Police (non-emergency)', number: '919', description: 'Royal Bahamas Police Force', color: 'bg-primary-dark' },
-    { label: 'Bahamas Utilities', number: '1-242-325-4420', description: 'BEC / power outages', color: 'bg-orange-600' },
-    { label: 'Water & Sewerage', number: '1-242-302-5581', description: 'WSC emergency line', color: 'bg-primary' },
+    { label: 'Emergency Services', number: '999', description: 'Police, Fire, Ambulance', color: 'bg-red-600' },
+    { label: 'Police (non-emergency)', number: '101', description: 'Report non-urgent crime', color: 'bg-primary-dark' },
+    { label: 'Gas Emergency', number: '0800 111 999', description: 'National Grid — gas leaks', color: 'bg-orange-600' },
+    { label: 'Power Cut', number: '105', description: 'National power cut line', color: 'bg-primary' },
   ]
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
       <div className="rounded-xl bg-red-600 p-6 text-white">
         <h1 className="text-2xl font-bold">Emergency</h1>
-        <p className="mt-1 text-red-200">In life-threatening emergencies call 911 immediately</p>
+        <p className="mt-1 text-red-200">In life-threatening emergencies call 999 immediately</p>
       </div>
 
       <div className="space-y-3">

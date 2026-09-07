@@ -44,13 +44,19 @@ export function useProfileIds(): ProfileIds {
       return
     }
 
-    // Cache miss — fetch all profile IDs in parallel (one round-trip per role table)
+    // Cache miss — fetch profile IDs in parallel (one round-trip per role table).
+    // Landlord/tenant tables are only queried when the Phase 2 flag is on.
+    const landlordTenantEnabled = process.env.NEXT_PUBLIC_LANDLORD_TENANT_ENABLED === 'true'
     setLoading(true)
     Promise.all([
       supabase.from('customer_profiles').select('id').eq('user_id', user.id).maybeSingle(),
       supabase.from('provider_profiles').select('id').eq('user_id', user.id).maybeSingle(),
-      supabase.from('landlord_profiles').select('id').eq('user_id', user.id).maybeSingle(),
-      supabase.from('tenant_profiles').select('id').eq('user_id', user.id).maybeSingle(),
+      landlordTenantEnabled
+        ? supabase.from('landlord_profiles').select('id').eq('user_id', user.id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      landlordTenantEnabled
+        ? supabase.from('tenant_profiles').select('id').eq('user_id', user.id).maybeSingle()
+        : Promise.resolve({ data: null }),
     ])
       .then(([c, p, l, t]) => {
         const newIds: IdsOnly = {

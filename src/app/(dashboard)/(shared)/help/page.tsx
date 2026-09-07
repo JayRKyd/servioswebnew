@@ -6,8 +6,8 @@ const FAQS = [
   { q: 'How do I become a provider?', a: 'Sign up and select Provider as your role. Complete your profile with your business information, services, and service areas. Your account will be verified before you can receive bookings.' },
   { q: 'What payment methods are accepted?', a: 'We accept major credit and debit cards via Stripe. Payments are processed securely at the time of booking confirmation.' },
   { q: 'How do I cancel a booking?', a: 'Open the booking from My Bookings and tap Cancel Booking. Cancellations are free if made at least 24 hours before the scheduled time.' },
-  { q: 'How does the landlord-tenant system work?', a: 'Landlords can add their properties and invite tenants. Tenants can report maintenance issues, communicate with their landlord, and access property information through their tenant dashboard.' },
-  { q: 'What are the service islands?', a: 'Servios operates across the Bahamas including New Providence, Grand Bahama, Abaco, Eleuthera, Exuma, and more.' },
+  { q: 'Where does Servios operate?', a: 'Servios currently operates across London — Central, North, South, East, West and Greater London. More UK areas are coming soon.' },
+  { q: 'Is Servios free for customers?', a: 'Yes. Customers never pay a fee to use Servios — you only pay the price of the job itself, and every completed job is backed by our 90-day workmanship guarantee.' },
 ]
 
 export default function HelpPage() {
@@ -35,7 +35,7 @@ export default function HelpPage() {
 
       <div className="rounded-xl bg-primary/[0.06] p-6 ring-1 ring-primary/30">
         <h2 className="font-semibold text-gray-900 mb-2">Still need help?</h2>
-        <p className="text-sm text-gray-600 mb-4">Our support team is available Mon–Fri, 9am–6pm EST.</p>
+        <p className="text-sm text-gray-600 mb-4">Our support team is available Mon–Fri, 9am–6pm UK time.</p>
         <a href="mailto:support@servios.app" className="inline-block rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark">Contact Support</a>
       </div>
     </div>
