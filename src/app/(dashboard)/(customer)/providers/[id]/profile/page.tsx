@@ -258,12 +258,14 @@ function Inner() {
                   £{profile.hourly_rate}<span className="text-base font-normal text-gray-500">/hr</span>
                 </p>
               )}
-              <Link
-                href={`/bookings/new?provider=${profile.user_id}${context ? `&context=${encodeURIComponent(context)}` : ''}`}
-                className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white hover:bg-primary/90 transition-colors whitespace-nowrap"
-              >
-                <CalendarCheck size={14} /> Request a booking
-              </Link>
+              {profile.verification_status === 'verified' && (
+                <Link
+                  href={`/bookings/new?provider=${profile.user_id}${context ? `&context=${encodeURIComponent(context)}` : ''}`}
+                  className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white hover:bg-primary/90 transition-colors whitespace-nowrap"
+                >
+                  <CalendarCheck size={14} /> Request a booking
+                </Link>
+              )}
               <button
                 onClick={handleMessage}
                 disabled={messaging}

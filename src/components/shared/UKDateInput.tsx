@@ -70,9 +70,9 @@ export function UKDateInput({
     prevDisplayRef.current = slashed
     setDisplay(slashed)
     const iso = toISO(slashed)
-    // Validate min if provided
-    if (iso && min && iso < min) return
-    onChange(iso)
+    // A date below min emits '' — never silently keep a stale valid value in
+    // form state while the field displays something different
+    onChange(iso && min && iso < min ? '' : iso)
   }
 
   function handleBlur() {

@@ -6,11 +6,22 @@ import { OnboardingContext } from '@/contexts/OnboardingContext'
 import type { OnboardingCtx } from '@/contexts/OnboardingContext'
 
 // Module-level cache — onboarding status only changes when a setup step
-// completes, and those pages call invalidateOnboardingCache().
+// completes, and those pages call invalidateOnboardingCache() or
+// setOnboardingStatus().
 let _cache: { userId: string; ctx: OnboardingCtx } | null = null
+let _live: ((ctx: OnboardingCtx) => void) | null = null
 
 export function invalidateOnboardingCache() {
   _cache = null
+}
+
+/** Push a fresh status into the cache AND the mounted provider. Nulling the
+ *  cache alone isn't enough: the provider stays mounted across client-side
+ *  navigation and would keep serving stale state until a full reload —
+ *  which is exactly the "View My Dashboard sends me back to step 1" bug. */
+export function setOnboardingStatus(userId: string, ctx: OnboardingCtx) {
+  _cache = { userId, ctx }
+  _live?.(ctx)
 }
 
 const COMPLETE: OnboardingCtx = { complete: true, step: 'complete' }
@@ -24,6 +35,12 @@ export function OnboardingProvider({ isProvider, children }: { isProvider: boole
   const cached = user && _cache?.userId === user.id ? _cache.ctx : null
   const [ctx, setCtx] = useState<OnboardingCtx>(cached ?? COMPLETE)
   const [checked, setChecked] = useState(!isProvider || !!cached)
+
+  // Let setOnboardingStatus() reach the mounted provider
+  useEffect(() => {
+    _live = setCtx
+    return () => { _live = null }
+  }, [])
 
   useEffect(() => {
     if (!isProvider) { setCtx(COMPLETE); setChecked(true); return }

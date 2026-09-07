@@ -324,12 +324,14 @@ function CustomerProviderProfileInner() {
                   </p>
                 )}
               </div>
-              <Link
-                href={`/bookings/new?provider=${provider.user_id}${context ? `&context=${encodeURIComponent(context)}` : ''}`}
-                className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary-dark transition-colors"
-              >
-                Book now
-              </Link>
+              {provider.verification_status === 'verified' && (
+                <Link
+                  href={`/bookings/new?provider=${provider.user_id}${context ? `&context=${encodeURIComponent(context)}` : ''}`}
+                  className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary-dark transition-colors"
+                >
+                  Book now
+                </Link>
+              )}
             </div>
           )}
         </div>
@@ -546,7 +548,7 @@ function CustomerProviderProfileInner() {
                         <p className="text-xs text-muted leading-relaxed line-clamp-2">{sv.service.description}</p>
                       )}
                       {sv.service?.base_price != null && (
-                        <p className="text-sm font-bold text-dark">{formatCurrency(sv.service.base_price / 100)}</p>
+                        <p className="text-sm font-bold text-dark">{formatCurrency(sv.service.base_price)}</p>
                       )}
                     </div>
                   ))}
@@ -798,14 +800,20 @@ function CustomerProviderProfileInner() {
               </div>
             )}
 
-            {/* CTAs */}
+            {/* CTAs — booking is only offered once the provider is verified */}
             <div className="space-y-3">
-              <Link
-                href={`/bookings/new?provider=${provider.user_id}${context ? `&context=${encodeURIComponent(context)}` : ''}`}
-                className="flex items-center justify-center gap-2 w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-white hover:bg-primary-dark transition-colors"
-              >
-                <CalendarCheck size={15} /> Request a booking
-              </Link>
+              {provider.verification_status === 'verified' ? (
+                <Link
+                  href={`/bookings/new?provider=${provider.user_id}${context ? `&context=${encodeURIComponent(context)}` : ''}`}
+                  className="flex items-center justify-center gap-2 w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-white hover:bg-primary-dark transition-colors"
+                >
+                  <CalendarCheck size={15} /> Request a booking
+                </Link>
+              ) : (
+                <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-800">
+                  This provider is still being verified and can&apos;t take bookings yet.
+                </p>
+              )}
               <button
                 onClick={handleMessage}
                 disabled={messaging}

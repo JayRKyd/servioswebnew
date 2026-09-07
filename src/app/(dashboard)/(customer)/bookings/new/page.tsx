@@ -67,14 +67,16 @@ function NewBookingForm() {
   const [availabilityError, setAvailabilityError] = useState<string | null>(null)
   const [providerBookable, setProviderBookable] = useState(true)
   const [providerHasServices, setProviderHasServices] = useState(true)
+  const [providerVerified, setProviderVerified] = useState(true)
 
   useEffect(() => {
     const providerId = searchParams.get('provider')
     if (providerId) {
       // Load provider's services and availability in parallel
-      supabase.from('provider_profiles').select('id').eq('user_id', providerId).single()
+      supabase.from('provider_profiles').select('id, verification_status').eq('user_id', providerId).single()
         .then(async ({ data: pp }) => {
           if (!pp) return
+          setProviderVerified(pp.verification_status === 'verified')
           const [{ data: svcData }, { data: avail }] = await Promise.all([
             supabase.from('provider_services')
               .select('service:services(id, title, base_price, service_categories(name))')
@@ -110,7 +112,20 @@ function NewBookingForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!user) return
-    if (availabilityError || !providerBookable || !providerHasServices) return
+    if (availabilityError || !providerBookable || !providerHasServices || !providerVerified) return
+
+    // Validate the date before it can reach Postgres — UKDateInput is a text
+    // field, so form state can be empty or stale even when the input shows text
+    const todayISO = new Date().toISOString().split('T')[0]
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(form.scheduled_date)) {
+      setError('Please enter a valid date (DD/MM/YYYY).')
+      return
+    }
+    if (form.scheduled_date < todayISO) {
+      setError('That date has already passed — please choose a future date.')
+      return
+    }
+
     setSubmitting(true)
     setError(null)
 
@@ -123,6 +138,25 @@ function NewBookingForm() {
       const { data: pp } = await supabase
         .from('provider_profiles').select('id').eq('user_id', form.provider_id).maybeSingle()
       resolvedProviderId = pp?.id ?? null
+    }
+
+    // Block double booking: the same provider, date and start time must not
+    // already hold a live booking. (Racy without a DB constraint, but catches
+    // the normal path; a matching partial unique index backs this up.)
+    if (resolvedProviderId) {
+      const { data: clash } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('provider_id', resolvedProviderId)
+        .eq('scheduled_date', form.scheduled_date)
+        .eq('scheduled_time_start', form.scheduled_time_start)
+        .in('status', ['pending', 'accepted', 'in_progress'])
+        .limit(1)
+      if (clash && clash.length > 0) {
+        setError('That time slot is already booked with this provider — please choose another time.')
+        setSubmitting(false)
+        return
+      }
     }
 
     // Commission: 15% emergency, 10% landlord, 12% default
@@ -165,7 +199,18 @@ function NewBookingForm() {
       total_amount: totalAmount,
       commission_rate: commissionRate,
     }).select().maybeSingle()
-    if (error) { setError(error.message); setSubmitting(false); return }
+    if (error) {
+      // Never surface raw Postgres messages to the customer
+      const friendly = error.code === '23505'
+        ? 'That time slot is already booked with this provider — please choose another time.'
+        : error.message.includes('invalid input syntax')
+          ? 'Something was wrong with the date or time — please check them and try again.'
+          : 'We couldn’t create your booking. Please try again, or contact support if it keeps happening.'
+      console.error('Booking insert failed:', error)
+      setError(friendly)
+      setSubmitting(false)
+      return
+    }
 
     if (photos.length > 0 && data?.id) { await uploadPhotos(data.id) }
 
@@ -213,6 +258,15 @@ function NewBookingForm() {
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Book a Service</h1>
+
+      {!providerVerified && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm font-medium text-amber-800">This provider hasn&apos;t been verified yet</p>
+          <p className="mt-0.5 text-xs text-amber-700">
+            They can&apos;t take bookings until our team verifies their identity and documents. Please choose another provider.
+          </p>
+        </div>
+      )}
 
       {!providerHasServices && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
@@ -296,7 +350,7 @@ function NewBookingForm() {
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <button type="submit" disabled={submitting || !!availabilityError || !providerBookable || !providerHasServices}
+        <button type="submit" disabled={submitting || !!availabilityError || !providerBookable || !providerHasServices || !providerVerified}
           className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50">
           {submitting ? 'Submitting…' : 'Submit Booking Request'}
         </button>

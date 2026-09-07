@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/auth'
 import { UKDateInput } from '@/components/shared/UKDateInput'
 import { Check } from 'lucide-react'
-import { invalidateOnboardingCache } from '@/components/providers/OnboardingProvider'
+import { setOnboardingStatus } from '@/components/providers/OnboardingProvider'
 
 const DOC_TYPES = [
   { value: 'id',            label: 'Government ID',       required: true },
@@ -71,7 +71,9 @@ export default function SetupDocumentsPage() {
     setSubmitting(true)
     const { data: { user } } = await supabase.auth.getUser()
     await supabase.from('provider_profiles').update({ onboarding_complete: true, onboarding_step: 'complete', verification_status: 'pending' }).eq('user_id', user!.id)
-    invalidateOnboardingCache()
+    // Update the mounted provider too — nulling the cache alone left stale
+    // complete:false state, bouncing "View My Dashboard" back to step 1
+    setOnboardingStatus(user!.id, { complete: true, step: 'complete' })
     router.push('/provider/setup/complete')
     setSubmitting(false)
   }

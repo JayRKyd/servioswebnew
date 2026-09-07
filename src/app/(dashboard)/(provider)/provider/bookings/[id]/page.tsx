@@ -8,7 +8,7 @@ import { BookingPhotos } from '@/components/shared/BookingPhotos'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { JobOfferPanel } from '@/components/shared/JobOfferPanel'
 import { MilestoneTracker } from '@/components/shared/MilestoneTracker'
-import { MessageCircle, Lock, CheckCircle2, BadgeCheck, Star } from 'lucide-react'
+import { MessageCircle, Lock, CheckCircle2 } from 'lucide-react'
 
 export default function ProviderBookingDetailPage() {
   const { id } = useParams()
@@ -25,7 +25,7 @@ export default function ProviderBookingDetailPage() {
     async function load() {
       const { data: bk } = await supabase
         .from('bookings')
-        .select('*, service:services(title, duration_minutes), customer_profile:customer_profiles(id, user_id, first_name, last_name, profile_image_url, identity_verified, rating_average, total_jobs_completed), provider_profile:provider_profiles(id, user_id)')
+        .select('*, service:services(title, duration_minutes), customer_profile:customer_profiles(id, user_id, first_name, last_name, profile_image_url), provider_profile:provider_profiles(id, user_id)')
         .eq('id', id)
         .single()
 
@@ -196,22 +196,6 @@ export default function ProviderBookingDetailPage() {
                   )}
                   <div>
                     <span className="text-sm font-semibold text-gray-900">{titleCase(cp.first_name)} {titleCase(cp.last_name)}</span>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      {cp.rating_average != null && (
-                        <span className="flex items-center gap-0.5 text-xs text-amber-500 font-medium">
-                          <Star size={10} className="fill-amber-400 stroke-amber-400" />
-                          {Number(cp.rating_average).toFixed(1)}
-                        </span>
-                      )}
-                      {cp.total_jobs_completed != null && cp.total_jobs_completed > 0 && (
-                        <span className="text-xs text-gray-400">{cp.total_jobs_completed} job{cp.total_jobs_completed !== 1 ? 's' : ''}</span>
-                      )}
-                      {cp.identity_verified && (
-                        <span className="flex items-center gap-0.5 text-xs text-primary font-medium">
-                          <BadgeCheck size={11} className="shrink-0" /> Verified
-                        </span>
-                      )}
-                    </div>
                   </div>
                 </div>
               </div>
