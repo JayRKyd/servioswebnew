@@ -1,5 +1,5 @@
 'use client'
-import { Suspense } from "react"
+import { Suspense, useState } from "react"
 import { Header } from "@/components/layout/Header"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { VerifiedBanner } from "@/components/shared/VerifiedBanner"
@@ -11,13 +11,14 @@ import { OnboardingProvider } from "@/components/providers/OnboardingProvider"
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isLoading } = useAuthContext()
   const { activeRole } = useActiveRole()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Show a lightweight skeleton while auth resolves from localStorage.
   // This is typically <50ms — just long enough to avoid a flash of the wrong role.
   if (isLoading) return (
     <div className="flex h-screen bg-[#fafbfa]">
       {/* Skeleton sidebar */}
-      <aside className="flex h-screen w-[220px] shrink-0 flex-col border-r border-gray-100 bg-[#fafbfa]">
+      <aside className="hidden md:flex h-screen w-[220px] shrink-0 flex-col border-r border-gray-100 bg-[#fafbfa]">
         <div className="flex h-[64px] items-center gap-2.5 px-5 border-b border-gray-100">
           <div className="h-7 w-7 rounded-lg bg-gray-200 animate-pulse" />
           <div className="h-4 w-16 rounded bg-gray-200 animate-pulse" />
@@ -53,10 +54,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <MessagesRealtimeProvider>
       <OnboardingProvider isProvider={activeRole === 'provider'}>
         <div className="flex h-screen">
-          <Sidebar role={activeRole} />
-          <div className="flex flex-1 flex-col overflow-hidden">
-            <Header />
-            <main className="flex-1 overflow-y-auto bg-[#f7f8f7] p-6 lg:p-8">
+          <Sidebar role={activeRole} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+            <Header onMenuClick={() => setSidebarOpen(true)} />
+            <main className="flex-1 overflow-y-auto bg-[#f7f8f7] p-4 sm:p-6 lg:p-8">
               <Suspense fallback={null}><VerifiedBanner /></Suspense>
               {children}
             </main>

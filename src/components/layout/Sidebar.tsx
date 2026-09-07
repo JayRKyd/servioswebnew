@@ -1,7 +1,7 @@
 'use client'
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useContext } from "react"
+import { useContext, useEffect } from "react"
 import { useNotifications } from "@/hooks/useNotifications"
 import { useUnreadMessages } from "@/hooks/useUnreadMessages"
 import type { Role } from "@/lib/permissions"
@@ -17,7 +17,12 @@ import {
   MapPin, Siren, CreditCard, CalendarPlus, Bookmark
 } from "lucide-react"
 
-interface SidebarProps { role: Role }
+interface SidebarProps {
+  role: Role
+  /** Mobile drawer state — ignored at md and up where the sidebar is static */
+  open?: boolean
+  onClose?: () => void
+}
 
 const NAV_LABELS: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -122,13 +127,13 @@ const ROLE_LABEL: Record<Role, string> = {
   admin:    "Admin",
 }
 
-const PROVIDER_SETUP_ROUTES = new Set(['/provider/setup/trade', '/provider/setup/services', '/provider/setup/documents', '/provider/setup/complete'])
+const PROVIDER_SETUP_ROUTES = new Set(['/provider/setup/trade', '/provider/setup/services', '/provider/setup/availability', '/provider/setup/documents', '/provider/setup/complete'])
 // Routes that stay accessible but don't appear in the nav: /providers is
 // reached from cards/links, /services is a legacy catalog superseded by
 // Get Quotes (deep links still work).
 const NAV_HIDDEN = new Set(['/providers', '/services'])
 
-export function Sidebar({ role }: SidebarProps) {
+export function Sidebar({ role, open = false, onClose }: SidebarProps) {
   const pathname = usePathname()
   const routes = [...ROLE_ROUTES[role], ...SHARED_ROUTES].filter(r => !NAV_HIDDEN.has(r))
   const onboarding = useContext(OnboardingContext)
@@ -136,6 +141,12 @@ export function Sidebar({ role }: SidebarProps) {
   const onboardingLocked = isProvider && !onboarding.complete
   const { unreadCount } = useNotifications()
   const { unreadCount: unreadMessages } = useUnreadMessages()
+
+  // Navigating closes the mobile drawer
+  useEffect(() => {
+    onClose?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname])
 
   function isActive(route: string) {
     if (route === "/dashboard" || route === "/provider" || route === "/landlord" || route === "/tenant" || route === "/admin") {
@@ -150,7 +161,22 @@ export function Sidebar({ role }: SidebarProps) {
   }
 
   return (
-    <aside className="flex h-screen w-[220px] shrink-0 flex-col border-r border-border bg-[#fafbfa]">
+    <>
+      {/* Mobile backdrop */}
+      {open && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+      <aside
+        className={
+          "fixed inset-y-0 left-0 z-50 flex h-screen w-[220px] shrink-0 flex-col border-r border-border bg-[#fafbfa] " +
+          "transition-transform duration-200 md:static md:z-auto md:translate-x-0 md:transition-none " +
+          (open ? "translate-x-0" : "-translate-x-full")
+        }
+      >
       {/* Logo */}
       <div className="flex h-[64px] items-center gap-2 px-5 border-b border-border shrink-0">
         <ServiosMark size={26} />
@@ -227,6 +253,7 @@ export function Sidebar({ role }: SidebarProps) {
       <div className="border-t border-border px-4 py-3 shrink-0">
         <p className="text-[11px] text-muted/60 capitalize">Signed in as {role}</p>
       </div>
-    </aside>
+      </aside>
+    </>
   )
 }

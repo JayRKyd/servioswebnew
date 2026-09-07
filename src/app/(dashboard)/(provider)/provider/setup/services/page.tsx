@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/auth'
 import { Check } from 'lucide-react'
 import { invalidateOnboardingCache } from '@/components/providers/OnboardingProvider'
+import { SetupProgress } from '@/components/provider/SetupProgress'
 
 interface Template {
   id: string; name: string; description: string | null
@@ -107,10 +108,10 @@ export default function SetupServicesPage() {
       if (links.length > 0) {
         await supabase.from('provider_services').upsert(links, { onConflict: 'provider_id,service_id' })
       }
-      await supabase.from('provider_profiles').update({ onboarding_step: 'documents' }).eq('id', profile.id)
+      await supabase.from('provider_profiles').update({ onboarding_step: 'availability' }).eq('id', profile.id)
     }
     invalidateOnboardingCache()
-    router.push('/provider/setup/documents')
+    router.push('/provider/setup/availability')
     setSaving(false)
   }
 
@@ -120,18 +121,7 @@ export default function SetupServicesPage() {
 
   return (
     <div className="space-y-6 pb-10">
-      {/* Progress */}
-      <div className="flex items-center gap-2">
-        {['Trade', 'Services', 'Documents'].map((label, i) => (
-          <div key={label} className="flex items-center gap-2">
-            <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${i <= 1 ? 'bg-primary text-white' : 'bg-gray-100 text-gray-400'}`}>
-              {i < 1 ? <Check size={13} strokeWidth={3} /> : i + 1}
-            </div>
-            <span className={`text-sm ${i === 1 ? 'font-semibold text-gray-900' : i < 1 ? 'text-gray-400' : 'text-gray-400'}`}>{label}</span>
-            {i < 2 && <div className="mx-1 h-px w-8 bg-gray-200" />}
-          </div>
-        ))}
-      </div>
+      <SetupProgress current={1} />
 
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Your services</h1>
@@ -232,7 +222,7 @@ export default function SetupServicesPage() {
           disabled={count === 0 || saving}
           className="rounded-xl bg-primary px-8 py-3 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-40"
         >
-          {saving ? 'Saving…' : 'Next: Upload Documents →'}
+          {saving ? 'Saving…' : 'Next: Set Availability →'}
         </button>
       </div>
     </div>

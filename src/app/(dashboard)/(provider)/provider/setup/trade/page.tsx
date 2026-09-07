@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { MapPin, Check, Droplets, Zap, Wind, Paintbrush, Hammer, Sparkles, Leaf, Home, Bug, Shield, Wrench } from 'lucide-react'
 import { CATEGORY_META } from '@/lib/service-questions'
 import { invalidateOnboardingCache } from '@/components/providers/OnboardingProvider'
+import { SetupProgress } from '@/components/provider/SetupProgress'
 
 // Same iconography as the customer Get Quotes wizard — providers onboard into
 // the trades customers can actually request, so every downstream feature
@@ -63,18 +64,7 @@ export default function SetupTradePage() {
 
   return (
     <div className="space-y-8 pb-10">
-      {/* Progress */}
-      <div className="flex items-center gap-2">
-        {['Trade', 'Services', 'Documents'].map((label, i) => (
-          <div key={label} className="flex items-center gap-2">
-            <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${i === 0 ? 'bg-primary text-white' : 'bg-gray-100 text-gray-400'}`}>
-              {i + 1}
-            </div>
-            <span className={`text-sm ${i === 0 ? 'font-semibold text-gray-900' : 'text-gray-400'}`}>{label}</span>
-            {i < 2 && <div className="mx-1 h-px w-8 bg-gray-200" />}
-          </div>
-        ))}
-      </div>
+      <SetupProgress current={0} />
 
       <div>
         <h1 className="text-3xl font-bold text-gray-900">What&apos;s your trade?</h1>

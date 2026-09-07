@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, LogOut, Bell } from 'lucide-react'
+import { ChevronDown, LogOut, Bell, Menu } from 'lucide-react'
 import Link from 'next/link'
 import { supabase } from '@/lib/auth'
 import { useActiveRole } from '@/hooks/useActiveRole'
@@ -16,7 +16,7 @@ const ROLE_LABELS: Record<Role, string> = {
   admin:    'Admin',
 }
 
-export function Header() {
+export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const router = useRouter()
   const { activeRole, availableRoles } = useActiveRole()
   const { switchRole } = useRoleContext()
@@ -57,9 +57,16 @@ export function Header() {
   }
 
   return (
-    <header className="flex h-[64px] items-center justify-between border-b border-border bg-white px-6 shrink-0">
-      {/* Left — breadcrumb placeholder */}
-      <div />
+    <header className="flex h-[64px] items-center justify-between border-b border-border bg-white px-4 sm:px-6 shrink-0">
+      {/* Left — mobile menu toggle (breadcrumbs may join it later) */}
+      <button
+        onClick={onMenuClick}
+        className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-gray-50 hover:text-dark transition-all md:hidden"
+        aria-label="Open menu"
+      >
+        <Menu size={19} />
+      </button>
+      <div className="hidden md:block" />
 
       {/* Right */}
       <div className="flex items-center gap-2">

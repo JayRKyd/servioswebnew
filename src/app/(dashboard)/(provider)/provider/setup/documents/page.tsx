@@ -5,6 +5,7 @@ import { supabase } from '@/lib/auth'
 import { UKDateInput } from '@/components/shared/UKDateInput'
 import { Check } from 'lucide-react'
 import { setOnboardingStatus } from '@/components/providers/OnboardingProvider'
+import { SetupProgress } from '@/components/provider/SetupProgress'
 
 const DOC_TYPES = [
   { value: 'id',            label: 'Government ID',       required: true },
@@ -80,18 +81,7 @@ export default function SetupDocumentsPage() {
 
   return (
     <div className="space-y-6 pb-10">
-      {/* Progress */}
-      <div className="flex items-center gap-2">
-        {['Trade', 'Services', 'Documents'].map((label, i) => (
-          <div key={label} className="flex items-center gap-2">
-            <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${i <= 2 ? 'bg-primary text-white' : 'bg-gray-100 text-gray-400'}`}>
-              {i < 2 ? <Check size={13} strokeWidth={3} /> : 3}
-            </div>
-            <span className={`text-sm ${i === 2 ? 'font-semibold text-gray-900' : 'text-gray-400'}`}>{label}</span>
-            {i < 2 && <div className="mx-1 h-px w-8 bg-gray-200" />}
-          </div>
-        ))}
-      </div>
+      <SetupProgress current={3} />
 
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Upload documents</h1>
