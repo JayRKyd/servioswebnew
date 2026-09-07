@@ -777,8 +777,7 @@ export default function ProviderProfilePage() {
                 </p>
                 {profile.phone && (
                   <p className="text-sm text-gray-600">
-                    Phone number:{' '}
-                    <span className="text-primary font-medium inline-flex items-center gap-0.5">Verified <BadgeCheck size={13} /></span>
+                    Phone number: <span className="text-gray-400">Not verified</span>
                   </p>
                 )}
               </div>
@@ -788,7 +787,7 @@ export default function ProviderProfilePage() {
             <div id="pf-licenses" className={`scroll-mt-24 ${hl('licenses')}`}>
               <EditableList
                 items={licenses}
-                label="Licenses"
+                label="Licences (self-declared)"
                 placeholder="e.g. Gas Safe Registered"
                 onSave={v => save('licenses', v)}
               />

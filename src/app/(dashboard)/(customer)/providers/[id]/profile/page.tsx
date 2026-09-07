@@ -6,7 +6,7 @@ import { supabase } from '@/lib/auth'
 import { titleCase } from '@/lib/utils'
 import {
   Star, BadgeCheck, MapPin, Clock, MessageSquare, CalendarCheck,
-  Shield, ChevronLeft, ChevronRight, X, Crown, Phone, Globe,
+  Shield, ChevronLeft, ChevronRight, X, Crown, Globe,
   ImageIcon, Plus,
 } from 'lucide-react'
 
@@ -322,14 +322,8 @@ function Inner() {
               </div>
             )}
 
-            {profile.phone && (
-              <div>
-                <p className="text-sm font-semibold text-gray-800 mb-1">Phone</p>
-                <a href={`tel:${profile.phone}`} className="flex items-center gap-1.5 text-sm text-primary hover:underline">
-                  <Phone size={13} /> {profile.phone}
-                </a>
-              </div>
-            )}
+            {/* Phone deliberately not shown pre-booking — contact goes through
+                in-app messaging until a booking exists (off-platform leak) */}
 
             {profile.website && (
               <div>
@@ -351,11 +345,8 @@ function Inner() {
                     ? <span className="text-primary font-medium inline-flex items-center gap-0.5">Verified <BadgeCheck size={13} /></span>
                     : <span className="text-gray-400">Not verified</span>}
                 </p>
-                {profile.phone && (
-                  <p className="text-sm text-gray-600">
-                    Phone: <span className="text-primary font-medium inline-flex items-center gap-0.5">Verified <BadgeCheck size={13} /></span>
-                  </p>
-                )}
+                {/* Phone verification badge removed — there is no OTP flow yet,
+                    so a typed number must never display as Verified */}
                 {profile.verification_status === 'verified' && (
                   <p className="text-sm text-gray-600 inline-flex items-center gap-1">
                     <Shield size={13} className="text-green-600 shrink-0" /> Documents verified
@@ -366,12 +357,13 @@ function Inner() {
 
             {licenses.length > 0 && (
               <div>
-                <p className="text-sm font-semibold text-gray-800 mb-2">Licenses</p>
+                <p className="text-sm font-semibold text-gray-800 mb-0.5">Licences</p>
+                <p className="text-[11px] text-gray-400 mb-2">Self-declared — not yet checked by Servios</p>
                 <div className="space-y-1.5">
                   {licenses.map((item: string, i: number) => {
                     const [name, level] = item.split(':').map(s => s.trim())
                     return level ? (
-                      <p key={i} className="text-sm text-gray-600">{name}: <span className="text-primary font-medium">{level}</span></p>
+                      <p key={i} className="text-sm text-gray-600">{name}: {level}</p>
                     ) : (
                       <p key={i} className="text-sm text-gray-600">{item}</p>
                     )
