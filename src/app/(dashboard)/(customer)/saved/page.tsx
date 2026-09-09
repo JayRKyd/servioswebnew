@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Bookmark, Search } from 'lucide-react'
 import { supabase } from '@/lib/auth'
-import { AirbnbProviderCard, BOOKMARKS_KEY } from '@/components/search/ProviderCard'
+import { ProviderRow, BOOKMARKS_KEY } from '@/components/search/ProviderCard'
 import { usePortfolioThumbs } from '@/hooks/usePortfolioThumbs'
+import { useVerifiedCredentials } from '@/hooks/useVerifiedCredentials'
 import { TRADE_LABELS, type ProviderHit } from '@/hooks/useProviderSearch'
 
 export default function SavedProvidersPage() {
@@ -51,6 +52,7 @@ export default function SavedProvidersPage() {
   }, [savedIds])
 
   const thumbs = usePortfolioThumbs(providers.filter(p => !p.avatar_url).map(p => p.user_id))
+  const credentials = useVerifiedCredentials(providers.map(p => p.user_id))
 
   return (
     <div className="space-y-6 pb-10">
@@ -84,9 +86,9 @@ export default function SavedProvidersPage() {
       ) : (
         <>
           <p className="text-sm text-gray-500">{providers.length} saved</p>
-          <div className="grid grid-cols-2 gap-5 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="max-w-3xl space-y-3">
             {providers.map(p => (
-              <AirbnbProviderCard key={p.user_id} provider={p} fill photoUrl={thumbs[p.user_id]} />
+              <ProviderRow key={p.user_id} provider={p} credentials={credentials[p.user_id]} photoUrl={thumbs[p.user_id]} />
             ))}
           </div>
         </>

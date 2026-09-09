@@ -1,5 +1,5 @@
 'use client'
-import { Suspense, useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { Suspense, useState, useCallback, useEffect, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
@@ -7,7 +7,8 @@ import { useProviderSearch } from '@/hooks/useProviderSearch'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { usePortfolioThumbs } from '@/hooks/usePortfolioThumbs'
 import { useProviderAvailability } from '@/hooks/useProviderAvailability'
-import { AirbnbProviderCard, ProviderCard } from '@/components/search/ProviderCard'
+import { ProviderRow } from '@/components/search/ProviderCard'
+import { useVerifiedCredentials } from '@/hooks/useVerifiedCredentials'
 import { CATEGORY_META } from '@/lib/service-questions'
 import {
   ChevronLeft, ChevronRight, Search, SlidersHorizontal, Map as MapIcon, X, MapPin,
@@ -229,7 +230,6 @@ function SearchPageInner() {
     ne: { lat: number; lng: number }
     sw: { lat: number; lng: number }
   } | null>(null)
-  const rowRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   const ITEMS_PER_PAGE = 6
 
@@ -302,10 +302,6 @@ function SearchPageInner() {
     )
   }
 
-  function scrollRow(cat: string, dir: 'left' | 'right') {
-    rowRefs.current[cat]?.scrollBy({ left: dir === 'right' ? 536 : -536, behavior: 'smooth' })
-  }
-
   const availability = useProviderAvailability(
     useMemo(() => results.map(p => p.user_id), [results])
   )
@@ -317,6 +313,10 @@ function SearchPageInner() {
   )
   const portfolioThumbs = usePortfolioThumbs(
     useMemo(() => results.filter(p => !p.avatar_url).map(p => p.user_id), [results])
+  )
+  // Verified credential badges (design item 25) shown on every row
+  const credentials = useVerifiedCredentials(
+    useMemo(() => results.map(p => p.user_id), [results])
   )
 
   const grouped = useMemo(() => {
@@ -497,12 +497,14 @@ function SearchPageInner() {
 
               {/* In-bounds providers */}
               {inBoundsProviders.map(p => (
-                <ProviderCard
+                <ProviderRow
                   key={p.user_id}
                   provider={p}
+                  credentials={credentials[p.user_id]}
                   isSelected={selectedId === p.user_id}
                   onHover={setSelectedId}
                   context={context}
+                  photoUrl={portfolioThumbs[p.user_id]}
                 />
               ))}
 
@@ -516,11 +518,13 @@ function SearchPageInner() {
                   </div>
                   {outBoundsProviders.map(p => (
                     <div key={p.user_id} className="opacity-60">
-                      <ProviderCard
+                      <ProviderRow
                         provider={p}
+                        credentials={credentials[p.user_id]}
                         isSelected={selectedId === p.user_id}
                         onHover={setSelectedId}
                         context={context}
+                        photoUrl={portfolioThumbs[p.user_id]}
                       />
                     </div>
                   ))}
@@ -532,42 +536,23 @@ function SearchPageInner() {
           {/* ── NORMAL MODE: All tab — horizontal scroll rows per category ── */}
           {!showMap && !filters.category && (
             <>
+              {/* Dense comparison rows (design item 26) — stacked, not a
+                  carousel: the browse page's job is side-by-side comparison */}
               {Array.from(grouped.entries()).map(([category, providers]) => (
                 <section key={category} className="shrink-0 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-base font-bold text-dark">{category}</h2>
-                      <p className="text-xs text-muted mt-0.5">
-                        {providers.length} provider{providers.length !== 1 ? 's' : ''} available
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => scrollRow(category, 'left')}
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-gray-200 hover:shadow-md transition-shadow"
-                        aria-label={`Scroll ${category} left`}
-                      >
-                        <ChevronLeft size={15} className="text-dark" />
-                      </button>
-                      <button
-                        onClick={() => scrollRow(category, 'right')}
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-gray-200 hover:shadow-md transition-shadow"
-                        aria-label={`Scroll ${category} right`}
-                      >
-                        <ChevronRight size={15} className="text-dark" />
-                      </button>
-                    </div>
+                  <div>
+                    <h2 className="text-base font-bold text-dark">{category}</h2>
+                    <p className="text-xs text-muted mt-0.5">
+                      {providers.length} provider{providers.length !== 1 ? 's' : ''} available
+                    </p>
                   </div>
 
-                  <div
-                    ref={el => { rowRefs.current[category] = el }}
-                    className="flex gap-4 overflow-x-auto pb-2"
-                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                  >
+                  <div className="max-w-3xl space-y-3">
                     {providers.map(p => (
-                      <AirbnbProviderCard
+                      <ProviderRow
                         key={p.user_id}
                         provider={p}
+                        credentials={credentials[p.user_id]}
                         isSelected={selectedId === p.user_id}
                         onHover={setSelectedId}
                         context={context}
@@ -603,12 +588,14 @@ function SearchPageInner() {
               {paginatedProviders.length > 0 ? (
                 <div className="max-w-3xl space-y-3">
                   {paginatedProviders.map(p => (
-                    <ProviderCard
+                    <ProviderRow
                       key={p.user_id}
                       provider={p}
+                      credentials={credentials[p.user_id]}
                       isSelected={selectedId === p.user_id}
                       onHover={setSelectedId}
                       context={context}
+                      photoUrl={portfolioThumbs[p.user_id]}
                     />
                   ))}
                 </div>
