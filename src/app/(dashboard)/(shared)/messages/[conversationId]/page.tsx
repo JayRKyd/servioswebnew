@@ -73,7 +73,10 @@ export default function ConversationPage() {
   const [loading, setLoading]       = useState(true)
   const [sending, setSending]       = useState(false)
   const [conversation, setConversation] = useState<any>(null)
-  const [otherParty, setOtherParty] = useState<{ name: string } | null>(null)
+  const [otherParty, setOtherParty] = useState<{ name: string; avatarUrl?: string | null } | null>(null)
+  // Direct conversations with no booking_id still get the parties' latest
+  // live booking surfaced in the header/panel (design item 30)
+  const [linkedBooking, setLinkedBooking] = useState<any>(null)
   const [offer, setOffer]           = useState<any>(null)
   const bottomRef  = useRef<HTMLDivElement>(null)
 
@@ -133,17 +136,43 @@ export default function ConversationPage() {
         if (viewerIsProvider) {
           const { data: cp } = await supabase
             .from('customer_profiles')
-            .select('first_name, last_name')
+            .select('first_name, last_name, profile_image_url')
             .eq('user_id', conv.customer_id)
             .single()
-          setOtherParty({ name: cp ? normaliseName(`${cp.first_name} ${cp.last_name}`.trim() || 'Customer') : 'Customer' })
+          setOtherParty({
+            name: cp ? normaliseName(`${cp.first_name} ${cp.last_name}`.trim() || 'Customer') : 'Customer',
+            avatarUrl: cp?.profile_image_url ?? null,
+          })
         } else {
           const { data: pp } = await supabase
             .from('provider_profiles')
-            .select('first_name, last_name, business_name')
+            .select('first_name, last_name, business_name, profile_image_url')
             .eq('user_id', conv.provider_id)
             .single()
-          setOtherParty({ name: pp ? normaliseName(pp.business_name || `${pp.first_name} ${pp.last_name}`.trim() || 'Provider') : 'Provider' })
+          setOtherParty({
+            name: pp ? normaliseName(pp.business_name || `${pp.first_name} ${pp.last_name}`.trim() || 'Provider') : 'Provider',
+            avatarUrl: pp?.profile_image_url ?? null,
+          })
+        }
+
+        // No booking on the conversation? Link the parties' latest live one.
+        if (!conv.booking && conv.customer_id && conv.provider_id) {
+          const [{ data: custProfile }, { data: provProfile }] = await Promise.all([
+            supabase.from('customer_profiles').select('id').eq('user_id', conv.customer_id).maybeSingle(),
+            supabase.from('provider_profiles').select('id').eq('user_id', conv.provider_id).maybeSingle(),
+          ])
+          if (custProfile && provProfile) {
+            const { data: bk } = await supabase
+              .from('bookings')
+              .select('id, booking_number, status, scheduled_date, scheduled_time_start, service:services(title)')
+              .eq('customer_id', custProfile.id)
+              .eq('provider_id', provProfile.id)
+              .in('status', ['pending', 'accepted', 'in_progress'])
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+            if (bk) setLinkedBooking(bk)
+          }
         }
       }
 
@@ -242,18 +271,30 @@ export default function ConversationPage() {
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-gray-100 bg-white px-4 py-3">
           <button onClick={() => router.back()} className="text-sm text-primary hover:underline">← Back</button>
+          <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-primary/10">
+            {otherParty?.avatarUrl ? (
+              <img src={otherParty.avatarUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-sm font-bold text-primary">
+                {(otherParty?.name ?? '?').charAt(0).toUpperCase()}
+              </div>
+            )}
+          </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-gray-900 truncate">
               {otherParty?.name ?? (isProvider ? 'Customer' : 'Provider')}
             </p>
-            {conversation?.booking && (
-              <p className="text-xs text-gray-400">
-                Job &quot;{conversation.booking.service?.title ?? conversation.booking.booking_number}&quot;
-                {conversation.booking.status && (
-                  <span className="ml-1 capitalize">· {conversation.booking.status.replace(/_/g, ' ')}</span>
-                )}
-              </p>
-            )}
+            {(conversation?.booking ?? linkedBooking) && (() => {
+              const bk = conversation?.booking ?? linkedBooking
+              return (
+                <p className="text-xs text-gray-400">
+                  Job &quot;{bk.service?.title ?? bk.booking_number}&quot;
+                  {bk.status && (
+                    <span className="ml-1 capitalize">· {bk.status.replace(/_/g, ' ')}</span>
+                  )}
+                </p>
+              )
+            })()}
           </div>
 
           {/* Mobile-only actions (panel hidden on mobile) */}
@@ -265,9 +306,11 @@ export default function ConversationPage() {
               + Send Offer
             </Link>
           )}
-          {conversation?.booking?.id && (
+          {(conversation?.booking?.id ?? linkedBooking?.id) && (
             <Link
-              href={isProvider ? `/provider/bookings/${conversation.booking.id}` : `/bookings/${conversation.booking.id}`}
+              href={isProvider
+                ? `/provider/bookings/${conversation?.booking?.id ?? linkedBooking.id}`
+                : `/bookings/${conversation?.booking?.id ?? linkedBooking.id}`}
               className="lg:hidden rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
             >
               View Booking
@@ -290,7 +333,18 @@ export default function ConversationPage() {
               ? new Date(msg.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
               : ''
             return (
-              <div key={msg.id} className={'flex ' + (mine ? 'justify-end' : 'justify-start')}>
+              <div key={msg.id} className={'flex items-end gap-2 ' + (mine ? 'justify-end' : 'justify-start')}>
+                {!mine && (
+                  <div className="mb-4 h-6 w-6 shrink-0 overflow-hidden rounded-full bg-primary/10">
+                    {otherParty?.avatarUrl ? (
+                      <img src={otherParty.avatarUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-[10px] font-bold text-primary">
+                        {(otherParty?.name ?? '?').charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className={'flex max-w-xs flex-col lg:max-w-md ' + (mine ? 'items-end' : 'items-start')}>
                   <div
                     className={

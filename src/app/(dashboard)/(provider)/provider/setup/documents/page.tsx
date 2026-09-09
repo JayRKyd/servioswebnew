@@ -1,9 +1,9 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/auth'
 import { UKDateInput } from '@/components/shared/UKDateInput'
-import { Check } from 'lucide-react'
+import { Check, Camera, Upload, Lock } from 'lucide-react'
 import { setOnboardingStatus } from '@/components/providers/OnboardingProvider'
 import { SetupProgress } from '@/components/provider/SetupProgress'
 
@@ -24,8 +24,42 @@ export default function SetupDocumentsPage() {
   const [submitting, setSubmitting] = useState(false)
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
+  // Profile photo is gated exactly like the required documents (design item
+  // 24) — Airbnb/TaskRabbit/Upwork all require one before a profile goes live
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+  const [photoUploading, setPhotoUploading] = useState(false)
+  const photoRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return
+      const { data: profile } = await supabase
+        .from('provider_profiles').select('profile_image_url').eq('user_id', user.id).maybeSingle()
+      if (profile?.profile_image_url) setPhotoUrl(profile.profile_image_url)
+    })
+  }, [])
+
+  async function handlePhoto(file: File) {
+    setPhotoUploading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
+      const ext = file.name.split('.').pop() ?? 'jpg'
+      const path = `${user.id}/${Date.now()}.${ext}`
+      const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true, contentType: file.type })
+      if (upErr) throw upErr
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path)
+      await supabase.from('provider_profiles').update({ profile_image_url: publicUrl }).eq('user_id', user.id)
+      setPhotoUrl(publicUrl)
+    } catch (e: any) {
+      alert(`Photo upload failed: ${e.message}`)
+    } finally {
+      setPhotoUploading(false)
+    }
+  }
+
   const uploadedTypes = new Set(uploads.map((u) => u.type))
-  const requiredDone = DOC_TYPES.filter((d) => d.required).every((d) => uploadedTypes.has(d.value))
+  const requiredDone = !!photoUrl && DOC_TYPES.filter((d) => d.required).every((d) => uploadedTypes.has(d.value))
 
   async function handleFile(docType: string, docLabel: string, file: File) {
     setUploading(docType)
@@ -84,8 +118,53 @@ export default function SetupDocumentsPage() {
       <SetupProgress current={3} />
 
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Upload documents</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Photo &amp; documents</h1>
         <p className="mt-1 text-gray-500">Items marked * are required before you can go live</p>
+      </div>
+
+      {/* Profile photo — required, like every marketplace worth trusting */}
+      <div className={`rounded-xl border-2 bg-white p-5 ${photoUrl ? 'border-green-300' : 'border-gray-100'}`}>
+        <div className="flex items-center gap-4">
+          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-gray-100">
+            {photoUrl ? (
+              <img src={photoUrl} alt="Profile" className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-gray-300">
+                <Camera size={22} />
+              </div>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-3">
+              <p className="font-semibold text-gray-900">Profile photo *</p>
+              {photoUrl && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-0.5 text-xs font-medium text-green-700">
+                  <Check size={11} strokeWidth={3} /> Added
+                </span>
+              )}
+            </div>
+            <p className="mt-0.5 text-xs text-gray-500">
+              A clear photo of you — or your logo plus a photo if you&apos;re a company.
+              Customers book people they can see.
+            </p>
+          </div>
+        </div>
+        <input
+          ref={photoRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handlePhoto(f) }}
+        />
+        <button
+          onClick={() => photoRef.current?.click()}
+          disabled={photoUploading}
+          className={`mt-3 w-full rounded-lg py-2 text-sm font-medium disabled:opacity-50 ${
+            photoUrl ? 'border border-gray-200 text-gray-600 hover:bg-gray-50' : 'bg-primary text-white hover:bg-primary-dark'
+          }`}
+        >
+          {photoUploading ? 'Uploading…' : photoUrl ? 'Replace photo' : 'Add photo'}
+        </button>
       </div>
 
       <div className="space-y-4">
@@ -129,15 +208,18 @@ export default function SetupDocumentsPage() {
                   uploaded ? 'border border-gray-200 text-gray-600 hover:bg-gray-50' : 'bg-primary text-white hover:bg-primary-dark'
                 }`}
               >
-                {isUploading ? 'Uploading…' : uploaded ? '↩ Replace' : '📎 Upload'}
+                {isUploading ? 'Uploading…' : uploaded ? 'Replace' : (
+                  <span className="inline-flex items-center gap-1.5"><Upload size={13} /> Upload</span>
+                )}
               </button>
             </div>
           )
         })}
       </div>
 
-      <div className="rounded-xl bg-green-50 p-4 text-sm text-green-700">
-        🔒 Documents are stored securely and only reviewed by our verification team.
+      <div className="flex items-center gap-2 rounded-xl bg-green-50 p-4 text-sm text-green-700">
+        <Lock size={14} className="shrink-0" />
+        Documents are stored securely and only reviewed by our verification team.
       </div>
 
       <div className="flex justify-end">

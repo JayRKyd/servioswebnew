@@ -14,7 +14,7 @@ import {
   Bell, Settings, HelpCircle, Star, BookOpen, Home,
   Users, ShieldCheck, AlertTriangle, Mail, Image,
   ClipboardList, Building2, FileCheck, Wallet, Quote,
-  MapPin, Siren, CreditCard, CalendarPlus, Bookmark
+  MapPin, Siren, CreditCard, CalendarPlus, Bookmark, ChevronDown
 } from "lucide-react"
 
 interface SidebarProps {
@@ -130,6 +130,24 @@ const ROLE_LABEL: Record<Role, string> = {
 }
 
 const PROVIDER_SETUP_ROUTES = new Set(['/provider/setup/trade', '/provider/setup/services', '/provider/setup/availability', '/provider/setup/documents', '/provider/setup/complete'])
+
+// Design item 27 — providers get five groups instead of a 16-item flat rail.
+// Same grouping drives the mobile bottom tab bar.
+export const PROVIDER_NAV_GROUPS: { label: string; route?: string; children?: string[] }[] = [
+  { label: 'Home', route: '/provider' },
+  { label: 'Jobs', children: ['/provider/bookings', '/provider/calendar', '/provider/availability'] },
+  { label: 'Quotes', route: '/provider/quotes' },
+  { label: 'Messages', route: '/messages' },
+  { label: 'Business', children: ['/provider/earnings', '/provider/payouts', '/provider/analytics', '/provider/profile', '/provider/services', '/provider/documents', '/provider/reviews'] },
+]
+const PROVIDER_SECONDARY = ['/notifications', '/settings', '/help']
+export const GROUP_ICONS: Record<string, React.ElementType> = {
+  Home: LayoutDashboard,
+  Jobs: CalendarDays,
+  Quotes: Quote,
+  Messages: MessageSquare,
+  Business: BarChart3,
+}
 // Routes that stay accessible but don't appear in the nav: /providers is
 // reached from cards/links, /services is a legacy catalog superseded by
 // Get Quotes (deep links still work).
@@ -144,9 +162,17 @@ export function Sidebar({ role, open = false, onClose }: SidebarProps) {
   const { unreadCount } = useNotifications()
   const { unreadCount: unreadMessages } = useUnreadMessages()
 
-  // Navigating closes the mobile drawer
+  // Grouped provider nav: the group containing the current page starts (and
+  // stays) expanded; users can toggle others
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(() =>
+    PROVIDER_NAV_GROUPS.find(g => g.children?.some(r => pathname === r || pathname.startsWith(r + '/')))?.label ?? null
+  )
+
+  // Navigating closes the mobile drawer and expands the destination's group
   useEffect(() => {
     onClose?.()
+    const owning = PROVIDER_NAV_GROUPS.find(g => g.children?.some(r => pathname === r || pathname.startsWith(r + '/')))?.label
+    if (owning) setExpandedGroup(owning)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname])
 
@@ -160,6 +186,50 @@ export function Sidebar({ role, open = false, onClose }: SidebarProps) {
   function isLocked(route: string) {
     if (!onboardingLocked) return false
     return !PROVIDER_SETUP_ROUTES.has(route) && route !== '/messages' && route !== '/notifications' && route !== '/settings' && route !== '/help'
+  }
+
+  /** One nav entry — shared by the flat list, provider groups and secondary
+   *  items. Icon null = nested child (indent line carries the hierarchy). */
+  function renderItem(route: string, label: string, Icon: React.ElementType | null) {
+    const active = isActive(route)
+    const locked = isLocked(route)
+
+    if (locked) {
+      return (
+        <span
+          title="Complete setup to unlock"
+          className="flex items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] text-gray-300 cursor-not-allowed select-none"
+        >
+          {Icon && <Icon size={15} className="shrink-0" />}
+          {label}
+        </span>
+      )
+    }
+
+    return (
+      <Link
+        href={route}
+        className={
+          "flex items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] transition-all " +
+          (active
+            ? "bg-primary/[0.08] text-primary font-semibold"
+            : "text-muted hover:bg-white hover:text-dark hover:shadow-sm")
+        }
+      >
+        {Icon && <Icon size={15} className="shrink-0" />}
+        <span className="flex-1">{label}</span>
+        {route === '/notifications' && unreadCount > 0 && (
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+        {route === '/messages' && unreadMessages > 0 && (
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+            {unreadMessages > 9 ? '9+' : unreadMessages}
+          </span>
+        )}
+      </Link>
+    )
   }
 
   return (
@@ -204,51 +274,67 @@ export function Sidebar({ role, open = false, onClose }: SidebarProps) {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-2">
-        <ul className="space-y-0.5">
-          {routes.map((route) => {
-            const label = NAV_LABELS[route] ?? route
-            const Icon = NAV_ICONS[label] ?? LayoutDashboard
-            const active = isActive(route)
-            const locked = isLocked(route)
+        {isProvider ? (
+          <ul className="space-y-0.5">
+            {PROVIDER_NAV_GROUPS.map((group) => {
+              const Icon = GROUP_ICONS[group.label] ?? LayoutDashboard
 
-            return (
-              <li key={route}>
-                {locked ? (
-                  <span
-                    title="Complete setup to unlock"
-                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] text-gray-300 cursor-not-allowed select-none"
-                  >
-                    <Icon size={15} className="shrink-0" />
-                    {label}
-                  </span>
-                ) : (
-                  <Link
-                    href={route}
+              // Single-route groups render as plain links
+              if (group.route) {
+                return <li key={group.label}>{renderItem(group.route, group.label, Icon)}</li>
+              }
+
+              const children = group.children ?? []
+              const groupActive = children.some(isActive)
+              const expanded = expandedGroup === group.label
+              const groupLocked = onboardingLocked
+
+              return (
+                <li key={group.label}>
+                  <button
+                    onClick={() => !groupLocked && setExpandedGroup(e => (e === group.label ? null : group.label))}
                     className={
-                      "flex items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] transition-all " +
-                      (active
-                        ? "bg-primary/[0.08] text-primary font-semibold"
-                        : "text-muted hover:bg-white hover:text-dark hover:shadow-sm")
+                      "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] transition-all " +
+                      (groupLocked
+                        ? "text-gray-300 cursor-not-allowed"
+                        : groupActive
+                          ? "text-primary font-semibold"
+                          : "text-muted hover:bg-white hover:text-dark hover:shadow-sm")
                     }
                   >
                     <Icon size={15} className="shrink-0" />
-                    <span className="flex-1">{label}</span>
-                    {route === '/notifications' && unreadCount > 0 && (
-                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-                        {unreadCount > 9 ? '9+' : unreadCount}
-                      </span>
-                    )}
-                    {route === '/messages' && unreadMessages > 0 && (
-                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-                        {unreadMessages > 9 ? '9+' : unreadMessages}
-                      </span>
-                    )}
-                  </Link>
-                )}
-              </li>
-            )
-          })}
-        </ul>
+                    <span className="flex-1 text-left">{group.label}</span>
+                    <ChevronDown size={13} className={`shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                  </button>
+                  {expanded && !groupLocked && (
+                    <ul className="ml-[1.35rem] space-y-0.5 border-l border-gray-200 pl-2 pt-0.5">
+                      {children.map((route) => (
+                        <li key={route}>{renderItem(route, NAV_LABELS[route] ?? route, null)}</li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              )
+            })}
+
+            <li className="pt-3">
+              <div className="mb-1 border-t border-gray-200/70" />
+            </li>
+            {PROVIDER_SECONDARY.map((route) => {
+              const label = NAV_LABELS[route] ?? route
+              const Icon = NAV_ICONS[label] ?? LayoutDashboard
+              return <li key={route}>{renderItem(route, label, Icon)}</li>
+            })}
+          </ul>
+        ) : (
+          <ul className="space-y-0.5">
+            {routes.map((route) => {
+              const label = NAV_LABELS[route] ?? route
+              const Icon = NAV_ICONS[label] ?? LayoutDashboard
+              return <li key={route}>{renderItem(route, label, Icon)}</li>
+            })}
+          </ul>
+        )}
       </nav>
 
       {/* Footer */}

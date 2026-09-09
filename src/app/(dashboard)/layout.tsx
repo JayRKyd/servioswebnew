@@ -2,6 +2,7 @@
 import { Suspense, useState } from "react"
 import { Header } from "@/components/layout/Header"
 import { Sidebar } from "@/components/layout/Sidebar"
+import { BottomTabBar } from "@/components/layout/BottomTabBar"
 import Navbar from "@/components/public/Navbar"
 import { VerifiedBanner } from "@/components/shared/VerifiedBanner"
 import { useActiveRole } from "@/hooks/useActiveRole"
@@ -72,11 +73,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Sidebar role={activeRole} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             <Header onMenuClick={() => setSidebarOpen(true)} />
-            <main className="flex-1 overflow-y-auto bg-[#f7f8f7] p-4 sm:p-6 lg:p-8">
+            <main className={`flex-1 overflow-y-auto bg-[#f7f8f7] p-4 sm:p-6 lg:p-8 ${activeRole === 'provider' ? 'pb-24 md:pb-8' : ''}`}>
               <Suspense fallback={null}><VerifiedBanner /></Suspense>
               {children}
             </main>
           </div>
+          {activeRole === 'provider' && <BottomTabBar />}
         </div>
       </OnboardingProvider>
     </MessagesRealtimeProvider>

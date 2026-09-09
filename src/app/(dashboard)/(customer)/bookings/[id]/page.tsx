@@ -367,7 +367,9 @@ export default function CustomerBookingDetailPage() {
           <span className="text-sm font-semibold text-gray-900">{formatCurrency(booking.total_amount / 100)}</span>
         </div>
         {booking.is_emergency && (
-          <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 border border-red-200">🚨 Emergency booking — 15% commission applies</div>
+          <div className="flex items-center gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700 border border-red-200">
+            <AlertTriangle size={14} className="shrink-0" /> Emergency booking — 15% commission applies
+          </div>
         )}
         {/* Payment status panel — driven by real payments row */}
         {booking.total_amount > 0 && (
@@ -394,7 +396,7 @@ export default function CustomerBookingDetailPage() {
               if (ps === 'authorized') {
                 return (
                   <div className="rounded-lg bg-primary/[0.06] border border-primary/20 px-4 py-3 flex items-start gap-3">
-                    <span className="text-lg">🔒</span>
+                    <Lock size={16} className="mt-0.5 shrink-0 text-primary" />
                     <div>
                       <p className="text-[13px] font-semibold text-primary">Payment held in escrow</p>
                       <p className="text-[12px] text-primary/70 mt-0.5">

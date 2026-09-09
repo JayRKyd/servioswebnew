@@ -1,4 +1,5 @@
 'use client'
+import { MapPin } from 'lucide-react'
 import type { SearchFilters } from '@/hooks/useProviderSearch'
 
 const CATEGORIES = ['', 'Plumbing', 'Electrical', 'Cleaning', 'Landscaping', 'HVAC', 'Painting', 'Carpentry', 'Security', 'Roofing', 'Pest Control']
@@ -111,15 +112,15 @@ export function ProviderFilters({
         <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">Location</label>
         {locationGranted ? (
           <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-700 ring-1 ring-green-200">
-            <span>📍</span>
+            <MapPin size={12} className="shrink-0" />
             <span>Using your location</span>
           </div>
         ) : (
           <button
             onClick={onRequestLocation}
-            className="w-full rounded-lg border border-dashed border-gray-300 px-3 py-2 text-xs text-gray-500 hover:border-primary/40 hover:text-primary transition"
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-xs text-gray-500 hover:border-primary/40 hover:text-primary transition"
           >
-            📍 Use my location
+            <MapPin size={12} className="shrink-0" /> Use my location
           </button>
         )}
       </div>
