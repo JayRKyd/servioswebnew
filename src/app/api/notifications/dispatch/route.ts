@@ -168,6 +168,56 @@ async function handleMessageInsert(record: Record<string, any>) {
   }
 }
 
+async function handleQuoteInvite(record: Record<string, any>) {
+  const { data: qr } = await supabase
+    .from('quote_requests')
+    .select('id, title, description, area')
+    .eq('id', record.quote_request_id)
+    .maybeSingle()
+  if (!qr) return
+
+  const email = await emailForUser(record.provider_id)
+  if (!email) return
+
+  await sendEmail(email, `New quote request — ${qr.title}`, renderNotificationEmail({
+    heading: 'New quote request',
+    body: `A customer is looking for <strong>${escapeHtml(qr.title)}</strong>${qr.area ? ` in ${escapeHtml(qr.area)}` : ''}. Send your price before other pros do.`,
+    ctaLabel: 'View request & respond',
+    ctaPath: `/provider/quotes/${qr.id}`,
+  }))
+}
+
+async function handleQuoteResponse(record: Record<string, any>) {
+  const { data: qr } = await supabase
+    .from('quote_requests')
+    .select('id, title, customer_id')
+    .eq('id', record.quote_request_id)
+    .maybeSingle()
+  if (!qr?.customer_id) return
+
+  const { data: pp } = await supabase
+    .from('provider_profiles')
+    .select('business_name, first_name, last_name')
+    .eq('user_id', record.provider_id)
+    .maybeSingle()
+  const providerName = pp?.business_name?.trim() || `${pp?.first_name ?? ''} ${pp?.last_name ?? ''}`.trim() || 'A provider'
+  const amount = Number(record.amount).toFixed(2)
+
+  await notifyInApp(qr.customer_id, 'quote_request', `New quote: £${amount}`, `${providerName} quoted £${amount} for "${qr.title}".`, {
+    quote_request_id: qr.id,
+  })
+
+  const email = await emailForUser(qr.customer_id)
+  if (email) {
+    await sendEmail(email, `You received a quote — £${amount}`, renderNotificationEmail({
+      heading: `${escapeHtml(providerName)} sent you a quote`,
+      body: `<strong>£${amount}</strong> for &ldquo;${escapeHtml(qr.title)}&rdquo;. Compare your quotes and accept the one that suits you.`,
+      ctaLabel: 'View quotes',
+      ctaPath: `/quotes/${qr.id}`,
+    }))
+  }
+}
+
 export async function POST(req: NextRequest) {
   const secret = req.headers.get('x-webhook-secret')
   if (!secret || secret !== process.env.SYNC_SECRET) {
@@ -188,6 +238,10 @@ export async function POST(req: NextRequest) {
       await handleBookingStatusChange(payload.record, payload.old_record)
     } else if (payload.table === 'messages' && payload.type === 'INSERT') {
       await handleMessageInsert(payload.record)
+    } else if (payload.table === 'quote_request_providers' && payload.type === 'INSERT') {
+      await handleQuoteInvite(payload.record)
+    } else if (payload.table === 'quote_responses' && payload.type === 'INSERT') {
+      await handleQuoteResponse(payload.record)
     }
   } catch (e) {
     // Log and swallow — a notification failure must never look like a data

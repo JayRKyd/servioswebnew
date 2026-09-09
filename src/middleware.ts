@@ -17,6 +17,11 @@ const PUBLIC_ROUTES = [
   '/coming-soon',
   '/terms',
   '/privacy',
+  // Browse-before-signup funnel: search, profiles and the quote wizard are
+  // open to visitors — booking and messaging still require an account
+  '/search',
+  '/providers',
+  '/book',
   '/api/v1',
   '/api/webhooks/stripe',
   '/api/webhooks/twilio',
@@ -25,9 +30,9 @@ const PUBLIC_ROUTES = [
 ]
 
 /** Public routes that stay reachable even when already authenticated —
- *  the auth callback must run its code exchange, and a logged-in user
- *  clicking a recovery link still needs the reset form. */
-const AUTHED_ACCESSIBLE_PUBLIC = ['/coming-soon', '/auth', '/reset-password']
+ *  the auth callback must run its code exchange, a logged-in user clicking a
+ *  recovery link still needs the reset form, and browse pages serve both. */
+const AUTHED_ACCESSIBLE_PUBLIC = ['/coming-soon', '/auth', '/reset-password', '/search', '/providers', '/book']
 
 function isPublicRoute(pathname: string) {
   return PUBLIC_ROUTES.some((r) => pathname === r || pathname.startsWith(r + '/'))

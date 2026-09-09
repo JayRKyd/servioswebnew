@@ -46,20 +46,39 @@ function UKLocalTime() {
 }
 
 /* ─── inline edit wrappers ─── */
+
+// One editor at a time: opening any editor first closes the rest via a DOM
+// event (listeners run synchronously, before the opener flips its own state)
+const CLOSE_EDITORS_EVENT = 'sv-close-editors'
+function useSingleEditor(editing: boolean, setEditing: (v: boolean) => void, onClose?: () => void) {
+  useEffect(() => {
+    const close = () => { if (editing) { onClose?.(); setEditing(false) } }
+    window.addEventListener(CLOSE_EDITORS_EVENT, close)
+    return () => window.removeEventListener(CLOSE_EDITORS_EVENT, close)
+  })
+  return function open() {
+    window.dispatchEvent(new Event(CLOSE_EDITORS_EVENT))
+    setEditing(true)
+  }
+}
+
 function EditableText({
-  value, placeholder, onSave, multiline = false,
+  value, placeholder, onSave, multiline = false, autoOpen = false,
 }: {
-  value: string; placeholder: string; onSave: (v: string) => Promise<boolean>; multiline?: boolean
+  value: string; placeholder: string; onSave: (v: string) => Promise<boolean>; multiline?: boolean; autoOpen?: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const ref = useRef<HTMLTextAreaElement & HTMLInputElement>(null)
+  const open = useSingleEditor(editing, setEditing, () => setDraft(value))
 
   // keep draft in sync when parent value changes after a successful save
   useEffect(() => { if (!editing) setDraft(value) }, [value, editing])
   useEffect(() => { if (editing) ref.current?.focus() }, [editing])
+  // strength-meter pills request the editor to open after scrolling here
+  useEffect(() => { if (autoOpen) open() }, [autoOpen]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSave() {
     setSaving(true)
@@ -99,11 +118,15 @@ function EditableText({
 
   return (
     <div className="group flex items-start gap-2">
-      <span className="flex-1 text-sm text-gray-600 leading-relaxed whitespace-pre-line">
+      <span
+        className={`flex-1 text-sm text-gray-600 leading-relaxed whitespace-pre-line ${!value ? 'cursor-pointer' : ''}`}
+        onClick={!value ? open : undefined}
+      >
         {value || <span className="italic text-gray-400">{placeholder}</span>}
       </span>
-      <button onClick={() => setEditing(true)}
-        className="shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-primary hover:border-primary">
+      {/* Always visible on touch — hover-reveal only from md up */}
+      <button onClick={open}
+        className="shrink-0 mt-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-primary hover:border-primary">
         <Pencil size={11} />
       </button>
     </div>
@@ -111,16 +134,18 @@ function EditableText({
 }
 
 function EditableNumber({
-  value, placeholder, prefix = '', suffix = '', onSave,
+  value, placeholder, prefix = '', suffix = '', onSave, autoOpen = false,
 }: {
-  value: number | null; placeholder: string; prefix?: string; suffix?: string; onSave: (v: number | null) => Promise<boolean>
+  value: number | null; placeholder: string; prefix?: string; suffix?: string; onSave: (v: number | null) => Promise<boolean>; autoOpen?: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value?.toString() ?? '')
   const [saving, setSaving] = useState(false)
+  const open = useSingleEditor(editing, setEditing, () => setDraft(value?.toString() ?? ''))
 
   // keep draft in sync when parent value changes
   useEffect(() => { if (!editing) setDraft(value?.toString() ?? '') }, [value, editing])
+  useEffect(() => { if (autoOpen) open() }, [autoOpen]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSave() {
     setSaving(true)
@@ -145,11 +170,14 @@ function EditableNumber({
 
   return (
     <div className="group flex items-center gap-2">
-      <span className="text-xl font-bold text-gray-900">
+      <span
+        className={`text-xl font-bold text-gray-900 ${value == null ? 'cursor-pointer' : ''}`}
+        onClick={value == null ? open : undefined}
+      >
         {value != null ? `${prefix}${value}${suffix}` : <span className="text-gray-400 font-normal text-sm">{placeholder}</span>}
       </span>
-      <button onClick={() => setEditing(true)}
-        className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-primary hover:border-primary">
+      <button onClick={open}
+        className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-primary hover:border-primary">
         <Pencil size={11} />
       </button>
     </div>
@@ -157,15 +185,17 @@ function EditableNumber({
 }
 
 function EditableList({
-  items, label, placeholder, onSave,
+  items, label, placeholder, onSave, autoOpen = false,
 }: {
-  items: string[]; label: string; placeholder: string; onSave: (v: string[]) => Promise<boolean>
+  items: string[]; label: string; placeholder: string; onSave: (v: string[]) => Promise<boolean>; autoOpen?: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(items)
   const [newItem, setNewItem] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const open = useSingleEditor(editing, setEditing, () => { setDraft(items); setNewItem('') })
+  useEffect(() => { if (autoOpen) open() }, [autoOpen]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // keep draft in sync when parent items change
   useEffect(() => { if (!editing) setDraft(items) }, [items, editing])
@@ -195,7 +225,7 @@ function EditableList({
       <div className="flex items-center justify-between mb-2">
         <p className="text-sm font-semibold text-gray-800">{label}</p>
         {!editing && (
-          <button onClick={() => setEditing(true)}
+          <button onClick={open}
             className="h-6 w-6 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-primary hover:border-primary">
             <Pencil size={11} />
           </button>
@@ -237,7 +267,7 @@ function EditableList({
           })}
         </div>
       ) : (
-        <button onClick={() => setEditing(true)} className="text-xs text-primary hover:underline">
+        <button onClick={open} className="text-xs text-primary hover:underline">
           Add {label.toLowerCase()} →
         </button>
       )}
@@ -264,6 +294,7 @@ export default function ProviderProfilePage() {
   const [linkCopied, setLinkCopied] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [highlightKey, setHighlightKey] = useState<string | null>(null)
+  const [openKey, setOpenKey] = useState<string | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -397,8 +428,9 @@ export default function ProviderProfilePage() {
   // Fields that live on another page — the pill navigates there instead of scrolling.
   const FIELD_ROUTES: Record<string, string> = { verified: '/provider/documents' }
 
-  // Clicking a strength-meter pill either navigates to the owning page or
-  // scrolls to and briefly highlights the field on this page.
+  // Clicking a strength-meter pill navigates to the owning page, or scrolls
+  // to the field AND opens its editor — the pills used to only scroll, which
+  // read as doing nothing.
   function goToField(key: string) {
     const route = FIELD_ROUTES[key]
     if (route) { router.push(route); return }
@@ -406,7 +438,9 @@ export default function ProviderProfilePage() {
     if (!el) return
     el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     setHighlightKey(key)
+    setOpenKey(key)
     setTimeout(() => setHighlightKey(k => (k === key ? null : k)), 1600)
+    setTimeout(() => setOpenKey(k => (k === key ? null : k)), 600)
   }
   const hl = (key: string) =>
     'transition-all rounded-xl ' + (highlightKey === key ? 'ring-2 ring-primary/50 ring-offset-4 ring-offset-white' : '')
@@ -723,6 +757,7 @@ export default function ProviderProfilePage() {
               placeholder="Set hourly rate"
               prefix="£"
               suffix="/hr"
+              autoOpen={openKey === 'rate'}
               onSave={v => save('hourly_rate', v)}
             />
           </div>
@@ -751,6 +786,7 @@ export default function ProviderProfilePage() {
               <EditableText
                 value={profile.phone ?? ''}
                 placeholder="Add phone number"
+                autoOpen={openKey === 'phone'}
                 onSave={v => save('phone', v || null)}
               />
             </div>
@@ -789,6 +825,7 @@ export default function ProviderProfilePage() {
                 items={licenses}
                 label="Licences (self-declared)"
                 placeholder="e.g. Gas Safe Registered"
+                autoOpen={openKey === 'licenses'}
                 onSave={v => save('licenses', v)}
               />
             </div>
@@ -799,6 +836,7 @@ export default function ProviderProfilePage() {
                 items={languages}
                 label="Languages"
                 placeholder="e.g. English: Native"
+                autoOpen={openKey === 'languages'}
                 onSave={v => save('languages', v)}
               />
             </div>
@@ -809,6 +847,7 @@ export default function ProviderProfilePage() {
                 items={areas}
                 label="Service areas"
                 placeholder="e.g. North London"
+                autoOpen={openKey === 'areas'}
                 onSave={v => save('service_areas', v)}
               />
             </div>
@@ -839,7 +878,7 @@ export default function ProviderProfilePage() {
                       className="mt-1 text-sm text-primary underline hover:no-underline">more</button>
                   </div>
                   <button onClick={() => setBioExpanded(true)}
-                    className="shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-primary hover:border-primary">
+                    className="shrink-0 mt-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-primary hover:border-primary">
                     <Pencil size={11} />
                   </button>
                 </div>
@@ -848,6 +887,7 @@ export default function ProviderProfilePage() {
                   value={bio}
                   placeholder="No bio added yet. Click to write about yourself…"
                   multiline
+                  autoOpen={openKey === 'bio'}
                   onSave={async v => { const ok = await save('bio', v); if (ok) setBioExpanded(false); return ok }}
                 />
               )}

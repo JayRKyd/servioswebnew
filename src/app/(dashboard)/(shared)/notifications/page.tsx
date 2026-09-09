@@ -36,7 +36,9 @@ export default function NotificationsPage() {
   // role that's looking at it
   function notificationHref(n: any): string | null {
     if (n.data?.conversation_id) return `/messages/${n.data.conversation_id}`
-    if (n.data?.quote_request_id && activeRole === 'provider') return `/provider/quotes/${n.data.quote_request_id}`
+    if (n.data?.quote_request_id) {
+      return activeRole === 'provider' ? `/provider/quotes/${n.data.quote_request_id}` : `/quotes/${n.data.quote_request_id}`
+    }
     if (n.data?.booking_id) {
       return activeRole === 'provider' ? `/provider/bookings/${n.data.booking_id}` : `/bookings/${n.data.booking_id}`
     }

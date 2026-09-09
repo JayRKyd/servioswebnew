@@ -2,6 +2,7 @@
 import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { supabase } from '@/lib/auth'
 import { ArrowLeft, Droplets, Zap, Wind, Paintbrush, Hammer, Sparkles, Leaf, Home, Bug, Shield, Wrench, MapPin, Search } from 'lucide-react'
 import {
   CATEGORY_META, SERVICE_QUESTIONS, LOCATION_STEP,
@@ -466,6 +467,54 @@ function BookPageInner() {
   const isLocationStep = stepIndex === steps.length
   const step = steps[stepIndex]
 
+  /** Persist the wizard's answers as a real quote request and invite matching
+   *  providers — the answers used to live only in the URL, so the provider
+   *  Quote Requests tabs could never fill. Fire-and-forget: failure must not
+   *  block the search handoff. */
+  async function createQuoteRequest(metaLabel: string, contextParts: string[], island: string) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: qr, error } = await supabase.from('quote_requests').insert({
+        customer_id: user.id,
+        title: `${metaLabel} — ${island && island !== 'other' ? island : 'London'}`,
+        description: contextParts.join('\n'),
+        service_type: category,
+        area: island && island !== 'other' ? island : null,
+        status: 'open',
+      }).select('id').single()
+      if (error || !qr) { console.error('Quote request create failed:', error); return }
+
+      // Invite verified providers in the trade (area-matched when possible)
+      let query = supabase.from('provider_profiles')
+        .select('user_id, service_areas')
+        .eq('verification_status', 'verified')
+        .eq('trade_category', category)
+        .limit(10)
+      const { data: providers } = await query
+      const matching = (providers ?? []).filter((p: any) =>
+        !island || island === 'other' || !Array.isArray(p.service_areas) || p.service_areas.length === 0 || p.service_areas.includes(island)
+      )
+      if (matching.length === 0) return
+
+      await supabase.from('quote_request_providers').insert(
+        matching.map((p: any) => ({ quote_request_id: qr.id, provider_id: p.user_id }))
+      )
+      await supabase.from('notifications').insert(
+        matching.map((p: any) => ({
+          user_id: p.user_id,
+          notification_type: 'quote_request',
+          title: 'New quote request',
+          body: `${metaLabel}${island && island !== 'other' ? ` in ${island}` : ''} — respond with your price.`,
+          data: { quote_request_id: qr.id },
+        }))
+      )
+    } catch (e) {
+      console.error('Quote request pipeline failed:', e)
+    }
+  }
+
   function buildContextAndNavigate(finalSingles: Record<string, string>, finalMultis: Record<string, string[]>, island: string) {
     const meta = CATEGORY_META[category]
 
@@ -487,6 +536,9 @@ function BookPageInner() {
       if (vals.length > 0) contextParts.push(`${questionTitle(id)}: ${vals.map(v => labelFor(id, v)).join(', ')}`)
     }
     if (jobQuery) contextParts.unshift(`Request: ${jobQuery}`)
+
+    // Persist as a quote request (async, non-blocking) before handing off
+    if (category && meta?.label) void createQuoteRequest(meta.label, contextParts, island)
 
     const params = new URLSearchParams()
     if (meta?.label) params.set('category', meta.label)

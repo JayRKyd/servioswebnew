@@ -286,17 +286,23 @@ export default function ConversationPage() {
               )
             }
             const mine = msg.sender_id === user?.id
+            const time = msg.created_at
+              ? new Date(msg.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+              : ''
             return (
               <div key={msg.id} className={'flex ' + (mine ? 'justify-end' : 'justify-start')}>
-                <div
-                  className={
-                    'max-w-xs rounded-2xl px-4 py-2.5 text-sm lg:max-w-md ' +
-                    (mine
-                      ? 'bg-primary text-white'
-                      : 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-100')
-                  }
-                >
-                  {msg.message_text}
+                <div className={'flex max-w-xs flex-col lg:max-w-md ' + (mine ? 'items-end' : 'items-start')}>
+                  <div
+                    className={
+                      'rounded-2xl px-4 py-2.5 text-sm ' +
+                      (mine
+                        ? 'bg-primary text-white'
+                        : 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-100')
+                    }
+                  >
+                    {msg.message_text}
+                  </div>
+                  {time && <span className="mt-1 px-1 text-[10px] text-gray-400">{time}</span>}
                 </div>
               </div>
             )

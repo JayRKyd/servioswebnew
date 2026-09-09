@@ -68,14 +68,18 @@ function NewBookingForm() {
   const [providerBookable, setProviderBookable] = useState(true)
   const [providerHasServices, setProviderHasServices] = useState(true)
   const [providerVerified, setProviderVerified] = useState(true)
+  const [providerInfo, setProviderInfo] = useState<any>(null)
 
   useEffect(() => {
     const providerId = searchParams.get('provider')
     if (providerId) {
       // Load provider's services and availability in parallel
-      supabase.from('provider_profiles').select('id, verification_status').eq('user_id', providerId).single()
+      supabase.from('provider_profiles')
+        .select('id, verification_status, business_name, first_name, last_name, profile_image_url, rating_average, total_reviews, trade_category')
+        .eq('user_id', providerId).single()
         .then(async ({ data: pp }) => {
           if (!pp) return
+          setProviderInfo(pp)
           setProviderVerified(pp.verification_status === 'verified')
           const [{ data: svcData }, { data: avail }] = await Promise.all([
             supabase.from('provider_services')
@@ -255,9 +259,21 @@ function NewBookingForm() {
     )
   }
 
+  // Live pricing for the summary card — mirrors the submit-time math
+  const summaryService = services.find((s: any) => s.id === form.service_id)
+  const summaryRate = form.is_emergency ? 0.15 : (searchParams.get('type') ?? 'direct_customer') === 'landlord' ? 0.10 : 0.12
+  const summaryBase = summaryService?.base_price ?? 0
+  const summaryFee = Math.round(summaryBase * summaryRate * 100) / 100
+  const providerName = providerInfo
+    ? (providerInfo.business_name?.trim() || `${providerInfo.first_name ?? ''} ${providerInfo.last_name ?? ''}`.trim())
+    : null
+
   return (
-    <div className="mx-auto max-w-xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Book a Service</h1>
+
+      <div className="grid gap-6 lg:grid-cols-[1fr,340px] lg:items-start">
+      <div className="space-y-6 order-last lg:order-none">
 
       {!providerVerified && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
@@ -355,6 +371,75 @@ function NewBookingForm() {
           {submitting ? 'Submitting…' : 'Submit Booking Request'}
         </button>
       </form>
+      </div>
+
+      {/* ── Sticky booking summary — keeps provider, service, time and price
+             visible beside every field (Round 3 review #21 / design #29) ── */}
+      <aside className="lg:sticky lg:top-6 rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100 space-y-4">
+        {providerInfo && (
+          <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
+            {providerInfo.profile_image_url ? (
+              <img src={providerInfo.profile_image_url} alt="" className="h-11 w-11 rounded-full object-cover ring-1 ring-gray-200" />
+            ) : (
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
+                {(providerName ?? 'P').charAt(0)}
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-gray-900">{providerName}</p>
+              <p className="text-xs text-gray-500">
+                {Number(providerInfo.rating_average) > 0
+                  ? `★ ${Number(providerInfo.rating_average).toFixed(1)} · ${providerInfo.total_reviews ?? 0} review${(providerInfo.total_reviews ?? 0) !== 1 ? 's' : ''}`
+                  : 'New to Servios'}
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between gap-4">
+            <span className="text-gray-500">Service</span>
+            <span className="text-right font-medium text-gray-900">{summaryService?.title ?? 'Not selected yet'}</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-gray-500">Date</span>
+            <span className="font-medium text-gray-900">
+              {form.scheduled_date ? new Date(form.scheduled_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : '—'}
+            </span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-gray-500">Time</span>
+            <span className="font-medium text-gray-900">{form.scheduled_time_start || '—'}</span>
+          </div>
+        </div>
+
+        {summaryService?.base_price != null && summaryBase > 0 ? (
+          <div className="space-y-2 border-t border-gray-100 pt-4 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-500">{summaryService.title}</span>
+              <span className="text-gray-900">£{summaryBase.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Platform fee ({Math.round(summaryRate * 100)}%)</span>
+              <span className="text-gray-900">£{summaryFee.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-bold text-gray-900">
+              <span>Total</span>
+              <span>£{(summaryBase + summaryFee).toFixed(2)}</span>
+            </div>
+          </div>
+        ) : (
+          <p className="border-t border-gray-100 pt-4 text-xs text-gray-400">
+            Select a service to see the price breakdown.
+          </p>
+        )}
+
+        <p className="rounded-lg bg-primary/[0.06] px-3 py-2.5 text-xs leading-relaxed text-gray-600">
+          Payment is held securely and only released when the job is done.
+          Every job is backed by the 90-day workmanship guarantee.
+        </p>
+      </aside>
+      </div>
     </div>
   )
 }

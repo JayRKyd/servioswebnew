@@ -2,6 +2,7 @@
 import { Suspense, useState } from "react"
 import { Header } from "@/components/layout/Header"
 import { Sidebar } from "@/components/layout/Sidebar"
+import Navbar from "@/components/public/Navbar"
 import { VerifiedBanner } from "@/components/shared/VerifiedBanner"
 import { useActiveRole } from "@/hooks/useActiveRole"
 import { useAuthContext } from "@/components/providers/AuthProvider"
@@ -9,7 +10,7 @@ import { MessagesRealtimeProvider } from "@/components/providers/MessagesRealtim
 import { OnboardingProvider } from "@/components/providers/OnboardingProvider"
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { isLoading } = useAuthContext()
+  const { user, isLoading } = useAuthContext()
   const { activeRole } = useActiveRole()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -49,6 +50,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
     </div>
   )
+
+  // Visitors browsing the public funnel (search, profiles, Get Quotes — the
+  // middleware only lets those through) get the marketing shell instead of
+  // the app chrome; booking or messaging bounces them to login.
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-[#f7f8f7]">
+        <Navbar />
+        <main className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 pt-[96px] pb-12">
+          {children}
+        </main>
+      </div>
+    )
+  }
 
   return (
     <MessagesRealtimeProvider>
