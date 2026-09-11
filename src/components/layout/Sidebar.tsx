@@ -1,7 +1,7 @@
 'use client'
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useContext, useEffect } from "react"
+import { useContext, useEffect, useState } from "react"
 import { useNotifications } from "@/hooks/useNotifications"
 import { useUnreadMessages } from "@/hooks/useUnreadMessages"
 import type { Role } from "@/lib/permissions"
