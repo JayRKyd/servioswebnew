@@ -87,7 +87,7 @@ const STATUS_COPY: Record<string, { title: string; body: (n: string) => string }
   accepted:    { title: 'Booking accepted',  body: n => `Your booking ${n} has been accepted. You're all set.` },
   rejected:    { title: 'Booking declined',  body: n => `Your booking ${n} was declined. You can request another provider any time.` },
   in_progress: { title: 'Job started',       body: n => `The provider has started work on booking ${n}.` },
-  completed:   { title: 'Job completed',     body: n => `Booking ${n} is complete. Leave a review to help other customers.` },
+  completed:   { title: 'Provider marked your job complete', body: n => `Booking ${n} is marked complete. Confirm the work to release payment, then leave a review.` },
   cancelled:   { title: 'Booking cancelled', body: n => `Booking ${n} has been cancelled.` },
 }
 
@@ -110,8 +110,10 @@ async function handleBookingStatusChange(record: Record<string, any>, oldRecord:
     if (pp?.user_id) targets.push({ userId: pp.user_id, path: `/provider/bookings/${record.id}` })
   }
 
+  // Email only — the booking pages already insert in-app notifications for
+  // status changes, and doing it here too double-notified everyone with
+  // slightly different wording (Round 4 finding D)
   await Promise.all(targets.map(async ({ userId, path }) => {
-    await notifyInApp(userId, `booking_${record.status}`, copy.title, copy.body(bookingNumber), { booking_id: record.id })
     const email = await emailForUser(userId)
     if (email) {
       await sendEmail(email, `${copy.title} — ${bookingNumber}`, renderNotificationEmail({
@@ -247,7 +249,11 @@ export async function POST(req: NextRequest) {
     // Log and swallow — a notification failure must never look like a data
     // failure to the trigger, and pg_net doesn't retry anyway
     console.error('[dispatch] notification failed:', e)
+    return NextResponse.json({ ok: true, error: e instanceof Error ? e.message.slice(0, 120) : 'handler failed' })
   }
 
-  return NextResponse.json({ ok: true })
+  // Surface email config state in the response — it lands in net._http_response,
+  // so a broken email leg is visible from the database instead of silent
+  const emailConfigured = Boolean((process.env.RESEND_API_KEY ?? '').trim() && (process.env.RESEND_FROM_EMAIL ?? '').trim())
+  return NextResponse.json({ ok: true, email: emailConfigured ? 'configured' : 'NOT_CONFIGURED' })
 }

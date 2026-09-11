@@ -32,7 +32,7 @@ function checkAvailability(availability: any, dateStr: string, timeStr: string):
     const endMins = timeToMinutes(availability[`${dayKey}_end`] ?? '17:00')
 
     if (slotMins < startMins || slotMins >= endMins)
-      return `The provider is only available ${availability[`${dayKey}_start`]} – ${availability[`${dayKey}_end`]} on this day.`
+      return `The provider is only available ${String(availability[`${dayKey}_start`]).slice(0, 5)} – ${String(availability[`${dayKey}_end`]).slice(0, 5)} on this day.`
 
     const breakStart = availability[`${dayKey}_break_start`]
     const breakEnd = availability[`${dayKey}_break_end`]
@@ -83,7 +83,7 @@ function NewBookingForm() {
           setProviderVerified(pp.verification_status === 'verified')
           const [{ data: svcData }, { data: avail }] = await Promise.all([
             supabase.from('provider_services')
-              .select('service:services(id, title, base_price, service_categories(name))')
+              .select('service:services(id, title, base_price, price_type, service_categories(name))')
               .eq('provider_id', pp.id).eq('is_active', true),
             supabase.from('provider_availability')
               .select('*').eq('provider_id', providerId).maybeSingle(),
@@ -102,6 +102,8 @@ function NewBookingForm() {
   }, [])
 
   function set(key: string, value: any) {
+    // Fixing the field clears any stale submit error — it used to stick
+    if (key === 'scheduled_date' || key === 'scheduled_time_start') setError(null)
     setForm(f => {
       const updated = { ...f, [key]: value }
       if ((key === 'scheduled_date' || key === 'scheduled_time_start') && providerAvailability) {
@@ -117,6 +119,15 @@ function NewBookingForm() {
     e.preventDefault()
     if (!user) return
     if (availabilityError || !providerBookable || !providerHasServices || !providerVerified) return
+
+    // No £0 bookings: only services with a real fixed price book directly —
+    // hourly and quote-priced work goes through messages/quotes so an amount
+    // exists before anything is charged
+    const svc = services.find((s: any) => s.id === form.service_id)
+    if (!svc || !(Number(svc.base_price) > 0)) {
+      setError('This service is priced individually — message the provider or request a quote to agree a price first.')
+      return
+    }
 
     // Validate the date before it can reach Postgres — UKDateInput is a text
     // field, so form state can be empty or stale even when the input shows text
@@ -163,13 +174,16 @@ function NewBookingForm() {
       }
     }
 
-    // Commission: 15% emergency, 10% landlord, 12% default
+    // Commission model (confirmed 2026-09-11): the customer pays the listed
+    // price and nothing more; Servios keeps the commission out of the
+    // provider's side. total = base; platform_fee is the provider deduction.
+    // Rates: 15% emergency, 10% landlord, 12% default.
     const bookingTypeVal = searchParams.get('type') ?? 'direct_customer'
     const commissionRate = form.is_emergency ? 0.15 : bookingTypeVal === 'landlord' ? 0.10 : 0.12
     const selectedService = services.find((s: any) => s.id === form.service_id)
     const baseAmount = selectedService?.base_price ? Math.round(selectedService.base_price * 100) : 0
     const platformFee = Math.round(baseAmount * commissionRate)
-    const totalAmount = baseAmount + platformFee
+    const totalAmount = baseAmount
 
     // Upload any customer photos after booking creation
     const uploadPhotos = async (bookingId: string) => {
@@ -182,6 +196,7 @@ function NewBookingForm() {
             booking_id: bookingId,
             uploaded_by: user.id,
             storage_path: storagePath,
+            url: storagePath,
             type: 'before',
           })
         }
@@ -259,11 +274,9 @@ function NewBookingForm() {
     )
   }
 
-  // Live pricing for the summary card — mirrors the submit-time math
+  // Live pricing for the summary card — customers pay the listed price, no fees
   const summaryService = services.find((s: any) => s.id === form.service_id)
-  const summaryRate = form.is_emergency ? 0.15 : (searchParams.get('type') ?? 'direct_customer') === 'landlord' ? 0.10 : 0.12
   const summaryBase = summaryService?.base_price ?? 0
-  const summaryFee = Math.round(summaryBase * summaryRate * 100) / 100
   const providerName = providerInfo
     ? (providerInfo.business_name?.trim() || `${providerInfo.first_name ?? ''} ${providerInfo.last_name ?? ''}`.trim())
     : null
@@ -419,15 +432,16 @@ function NewBookingForm() {
               <span className="text-gray-500">{summaryService.title}</span>
               <span className="text-gray-900">£{summaryBase.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Platform fee ({Math.round(summaryRate * 100)}%)</span>
-              <span className="text-gray-900">£{summaryFee.toFixed(2)}</span>
-            </div>
             <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-bold text-gray-900">
-              <span>Total</span>
-              <span>£{(summaryBase + summaryFee).toFixed(2)}</span>
+              <span>Total — no fees for you</span>
+              <span>£{summaryBase.toFixed(2)}</span>
             </div>
           </div>
+        ) : summaryService ? (
+          <p className="border-t border-gray-100 pt-4 text-xs leading-relaxed text-amber-700">
+            This service is priced individually — message the provider or request
+            a quote to agree a price before booking.
+          </p>
         ) : (
           <p className="border-t border-gray-100 pt-4 text-xs text-gray-400">
             Select a service to see the price breakdown.

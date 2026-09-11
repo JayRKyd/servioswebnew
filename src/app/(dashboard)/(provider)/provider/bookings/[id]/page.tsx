@@ -278,7 +278,22 @@ export default function ProviderBookingDetailPage() {
             </div>
           )}
 
-          {booking.status === 'completed' && (
+          {/* Marking complete does NOT release payment — the customer confirms
+              first (finding A: escrow released on the provider's word) */}
+          {booking.status === 'completed' && !booking.customer_confirmed_at && (
+            <div className="mx-6 mb-5 rounded-xl bg-amber-50 border border-amber-200 px-5 py-4 flex items-start gap-3">
+              <Lock size={16} className="mt-0.5 text-amber-600 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-amber-900">Awaiting customer confirmation</p>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  Your payout of {formatCurrency(((booking.base_amount ?? booking.total_amount) - (booking.platform_fee ?? 0)) / 100)} is
+                  released once the customer confirms the job is complete.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {booking.status === 'completed' && booking.customer_confirmed_at && (
             <div className="mx-6 mb-5 rounded-xl bg-green-50 border border-green-200 px-5 py-4 flex items-start gap-3">
               <CheckCircle2 size={16} className="mt-0.5 text-green-600 shrink-0" />
               <div>
@@ -301,7 +316,18 @@ export default function ProviderBookingDetailPage() {
 
         <div className="flex flex-wrap gap-3">
           {booking.status === 'pending' && <>
-            <button onClick={() => updateStatus('accepted')} disabled={acting} className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50">Accept</button>
+            <button
+              onClick={() => {
+                // A booking whose date has passed can't be accepted — the
+                // slot is gone; the customer needs to rebook
+                if (booking.scheduled_date && booking.scheduled_date < new Date().toISOString().split('T')[0]) {
+                  alert('This booking\'s date has already passed — it can no longer be accepted. Ask the customer to rebook a new date.')
+                  return
+                }
+                updateStatus('accepted')
+              }}
+              disabled={acting}
+              className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50">Accept</button>
             <button onClick={() => updateStatus('rejected')} disabled={acting} className="flex-1 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">Reject</button>
           </>}
           {booking.status === 'accepted' && (

@@ -10,7 +10,10 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Lock, CheckCircle, Shield, AlertTriangle, MessageCircle } from 'lucide-react'
 import { loadStripe } from '@stripe/stripe-js'
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
+// loadStripe throws when the key is undefined — production without the env
+// var crashed every booking page. Simulation mode handles the no-key path.
+const stripeKey = (process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '').trim()
+const stripePromise = stripeKey && stripeKey !== 'pk_test_placeholder' ? loadStripe(stripeKey) : null
 
 
 function ReviewModal({ bookingId, revieweeId, serviceTitle, onClose }: { bookingId: string; revieweeId?: string | null; serviceTitle?: string | null; onClose: () => void }) {
@@ -226,10 +229,15 @@ export default function CustomerBookingDetailPage() {
     if (!confirm('Confirm the job is complete? This will release payment to the provider.')) return
     setConfirming(true)
 
-    const { error } = await supabase.from('bookings').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', id)
+    // customer_confirmed_at is the escrow gate — provider marking complete
+    // alone never releases payment (Round 4 finding A)
+    const confirmedAt = new Date().toISOString()
+    const { error } = await supabase.from('bookings')
+      .update({ status: 'completed', completed_at: confirmedAt, customer_confirmed_at: confirmedAt })
+      .eq('id', id)
     if (error) { setConfirming(false); return }
 
-    setBooking((b: any) => ({ ...b, status: 'completed' }))
+    setBooking((b: any) => ({ ...b, status: 'completed', customer_confirmed_at: confirmedAt }))
 
     // Trigger payment capture if a payment is held
     if (payment?.id && payment.status === 'authorized') {
@@ -285,7 +293,11 @@ export default function CustomerBookingDetailPage() {
   if (loading) return <div className="flex h-64 items-center justify-center"><div className="text-gray-400">Loading…</div></div>
   if (!booking) return <div className="text-gray-400">Booking not found.</div>
 
-  const canConfirm = ['in_progress', 'accepted'].includes(booking.status)
+  // Customer can confirm while work is underway, or after the provider marks
+  // complete — until they do, nothing is released (finding A)
+  const canConfirm =
+    ['in_progress', 'accepted'].includes(booking.status) ||
+    (booking.status === 'completed' && !booking.customer_confirmed_at)
   const canCancel = ['pending', 'accepted'].includes(booking.status)
   const canReview = booking.status === 'completed'
   const canClaim = booking.status === 'completed' && (() => {
@@ -376,17 +388,35 @@ export default function CustomerBookingDetailPage() {
           <div className="border-t pt-4">
             {(() => {
               const ps = payment?.status
-              // Captured / released
-              if (ps === 'succeeded' || booking.status === 'completed') {
-                const netCents = (booking.total_amount ?? 0) - (booking.platform_fee ?? 0)
+              // Released — only once the CUSTOMER has confirmed (or the
+              // payment was actually captured), never on the provider's word
+              if (ps === 'succeeded' || booking.customer_confirmed_at) {
+                // Commission model: customer pays the listed price; the 12%
+                // comes out of the provider's side. Rate is stored as a
+                // fraction (0.12) — display as a percentage.
+                const ratePct = Math.round(((booking.commission_rate ?? 0.12) < 1 ? (booking.commission_rate ?? 0.12) * 100 : booking.commission_rate))
                 return (
                   <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3 flex items-start gap-3">
                     <span className="text-lg">✓</span>
                     <div>
                       <p className="text-[13px] font-semibold text-green-900">Payment released</p>
                       <p className="text-[12px] text-green-700 mt-0.5">
-                        {formatCurrency(netCents / 100)} sent to provider
-                        {booking.platform_fee ? ` · ${formatCurrency(booking.platform_fee / 100)} platform fee (${booking.commission_rate ?? 12}%)` : ''}
+                        {formatCurrency((booking.total_amount ?? 0) / 100)} released to your provider
+                        (Servios keeps a {ratePct}% service fee from the provider&apos;s side — you pay no fees).
+                      </p>
+                    </div>
+                  </div>
+                )
+              }
+              // Provider says done — customer confirmation is the gate
+              if (booking.status === 'completed' && !booking.customer_confirmed_at) {
+                return (
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 flex items-start gap-3">
+                    <Lock size={16} className="mt-0.5 shrink-0 text-amber-600" />
+                    <div>
+                      <p className="text-[13px] font-semibold text-amber-900">Provider marked this job complete</p>
+                      <p className="text-[12px] text-amber-700 mt-0.5">
+                        Happy with the work? Confirm below to release payment. Not right? Message the provider or raise an issue.
                       </p>
                     </div>
                   </div>

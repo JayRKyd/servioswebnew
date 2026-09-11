@@ -70,7 +70,8 @@ export default function ProviderCalendarPage() {
       .select('id, scheduled_date, scheduled_time_start, service:services(title)')
       .eq('provider_id', providerId)
       .gte('scheduled_date', from).lte('scheduled_date', to)
-      .in('status', ['accepted', 'in_progress'])
+      // Completed jobs stay on the calendar — history matters (finding G)
+      .in('status', ['accepted', 'in_progress', 'completed'])
       .order('scheduled_time_start')
       .then(({ data }) => {
         setMonthEvents((data ?? []).map((b: any) => ({
@@ -90,7 +91,7 @@ export default function ProviderCalendarPage() {
       .select('id, scheduled_time_start, service_address, service:services(title), customer_profile:customer_profiles(first_name, last_name, profile_image_url)')
       .eq('provider_id', providerId)
       .eq('scheduled_date', dateStr)
-      .in('status', ['accepted', 'in_progress'])
+      .in('status', ['accepted', 'in_progress', 'completed'])
       .order('scheduled_time_start')
     setSelectedBookings(data ?? [])
     setLoadingDay(false)

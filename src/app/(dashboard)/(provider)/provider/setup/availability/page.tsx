@@ -41,12 +41,15 @@ export default function SetupAvailabilityPage() {
     supabase.from('provider_availability').select('*').eq('provider_id', user.id).maybeSingle()
       .then(({ data }) => {
         if (!data) return
+        // TIME columns return "09:00:00" — trim to "HH:MM" for the selects
+        const hhmm = (v: unknown, fallback: string) =>
+          typeof v === 'string' && v.length >= 5 ? v.slice(0, 5) : fallback
         const loaded: Record<string, DaySchedule> = {}
         for (const key of KEYS) {
           loaded[key] = {
             enabled: data[`${key}_enabled`] ?? false,
-            start: data[`${key}_start`] ?? '09:00',
-            end: data[`${key}_end`] ?? '17:00',
+            start: hhmm(data[`${key}_start`], '09:00'),
+            end: hhmm(data[`${key}_end`], '17:00'),
           }
         }
         setSchedule(loaded)

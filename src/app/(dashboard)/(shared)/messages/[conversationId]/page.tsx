@@ -264,6 +264,23 @@ export default function ConversationPage() {
     )
   }
 
+  // RLS hides conversations the viewer isn't part of — the row comes back
+  // null. Rendering a live chat shell against it gave strangers an empty
+  // Send box whose sends failed silently (Round 4 finding F).
+  if (!conversation) {
+    return (
+      <div className="flex h-[calc(100vh-8rem)] flex-col items-center justify-center gap-3 text-center px-6">
+        <p className="text-xl font-bold text-gray-900">Conversation not found</p>
+        <p className="max-w-sm text-sm text-gray-500">
+          This conversation doesn&apos;t exist or you&apos;re not a participant in it.
+        </p>
+        <button onClick={() => router.push('/messages')} className="mt-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark">
+          Back to Messages
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-row">
       {/* ── Chat column ───────────────────────────────────────────────────── */}

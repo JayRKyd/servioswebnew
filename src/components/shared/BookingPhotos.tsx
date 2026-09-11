@@ -58,15 +58,19 @@ export function BookingPhotos({ bookingId, bookingStatus, isProvider, onAfterPho
       const storagePath = `${bookingId}/${uploadType}_${Date.now()}.${ext}`
       const { error: upErr } = await supabase.storage.from('booking-photos').upload(storagePath, file, { contentType: file.type })
       if (upErr) throw upErr
-      await supabase.from('booking_photos').insert({
+      // url is NOT NULL in booking_photos — omitting it 400'd every upload,
+      // and the unchecked insert made the failure invisible (finding C)
+      const { error: insErr } = await supabase.from('booking_photos').insert({
         booking_id: bookingId,
         uploaded_by: user?.id,
         storage_path: storagePath,
+        url: storagePath,
         type: uploadType,
         caption: caption.trim() || null,
         marketing_consent: marketingConsent,
         consent_given_at: marketingConsent ? new Date().toISOString() : null,
       })
+      if (insErr) throw insErr
       setCaption('')
       if (fileRef.current) fileRef.current.value = ''
       await loadPhotos()

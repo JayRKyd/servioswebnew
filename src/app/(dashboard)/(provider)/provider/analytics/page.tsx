@@ -193,7 +193,7 @@ export default function ProviderAnalyticsPage() {
     if (!providerId) return
     Promise.all([
       supabase.from('bookings')
-        .select('id, status, total_amount, base_amount, scheduled_date, created_at, service:services(title), customer_profile:customer_profiles(first_name, last_name)')
+        .select('id, status, total_amount, base_amount, platform_fee, scheduled_date, created_at, service:services(title), customer_profile:customer_profiles(first_name, last_name)')
         .eq('provider_id', providerId)
         .order('created_at', { ascending: false }),
       supabase.from('provider_profiles').select('rating_average, total_reviews').eq('id', providerId).maybeSingle(),
@@ -211,7 +211,10 @@ export default function ProviderAnalyticsPage() {
   const cancelled   = bookings.filter(b => b.status === 'cancelled')
   const inProgress  = bookings.filter(b => b.status === 'in_progress')
   const pending     = bookings.filter(b => b.status === 'pending')
-  const totalRev    = completed.reduce((s, b) => s + (b.base_amount ?? b.total_amount ?? 0), 0)
+  // Net = job amount minus the platform fee — the same definition Earnings
+  // uses, so the two pages finally agree (Round 4 finding E)
+  const netOf       = (b: any) => (b.base_amount ?? b.total_amount ?? 0) - (b.platform_fee ?? 0)
+  const totalRev    = completed.reduce((s, b) => s + netOf(b), 0)
   const completion  = bookings.length > 0 ? Math.round((completed.length / bookings.length) * 100) : 0
   const cancelRate  = bookings.length > 0 ? Math.round((cancelled.length / bookings.length) * 100) : 0
   const avgJobVal   = completed.length > 0 ? Math.round(totalRev / completed.length) : 0
@@ -221,7 +224,7 @@ export default function ProviderAnalyticsPage() {
   const thisMonthJobs = bookings.filter(b => (b.scheduled_date ?? '') >= monthStart).length
   const thisMonthRev  = completed
     .filter(b => (b.scheduled_date ?? '') >= monthStart)
-    .reduce((s, b) => s + (b.base_amount ?? b.total_amount ?? 0), 0)
+    .reduce((s, b) => s + netOf(b), 0)
 
   const statusCounts = {
     completed:   completed.length,
@@ -250,7 +253,7 @@ export default function ProviderAnalyticsPage() {
     const map = new Map<string, number>()
     completed.forEach(b => {
       const title = b.service?.title ?? 'Other'
-      map.set(title, (map.get(title) ?? 0) + (b.base_amount ?? b.total_amount ?? 0))
+      map.set(title, (map.get(title) ?? 0) + netOf(b))
     })
     return Array.from(map.entries())
       .map(([label, value]) => ({ label, value, formatted: formatCurrency(value / 100) }))

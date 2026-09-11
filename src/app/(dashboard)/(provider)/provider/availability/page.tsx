@@ -85,15 +85,20 @@ export default function AvailabilityPage() {
     supabase.from('provider_availability').select('*').eq('provider_id', user.id).maybeSingle()
       .then(({ data }) => {
         if (data) {
+          // Postgres TIME columns come back as "09:00:00" — trim to "HH:MM"
+          // or the selects fall to their first option (06:00) and saving
+          // silently wipes the real hours
+          const hhmm = (v: unknown, fallback: string) =>
+            typeof v === 'string' && v.length >= 5 ? v.slice(0, 5) : fallback
           const loaded: WeekSchedule = {}
           for (const key of KEYS) {
             loaded[key] = {
               enabled:      data[`${key}_enabled`] ?? DEFAULT[key].enabled,
-              start:        data[`${key}_start`]   ?? '09:00',
-              end:          data[`${key}_end`]     ?? '17:00',
+              start:        hhmm(data[`${key}_start`], '09:00'),
+              end:          hhmm(data[`${key}_end`], '17:00'),
               breakEnabled: !!(data[`${key}_break_start`]),
-              breakStart:   data[`${key}_break_start`] ?? '12:00',
-              breakEnd:     data[`${key}_break_end`]   ?? '13:00',
+              breakStart:   hhmm(data[`${key}_break_start`], '12:00'),
+              breakEnd:     hhmm(data[`${key}_break_end`], '13:00'),
             }
           }
           setSchedule(loaded)

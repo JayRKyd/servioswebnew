@@ -1,14 +1,17 @@
 import { supabase } from '../db/client'
 
-export async function sendEmail(to: string, subject: string, body: string): Promise<void> {
+/** Returns a status string so callers (and the pg_net response log) can see
+ *  whether the email actually went — a silent console.log hid a fully broken
+ *  production pipeline for days. */
+export async function sendEmail(to: string, subject: string, body: string): Promise<'sent' | 'not_configured' | 'failed'> {
   const apiKey = (process.env.RESEND_API_KEY ?? '').trim()
   const from   = (process.env.RESEND_FROM_EMAIL ?? '').trim()
 
   // Degrade gracefully until Resend is configured — log instead of throwing
   // so booking flows never fail because email isn't set up yet.
   if (!apiKey || !from) {
-    console.log(`[EMAIL not configured] To: ${to} | Subject: ${subject}`)
-    return
+    console.error(`[EMAIL NOT CONFIGURED — set RESEND_API_KEY and RESEND_FROM_EMAIL] To: ${to} | Subject: ${subject}`)
+    return 'not_configured'
   }
 
   // Resend API — no SDK required, plain HTTP (same approach as Expo push below)
@@ -23,7 +26,9 @@ export async function sendEmail(to: string, subject: string, body: string): Prom
 
   if (!res.ok) {
     console.error('[EMAIL] Resend API error:', await res.text())
+    return 'failed'
   }
+  return 'sent'
 }
 
 export async function sendSMS(to: string, body: string): Promise<void> {

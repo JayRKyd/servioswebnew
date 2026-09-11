@@ -32,7 +32,7 @@ const PUBLIC_ROUTES = [
 /** Public routes that stay reachable even when already authenticated —
  *  the auth callback must run its code exchange, a logged-in user clicking a
  *  recovery link still needs the reset form, and browse pages serve both. */
-const AUTHED_ACCESSIBLE_PUBLIC = ['/coming-soon', '/auth', '/reset-password', '/search', '/providers', '/book']
+const AUTHED_ACCESSIBLE_PUBLIC = ['/coming-soon', '/auth', '/reset-password', '/search', '/providers', '/book', '/terms', '/privacy']
 
 function isPublicRoute(pathname: string) {
   return PUBLIC_ROUTES.some((r) => pathname === r || pathname.startsWith(r + '/'))

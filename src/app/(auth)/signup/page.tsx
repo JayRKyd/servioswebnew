@@ -74,7 +74,17 @@ function SignupForm() {
       },
     })
 
-    if (error) { setError(error.message); setIsLoading(false); return }
+    if (error) {
+      // Map Supabase's raw policy strings to human copy
+      const friendly = /password/i.test(error.message)
+        ? 'Password must be at least 8 characters and include both letters and numbers.'
+        : /rate limit/i.test(error.message)
+          ? 'Too many attempts — please wait a minute and try again.'
+          : error.message
+      setError(friendly)
+      setIsLoading(false)
+      return
+    }
 
     // Supabase masks existing accounts as a fake success (anti-enumeration) but
     // gives it away with an empty identities array — no email is coming, so

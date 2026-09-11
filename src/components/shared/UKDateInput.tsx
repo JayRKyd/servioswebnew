@@ -71,10 +71,10 @@ export function UKDateInput({
     const slashed = autoSlash(raw, prevDisplayRef.current)
     prevDisplayRef.current = slashed
     setDisplay(slashed)
-    const iso = toISO(slashed)
-    // A date below min emits '' — never silently keep a stale valid value in
-    // form state while the field displays something different
-    onChange(iso && min && iso < min ? '' : iso)
+    // Emit whatever was typed, past dates included — form-level validation
+    // owns the messaging. (Emitting '' for below-min dates made a typed past
+    // date indistinguishable from an invalid one, producing the wrong error.)
+    onChange(toISO(slashed))
   }
 
   function handleBlur() {
