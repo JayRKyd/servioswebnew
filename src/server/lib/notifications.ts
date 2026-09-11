@@ -5,7 +5,10 @@ import { supabase } from '../db/client'
  *  production pipeline for days. */
 export async function sendEmail(to: string, subject: string, body: string): Promise<'sent' | 'not_configured' | 'failed'> {
   const apiKey = (process.env.RESEND_API_KEY ?? '').trim()
-  const from   = (process.env.RESEND_FROM_EMAIL ?? '').trim()
+  // Strip surrounding quotes — dotenv removes them locally, but pasted into
+  // the Vercel dashboard they become part of the value and Resend rejects
+  // the malformed from address
+  const from   = (process.env.RESEND_FROM_EMAIL ?? '').trim().replace(/^['"]+|['"]+$/g, '')
 
   // Degrade gracefully until Resend is configured — log instead of throwing
   // so booking flows never fail because email isn't set up yet.
