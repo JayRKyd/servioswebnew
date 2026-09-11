@@ -15,7 +15,7 @@ export default function CTABanner() {
                   Ready to get your <br className="hidden sm:block" />next job sorted?
                 </h2>
                 <p className="mt-4 text-[16px] text-gray-400 leading-relaxed max-w-md">
-                  Whether you&apos;re looking for help or looking for work, Servios has you covered. Join 50,000+ users across the UK.
+                  Whether you&apos;re looking for help or looking for work, Servios has you covered — free to join, and every job backed by our 90-day guarantee.
                 </p>
               </div>
 

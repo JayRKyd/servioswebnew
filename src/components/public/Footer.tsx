@@ -39,7 +39,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-12 pt-6 border-t border-border/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <p className="text-[12px] text-muted">&copy; 2026 Servios Ltd. Registered in England &amp; Wales.</p>
+          <p className="text-[12px] text-muted">&copy; 2026 Servios Group Ltd. Registered in England &amp; Wales.</p>
           <div className="flex items-center gap-5">
             {['Twitter', 'LinkedIn', 'Instagram'].map((s) => (
               <a key={s} href="#" className="text-[12px] text-muted hover:text-dark transition-colors">{s}</a>
