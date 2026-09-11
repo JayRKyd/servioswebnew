@@ -126,18 +126,18 @@ async function handleBookingStatusChange(record: Record<string, any>, oldRecord:
   }))
 }
 
-async function handleMessageInsert(record: Record<string, any>) {
+async function handleMessageInsert(record: Record<string, any>): Promise<string> {
   const { data: conv } = await supabase
     .from('conversations')
     .select('id, customer_id, provider_id, landlord_id, tenant_id')
     .eq('id', record.conversation_id)
     .maybeSingle()
-  if (!conv) return
+  if (!conv) return 'no-conversation'
 
   const participants = [conv.customer_id, conv.provider_id, conv.landlord_id, conv.tenant_id]
     .filter((id): id is string => Boolean(id))
   const recipient = participants.find(id => id !== record.sender_id)
-  if (!recipient) return
+  if (!recipient) return 'no-recipient'
 
   // Throttle: only the first message of a burst emails/notifies — skip if the
   // sender already messaged this conversation in the previous 30 minutes.
@@ -150,7 +150,7 @@ async function handleMessageInsert(record: Record<string, any>) {
     .gte('created_at', windowStart)
     .neq('id', record.id)
     .limit(1)
-  if (recent && recent.length > 0) return
+  if (recent && recent.length > 0) return 'throttled'
 
   const senderName = await displayName(record.sender_id)
   const preview = String(record.message_text ?? '').slice(0, 120)
@@ -160,14 +160,13 @@ async function handleMessageInsert(record: Record<string, any>) {
   })
 
   const email = await emailForUser(recipient)
-  if (email) {
-    await sendEmail(email, `New message from ${senderName}`, renderNotificationEmail({
-      heading: `New message from ${escapeHtml(senderName)}`,
-      body: `&ldquo;${escapeHtml(preview)}${record.message_text?.length > 120 ? '…' : ''}&rdquo;`,
-      ctaLabel: 'Reply on Servios',
-      ctaPath: `/messages/${record.conversation_id}`,
-    }))
-  }
+  if (!email) return 'no-email-address'
+  return await sendEmail(email, `New message from ${senderName}`, renderNotificationEmail({
+    heading: `New message from ${escapeHtml(senderName)}`,
+    body: `&ldquo;${escapeHtml(preview)}${record.message_text?.length > 120 ? '…' : ''}&rdquo;`,
+    ctaLabel: 'Reply on Servios',
+    ctaPath: `/messages/${record.conversation_id}`,
+  }))
 }
 
 async function handleQuoteInvite(record: Record<string, any>) {
@@ -233,13 +232,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
   }
 
+  let detail: string | undefined
   try {
     if (payload.table === 'bookings' && payload.type === 'INSERT') {
       await handleBookingInsert(payload.record)
     } else if (payload.table === 'bookings' && payload.type === 'UPDATE' && payload.old_record) {
       await handleBookingStatusChange(payload.record, payload.old_record)
     } else if (payload.table === 'messages' && payload.type === 'INSERT') {
-      await handleMessageInsert(payload.record)
+      detail = await handleMessageInsert(payload.record)
     } else if (payload.table === 'quote_request_providers' && payload.type === 'INSERT') {
       await handleQuoteInvite(payload.record)
     } else if (payload.table === 'quote_responses' && payload.type === 'INSERT') {
@@ -255,5 +255,5 @@ export async function POST(req: NextRequest) {
   // Surface email config state in the response — it lands in net._http_response,
   // so a broken email leg is visible from the database instead of silent
   const emailConfigured = Boolean((process.env.RESEND_API_KEY ?? '').trim() && (process.env.RESEND_FROM_EMAIL ?? '').trim())
-  return NextResponse.json({ ok: true, email: emailConfigured ? 'configured' : 'NOT_CONFIGURED' })
+  return NextResponse.json({ ok: true, email: emailConfigured ? 'configured' : 'NOT_CONFIGURED', ...(detail ? { detail } : {}) })
 }
