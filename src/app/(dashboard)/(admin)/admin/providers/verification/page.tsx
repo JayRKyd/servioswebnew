@@ -84,18 +84,25 @@ function DocReviewCard({
         )}
       </div>
 
-      {/* View file */}
-      {doc.file_url && (
-        <a
-          href={doc.file_url}
-          target="_blank"
-          rel="noopener noreferrer"
+      {/* View file — provider-documents is a private bucket, so the stored
+          public URL 404s ("Bucket not found", Round 3 launch blocker #4).
+          Mint a short-lived signed URL at view time instead. */}
+      {(doc.storage_path || doc.file_url) ? (
+        <button
+          onClick={async () => {
+            if (doc.storage_path) {
+              const { data: signed } = await supabase.storage
+                .from('provider-documents')
+                .createSignedUrl(doc.storage_path, 600)
+              if (signed?.signedUrl) { window.open(signed.signedUrl, '_blank', 'noopener'); return }
+            }
+            if (doc.file_url) window.open(doc.file_url, '_blank', 'noopener')
+          }}
           className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:border-primary hover:text-primary transition-colors"
         >
           <Eye size={13} /> View document file
-        </a>
-      )}
-      {!doc.file_url && (
+        </button>
+      ) : (
         <p className="text-xs text-gray-400 italic">No file uploaded — text record only</p>
       )}
 
