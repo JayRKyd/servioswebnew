@@ -449,8 +449,7 @@ function NewBookingForm() {
         )}
 
         <p className="rounded-lg bg-primary/[0.06] px-3 py-2.5 text-xs leading-relaxed text-gray-600">
-          Payment is held securely and only released when the job is done.
-          Every job is backed by the 90-day workmanship guarantee.
+          Payment is held securely and only released when you confirm the job is done.
         </p>
       </aside>
       </div>

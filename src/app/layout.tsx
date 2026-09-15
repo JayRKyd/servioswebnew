@@ -12,18 +12,18 @@ export const metadata: Metadata = {
     default: 'Servios — Find trusted local professionals',
     template: '%s — Servios',
   },
-  description: 'Compare vetted local trade professionals across London, get free quotes, and book with a 90-day workmanship guarantee. Free for customers.',
+  description: 'Compare vetted local trade professionals across London, get free quotes, and book with secure payments. Free for customers.',
   openGraph: {
     siteName: 'Servios',
     type: 'website',
     title: 'Servios — Find trusted local professionals',
-    description: 'Compare vetted local trade professionals, get free quotes, and book with a 90-day workmanship guarantee.',
+    description: 'Compare vetted local trade professionals, get free quotes, and book with secure payments.',
     images: [{ url: '/brand/servios-mark.png', width: 330, height: 318, alt: 'Servios' }],
   },
   twitter: {
     card: 'summary',
     title: 'Servios — Find trusted local professionals',
-    description: 'Compare vetted local trade professionals, get free quotes, and book with a 90-day workmanship guarantee.',
+    description: 'Compare vetted local trade professionals, get free quotes, and book with secure payments.',
   },
 }
 

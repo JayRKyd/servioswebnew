@@ -7,7 +7,7 @@ const FAQS = [
   { q: 'What payment methods are accepted?', a: 'We accept major credit and debit cards via Stripe. Payments are processed securely at the time of booking confirmation.' },
   { q: 'How do I cancel a booking?', a: 'Open the booking from My Bookings and tap Cancel Booking. Cancellations are free if made at least 24 hours before the scheduled time.' },
   { q: 'Where does Servios operate?', a: 'Servios currently operates across London — Central, North, South, East, West and Greater London. More UK areas are coming soon.' },
-  { q: 'Is Servios free for customers?', a: 'Yes. Customers never pay a fee to use Servios — you only pay the price of the job itself, and every completed job is backed by our 90-day workmanship guarantee.' },
+  { q: 'Is Servios free for customers?', a: 'Yes. Customers never pay a fee to use Servios — you only pay the price of the job itself, and your payment is held securely until you confirm the work is done.' },
 ]
 
 export default function HelpPage() {

@@ -97,8 +97,8 @@ export default function Hero() {
                   <Shield size={16} className="text-emerald-600" />
                 </div>
                 <div>
-                  <p className="text-[15px] font-semibold text-dark leading-none">90-day</p>
-                  <p className="text-[11.5px] text-muted mt-0.5">workmanship guarantee</p>
+                  <p className="text-[15px] font-semibold text-dark leading-none">Secure payments</p>
+                  <p className="text-[11.5px] text-muted mt-0.5">held until the job&apos;s done</p>
                 </div>
               </div>
               <div className="w-px h-8 bg-border" />
@@ -149,7 +149,7 @@ export default function Hero() {
               <div className="bg-white rounded-lg px-4 py-3 shadow-[0_4px_24px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.03]">
                 <div className="flex items-center gap-2">
                   <Shield size={13} className="text-emerald-600" />
-                  <span className="text-[12px] font-semibold text-dark">Every job guaranteed for 90 days</span>
+                  <span className="text-[12px] font-semibold text-dark">Payment protected until the job&apos;s done</span>
                 </div>
               </div>
             </div>

@@ -1,29 +1,36 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { ServiosMark } from '@/components/brand/Logo'
 
 export const metadata: Metadata = { title: 'Terms of Service' }
 
-// Placeholder route so the signup links resolve — the client supplies the
-// final legal text before launch. Swap the body copy only; keep the shell.
-export default function TermsPage() {
+export default function TermsHubPage() {
   return (
-    <div className="min-h-screen bg-[#fafbfa]">
-      <div className="mx-auto max-w-2xl px-5 py-14">
-        <Link href="/" className="flex items-center gap-2">
-          <ServiosMark size={28} />
-          <span className="text-[17px] font-semibold text-[#171717] tracking-[-0.03em]">servios</span>
-        </Link>
-        <h1 className="mt-10 text-3xl font-bold text-dark tracking-[-0.02em]">Terms of Service</h1>
-        <p className="mt-4 text-[15px] leading-relaxed text-muted">
-          Our full Terms of Service are being finalised and will be published here
-          before launch. Servios is operated by Servios Group Ltd.
-        </p>
-        <p className="mt-3 text-[15px] leading-relaxed text-muted">
-          Questions in the meantime? Contact us at{' '}
-          <a href="mailto:support@servios.co.uk" className="text-primary hover:underline">support@servios.co.uk</a>.
-        </p>
-      </div>
-    </div>
+    <>
+      <h1>Terms of Service</h1>
+      <p className="meta">Servios Group Ltd · Draft pending legal review</p>
+      <p>
+        Servios is an online marketplace operated by Servios Group Ltd that connects
+        customers with independent trade professionals across the UK. Because the
+        deal is different on each side of the marketplace, our terms are split in two:
+      </p>
+      <ul>
+        <li>
+          <Link href="/terms/customers">Customer Terms</Link> — for anyone booking
+          services through Servios: bookings, payments, cancellations and your
+          responsibilities.
+        </li>
+        <li>
+          <Link href="/terms/providers">Provider Terms</Link> — for trade
+          professionals offering services: verification, commission, payouts and
+          your obligations.
+        </li>
+      </ul>
+      <p>
+        Both sets of terms apply together with our{' '}
+        <Link href="/privacy">Privacy Policy</Link> and{' '}
+        <Link href="/cookies">Cookie Notice</Link>. By creating an account you agree
+        to the terms that apply to your role — and if you hold both roles, both apply.
+      </p>
+    </>
   )
 }

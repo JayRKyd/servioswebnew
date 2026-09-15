@@ -10,10 +10,11 @@ interface AuthBrandPanelProps {
  *  are true from day one. Real numbers can be added once they clear the
  *  display threshold. */
 export function AuthBrandPanel({ headline, subline }: AuthBrandPanelProps) {
+  // Guarantee copy removed until a real policy + claims process backs it
   const points = [
-    { icon: Shield, text: '90-day workmanship guarantee on every completed job' },
     { icon: BadgeCheck, text: 'Every professional is identity-checked and document-verified' },
     { icon: Lock, text: 'Payments held securely and only released when the job is done' },
+    { icon: Shield, text: 'No fees for customers — you only ever pay the price of the job' },
   ]
 
   return (

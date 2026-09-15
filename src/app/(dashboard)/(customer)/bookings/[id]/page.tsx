@@ -532,12 +532,10 @@ export default function CustomerBookingDetailPage() {
           </button>
         )}
       </div>
-      {canClaim && (
-        <button onClick={() => setShowClaim(true)}
-          className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-orange-300 px-4 py-2 text-sm font-medium text-orange-700 hover:bg-orange-50">
-          <Shield size={14} /> File a Workmanship Claim
-        </button>
-      )}
+      {/* Workmanship-claim entry point hidden until a real guarantee policy
+          and claims process exist (client, 2026-09-12) — backend claim
+          routes and the admin queue stay in place for when it returns.
+          {canClaim && ( <button onClick={() => setShowClaim(true)} ...>File a Workmanship Claim</button> )} */}
     </div>
   )
 }
