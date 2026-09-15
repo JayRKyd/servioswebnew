@@ -23,6 +23,12 @@ export default function CookiesPage() {
         consent first where the law requires it.
       </p>
       <p>
+        When you first visit, a banner asks whether we may also use optional
+        improvement cookies; nothing optional is set unless you choose
+        &ldquo;Accept all&rdquo;. To change your choice later, clear this site&rsquo;s data in
+        your browser and the banner will ask again.
+      </p>
+      <p>
         You can block or delete cookies in your browser settings, but blocking
         the essential ones will stop sign-in from working.
       </p>

@@ -3,6 +3,7 @@ import "@/styles/tailwind.css"
 import "@/app/globals.css"
 import { AuthProvider } from '@/components/providers/AuthProvider'
 import { RoleProvider } from '@/components/providers/RoleProvider'
+import { CookieNotice } from '@/components/shared/CookieNotice'
 
 const SITE_URL = (process.env.WEB_URL ?? 'https://servioswebnew.vercel.app').replace(/\/$/, '')
 
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {children}
           </RoleProvider>
         </AuthProvider>
+        <CookieNotice />
       </body>
     </html>
   )
