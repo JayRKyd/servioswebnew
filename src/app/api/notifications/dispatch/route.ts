@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendEmail } from '@/server/lib/notifications'
-import { renderNotificationEmail, escapeHtml } from '@/server/lib/email-templates'
+import { renderNotificationEmail, escapeHtml, ukDate, ukTime, poundsFromCents } from '@/server/lib/email-templates'
 
 /** Called by Postgres triggers (pg_net http_post) on bookings insert,
  *  bookings status change, and messages insert. Sends the transactional
@@ -68,6 +68,7 @@ async function handleBookingInsert(record: Record<string, any>) {
   const customerName = escapeHtml(`${cp?.first_name ?? ''} ${cp?.last_name ?? ''}`.trim() || 'A customer')
   const service = escapeHtml(svc?.title ?? 'a service')
   const emergency = record.is_emergency ? 'emergency ' : ''
+  const when = `${ukDate(record.scheduled_date)} at ${ukTime(record.scheduled_time_start)}`
 
   // In-app "New booking request" already comes from the booking form itself —
   // the webhook only owns the email here.
@@ -76,38 +77,77 @@ async function handleBookingInsert(record: Record<string, any>) {
     `New ${emergency}booking request — ${svc?.title ?? 'Servios'}`,
     renderNotificationEmail({
       heading: `New ${emergency}booking request`,
-      body: `${customerName} has requested <strong>${service}</strong> on ${escapeHtml(record.scheduled_date ?? '')} at ${escapeHtml(String(record.scheduled_time_start ?? '').slice(0, 5))}. Review the details and accept or decline.`,
+      body: `${customerName} has requested <strong>${service}</strong> on ${escapeHtml(when)}. Review the details and accept or decline.`,
       ctaLabel: 'View booking request',
       ctaPath: `/provider/bookings/${record.id}`,
+      preheader: `${customerName} — ${service}, ${when}`,
     })
   )
 }
 
-const STATUS_COPY: Record<string, { title: string; body: (n: string) => string }> = {
-  accepted:    { title: 'Booking accepted',  body: n => `Your booking ${n} has been accepted. You're all set.` },
-  rejected:    { title: 'Booking declined',  body: n => `Your booking ${n} was declined. You can request another provider any time.` },
-  in_progress: { title: 'Job started',       body: n => `The provider has started work on booking ${n}.` },
-  completed:   { title: 'Provider marked your job complete', body: n => `Booking ${n} is marked complete. Confirm the work to release payment, then leave a review.` },
-  cancelled:   { title: 'Booking cancelled', body: n => `Booking ${n} has been cancelled.` },
-}
-
 async function handleBookingStatusChange(record: Record<string, any>, oldRecord: Record<string, any>) {
   if (record.status === oldRecord.status) return
-  const copy = STATUS_COPY[record.status]
-  if (!copy) return
+  if (!['accepted', 'rejected', 'in_progress', 'completed', 'cancelled'].includes(record.status)) return
 
-  const bookingNumber = record.booking_number ?? ''
-  const { data: cp } = await supabase
-    .from('customer_profiles').select('user_id').eq('id', record.customer_id).maybeSingle()
+  // Full context — "Booking BK-… accepted" identifies nothing for a customer
+  // with two jobs on the go (client feedback). Name the provider, service,
+  // date, time and price.
+  const [{ data: cp }, { data: pp }, { data: svc }] = await Promise.all([
+    supabase.from('customer_profiles').select('user_id').eq('id', record.customer_id).maybeSingle(),
+    record.provider_id
+      ? supabase.from('provider_profiles').select('user_id, business_name, first_name, last_name').eq('id', record.provider_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    record.service_id
+      ? supabase.from('services').select('title').eq('id', record.service_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
+
+  const providerName = escapeHtml(pp?.business_name?.trim() || `${pp?.first_name ?? ''} ${pp?.last_name ?? ''}`.trim() || 'Your provider')
+  const service = escapeHtml(svc?.title ?? 'your booking')
+  const when = record.scheduled_date ? `${ukDate(record.scheduled_date)} at ${ukTime(record.scheduled_time_start)}` : ''
+  const price = poundsFromCents(record.total_amount)
+  const detail = [when, price].filter(Boolean).join(' — ')
+
+  const COPY: Record<string, { subject: string; heading: string; body: string; pre: string }> = {
+    accepted: {
+      subject: `Booking accepted — ${svc?.title ?? 'your job'}`,
+      heading: 'Booking accepted',
+      body: `<strong>${providerName}</strong> accepted your <strong>${service}</strong>${when ? ` on ${escapeHtml(when)}` : ''}${price ? ` — ${price}` : ''}. You're all set; we'll let you know when work starts.`,
+      pre: `${providerName} accepted ${service}${detail ? ` · ${detail}` : ''}`,
+    },
+    rejected: {
+      subject: `Booking declined — ${svc?.title ?? 'your job'}`,
+      heading: 'Booking declined',
+      body: `<strong>${providerName}</strong> can't take your <strong>${service}</strong>${when ? ` on ${escapeHtml(when)}` : ''}. Your payment is not taken for declined bookings — you can request another provider any time.`,
+      pre: `${providerName} declined ${service}`,
+    },
+    in_progress: {
+      subject: `Work started — ${svc?.title ?? 'your job'}`,
+      heading: 'Work has started',
+      body: `<strong>${providerName}</strong> has started work on your <strong>${service}</strong>${when ? ` (${escapeHtml(when)})` : ''}.`,
+      pre: `${providerName} started ${service}`,
+    },
+    completed: {
+      subject: `Job marked complete — ${svc?.title ?? 'your job'}`,
+      heading: 'Provider marked your job complete',
+      body: `<strong>${providerName}</strong> marked your <strong>${service}</strong>${when ? ` (${escapeHtml(when)})` : ''} as complete. Happy with the work? Confirm to release the ${price || 'payment'}, then leave a review.`,
+      pre: `Confirm ${service} to release ${price || 'payment'}`,
+    },
+    cancelled: {
+      subject: `Booking cancelled — ${svc?.title ?? 'your job'}`,
+      heading: 'Booking cancelled',
+      body: `Your <strong>${service}</strong>${when ? ` on ${escapeHtml(when)}` : ''} with <strong>${providerName}</strong> has been cancelled.`,
+      pre: `${service}${when ? ` on ${when}` : ''} cancelled`,
+    },
+  }
+  const copy = COPY[record.status]
 
   // Customer is the audience for status changes (providers drive them);
   // on a cancellation both sides hear about it.
   const targets: { userId: string; path: string }[] = []
   if (cp?.user_id) targets.push({ userId: cp.user_id, path: `/bookings/${record.id}` })
-  if (record.status === 'cancelled' && record.provider_id) {
-    const { data: pp } = await supabase
-      .from('provider_profiles').select('user_id').eq('id', record.provider_id).maybeSingle()
-    if (pp?.user_id) targets.push({ userId: pp.user_id, path: `/provider/bookings/${record.id}` })
+  if (record.status === 'cancelled' && pp?.user_id) {
+    targets.push({ userId: pp.user_id, path: `/provider/bookings/${record.id}` })
   }
 
   // Email only — the booking pages already insert in-app notifications for
@@ -116,11 +156,12 @@ async function handleBookingStatusChange(record: Record<string, any>, oldRecord:
   await Promise.all(targets.map(async ({ userId, path }) => {
     const email = await emailForUser(userId)
     if (email) {
-      await sendEmail(email, `${copy.title} — ${bookingNumber}`, renderNotificationEmail({
-        heading: copy.title,
-        body: escapeHtml(copy.body(bookingNumber)),
+      await sendEmail(email, copy.subject, renderNotificationEmail({
+        heading: copy.heading,
+        body: copy.body,
         ctaLabel: 'View booking',
         ctaPath: path,
+        preheader: copy.pre,
       }))
     }
   }))
@@ -166,6 +207,7 @@ async function handleMessageInsert(record: Record<string, any>): Promise<string>
     body: `&ldquo;${escapeHtml(preview)}${record.message_text?.length > 120 ? '…' : ''}&rdquo;`,
     ctaLabel: 'Reply on Servios',
     ctaPath: `/messages/${record.conversation_id}`,
+    preheader: preview,
   }))
 }
 
@@ -180,11 +222,15 @@ async function handleQuoteInvite(record: Record<string, any>) {
   const email = await emailForUser(record.provider_id)
   if (!email) return
 
+  // The title already carries the area ("Plumbing — North London"), so only
+  // append it when it isn't there — "…North London in North London" read badly
+  const areaSuffix = qr.area && !String(qr.title).includes(qr.area) ? ` in ${escapeHtml(qr.area)}` : ''
   await sendEmail(email, `New quote request — ${qr.title}`, renderNotificationEmail({
     heading: 'New quote request',
-    body: `A customer is looking for <strong>${escapeHtml(qr.title)}</strong>${qr.area ? ` in ${escapeHtml(qr.area)}` : ''}. Send your price before other pros do.`,
+    body: `A customer is looking for <strong>${escapeHtml(qr.title)}</strong>${areaSuffix}. Send your price before other pros do.`,
     ctaLabel: 'View request & respond',
     ctaPath: `/provider/quotes/${qr.id}`,
+    preheader: `${qr.title} — respond with your price`,
   }))
 }
 
@@ -215,6 +261,7 @@ async function handleQuoteResponse(record: Record<string, any>) {
       body: `<strong>£${amount}</strong> for &ldquo;${escapeHtml(qr.title)}&rdquo;. Compare your quotes and accept the one that suits you.`,
       ctaLabel: 'View quotes',
       ctaPath: `/quotes/${qr.id}`,
+      preheader: `£${amount} from ${providerName} for ${qr.title}`,
     }))
   }
 }

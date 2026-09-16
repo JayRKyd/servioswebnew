@@ -5,14 +5,33 @@ export interface NotificationEmail {
   body: string
   ctaLabel: string
   ctaPath: string // app-relative, e.g. /provider/bookings/123
+  /** Inbox preview line — without it clients repeat the heading */
+  preheader?: string
+}
+
+/** Format helpers shared by the notification emails. */
+export function ukDate(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const d = new Date(`${String(iso).slice(0, 10)}T00:00:00`)
+  if (isNaN(d.getTime())) return String(iso)
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+export function ukTime(t: string | null | undefined): string {
+  return t ? String(t).slice(0, 5) : ''
+}
+export function poundsFromCents(cents: number | null | undefined): string {
+  return typeof cents === 'number' ? `£${(cents / 100).toFixed(2)}` : ''
 }
 
 /** Branded transactional email — same visual system as the Supabase auth
  *  templates in docs/email-templates (card on grey, hosted mark, Servios
  *  Group Ltd footer, no unsubscribe link on transactional mail). */
-export function renderNotificationEmail({ heading, body, ctaLabel, ctaPath }: NotificationEmail): string {
+export function renderNotificationEmail({ heading, body, ctaLabel, ctaPath, preheader }: NotificationEmail): string {
   const ctaUrl = `${SITE_URL}${ctaPath}`
-  return `
+  const preheaderHtml = preheader
+    ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${preheader}${'&nbsp;&zwnj;'.repeat(40)}</div>`
+    : ''
+  return `${preheaderHtml}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f5f4;padding:40px 16px;">
   <tr>
     <td align="center">

@@ -79,10 +79,19 @@ function LocationSearch({
   stepIndex: number; totalSteps: number; onSelect: (value: string) => void; onBack: () => void
 }) {
   const [query, setQuery] = useState('')
+  // Immediate feedback on pick — navigation to results takes a beat and the
+  // silent gap read as "nothing happened" (client clicked four times)
+  const [chosen, setChosen] = useState<string | null>(null)
   const allOptions = LOCATION_STEP.options
   const filtered = query.trim()
     ? allOptions.filter(o => o.label.toLowerCase().includes(query.toLowerCase()))
     : allOptions
+
+  function pick(value: string) {
+    if (chosen) return
+    setChosen(value)
+    onSelect(value)
+  }
 
   return (
     <div className="fixed top-[64px] left-0 lg:left-[220px] right-0 bottom-0 z-40 flex">
@@ -190,11 +199,25 @@ function LocationSearch({
                 {filtered.map(opt => (
                   <button
                     key={opt.value}
-                    onMouseDown={e => { e.preventDefault(); onSelect(opt.value) }}
-                    className="flex w-full items-center gap-3 rounded-xl border border-gray-200 px-5 py-4 text-left text-[14px] transition-all hover:border-primary/40 hover:bg-primary/[0.04]"
+                    disabled={chosen !== null}
+                    onMouseDown={e => { e.preventDefault(); pick(opt.value) }}
+                    className={
+                      'flex w-full items-center gap-3 rounded-xl border px-5 py-4 text-left text-[14px] transition-all ' +
+                      (chosen === opt.value
+                        ? 'border-primary bg-primary/[0.06]'
+                        : chosen
+                          ? 'border-gray-200 opacity-40'
+                          : 'border-gray-200 hover:border-primary/40 hover:bg-primary/[0.04]')
+                    }
                   >
-                    <MapPin size={16} className="text-primary shrink-0" />
-                    <span className="font-medium text-gray-800">{opt.label}</span>
+                    {chosen === opt.value ? (
+                      <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    ) : (
+                      <MapPin size={16} className="text-primary shrink-0" />
+                    )}
+                    <span className="font-medium text-gray-800">
+                      {chosen === opt.value ? `Finding providers in ${opt.label}…` : opt.label}
+                    </span>
                   </button>
                 ))}
               </div>

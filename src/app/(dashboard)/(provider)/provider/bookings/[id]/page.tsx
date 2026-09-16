@@ -331,7 +331,19 @@ export default function ProviderBookingDetailPage() {
             <button onClick={() => updateStatus('rejected')} disabled={acting} className="flex-1 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">Reject</button>
           </>}
           {booking.status === 'accepted' && (
-            <button onClick={() => updateStatus('in_progress')} disabled={acting} className="rounded-lg bg-primary px-5 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50">Mark In Progress</button>
+            <button
+              onClick={() => {
+                // Status follows the calendar: work can't start before the
+                // scheduled day (client: started a job a week early)
+                const today = new Date().toISOString().split('T')[0]
+                if (booking.scheduled_date && booking.scheduled_date > today) {
+                  alert(`This job is scheduled for ${new Date(booking.scheduled_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} — you can mark it in progress on the day.`)
+                  return
+                }
+                updateStatus('in_progress')
+              }}
+              disabled={acting}
+              className="rounded-lg bg-primary px-5 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50">Mark In Progress</button>
           )}
           {booking.status === 'in_progress' && (
             <button

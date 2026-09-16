@@ -138,8 +138,8 @@ export default function ProviderQuotesPage() {
                       <p className="mt-0.5 text-sm text-gray-500 line-clamp-2">{q.description}</p>
                     )}
                     <div className="mt-2 flex items-center gap-3 text-xs text-gray-400">
-                      {q.scheduled_date && <span>Preferred: {q.scheduled_date}</span>}
-                      <span>{new Date(q.created_at).toLocaleDateString()}</span>
+                      {q.scheduled_date && <span>Preferred: {new Date(q.scheduled_date + 'T00:00:00').toLocaleDateString('en-GB')}</span>}
+                      <span>{new Date(q.created_at).toLocaleDateString('en-GB')}</span>
                     </div>
                   </div>
                   <div className="shrink-0 flex flex-col items-end gap-1.5">
