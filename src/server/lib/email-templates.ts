@@ -33,6 +33,11 @@ export interface NotificationEmail {
   preheader?: string
 }
 
+/** Escape user-provided strings before interpolating into email HTML. */
+export function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 /** Format helpers shared by the notification emails. */
 export function ukDate(iso: string | null | undefined): string {
   if (!iso) return ''
