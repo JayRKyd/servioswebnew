@@ -28,6 +28,7 @@ export function BookingPhotos({ bookingId, bookingStatus, isProvider, onAfterPho
   const [caption, setCaption] = useState('')
   const [marketingConsent, setMarketingConsent] = useState(false)
   const [lightbox, setLightbox] = useState<BookingPhoto | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const canUpload = isProvider && ['in_progress', 'completed'].includes(bookingStatus)
@@ -52,6 +53,7 @@ export function BookingPhotos({ bookingId, bookingStatus, isProvider, onAfterPho
 
   async function handleUpload(file: File) {
     setUploading(true)
+    setUploadError(null)
     try {
       const { data: { user } } = await supabase.auth.getUser()
       const ext = file.name.split('.').pop() ?? 'jpg'
@@ -75,7 +77,7 @@ export function BookingPhotos({ bookingId, bookingStatus, isProvider, onAfterPho
       if (fileRef.current) fileRef.current.value = ''
       await loadPhotos()
     } catch (e: any) {
-      alert('Upload failed: ' + e.message)
+      setUploadError(`Upload failed: ${e.message}`)
     } finally {
       setUploading(false)
     }
@@ -160,6 +162,9 @@ export function BookingPhotos({ bookingId, bookingStatus, isProvider, onAfterPho
             </button>
             <span className="text-xs text-gray-400">JPG, PNG, WEBP — max 10 MB</span>
           </div>
+          {uploadError && (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{uploadError}</p>
+          )}
         </div>
       )}
 

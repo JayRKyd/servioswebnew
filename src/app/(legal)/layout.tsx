@@ -17,7 +17,8 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
         </div>
 
         <div className="mt-14 border-t border-border pt-6 text-[13px] text-muted">
-          <p>Servios Group Ltd · Registered in England &amp; Wales</p>
+          <p>Servios Group Ltd · Registered in England &amp; Wales · Company No. 16840842</p>
+          <p className="mt-0.5">Registered office: 167-169 Great Portland Street, London, W1W 5PF</p>
           <p className="mt-1">
             Questions? <a href="mailto:support@servios.co.uk" className="text-primary hover:underline">support@servios.co.uk</a>
             {' · '}

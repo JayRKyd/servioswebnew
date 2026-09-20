@@ -17,6 +17,11 @@ export default function ProviderBookingDetailPage() {
   const [loading, setLoading]           = useState(true)
   const [acting, setActing]             = useState(false)
   const [afterPhotoCount, setAfterPhotoCount] = useState<number | null>(null)
+  // Inline replacements for native alert()/confirm() — browser dialogs can be
+  // suppressed or rendered invisibly, blocking the page in a way that looks
+  // exactly like a hard freeze (Round 5 blocker 1)
+  const [actionNotice, setActionNotice] = useState<string | null>(null)
+  const [confirmingComplete, setConfirmingComplete] = useState(false)
   const [conversation, setConversation] = useState<any>(null)
   const [offer, setOffer]               = useState<any>(null)
   const [milestones, setMilestones]     = useState<any[]>([])
@@ -87,10 +92,17 @@ export default function ProviderBookingDetailPage() {
 
   async function updateStatus(status: string) {
     setActing(true)
+    setActionNotice(null)
     const updates: Record<string, any> = { status }
     if (status === 'accepted') updates.accepted_at = new Date().toISOString()
     if (status === 'in_progress') updates.started_at = new Date().toISOString()
-    await supabase.from('bookings').update(updates).eq('id', id)
+    const { error } = await supabase.from('bookings').update(updates).eq('id', id)
+    if (error) {
+      console.error('Status update failed:', error)
+      setActionNotice('Could not update the booking — please try again.')
+      setActing(false)
+      return
+    }
     setBooking((b: any) => ({ ...b, status }))
     // Keep booking ref in conversation object in sync
     setConversation((c: any) => c ? { ...c, booking: { ...c.booking, status } } : c)
@@ -314,6 +326,38 @@ export default function ProviderBookingDetailPage() {
           )}
         </div>
 
+        {/* Inline notices — never native dialogs (they block the page
+            invisibly when suppressed, which reads as a browser freeze) */}
+        {actionNotice && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {actionNotice}
+          </div>
+        )}
+
+        {confirmingComplete && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-sm font-medium text-amber-900">No after photos uploaded yet</p>
+            <p className="mt-0.5 text-xs text-amber-700">
+              After photos protect you if the customer disputes the work. You can still complete without them.
+            </p>
+            <div className="mt-2.5 flex gap-2">
+              <button
+                onClick={() => { setConfirmingComplete(false); updateStatus('completed') }}
+                disabled={acting}
+                className="rounded-lg bg-green-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+              >
+                Complete without photos
+              </button>
+              <button
+                onClick={() => setConfirmingComplete(false)}
+                className="rounded-lg border border-amber-300 px-3.5 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100"
+              >
+                I&apos;ll add photos first
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-3">
           {booking.status === 'pending' && <>
             <button
@@ -321,13 +365,13 @@ export default function ProviderBookingDetailPage() {
                 // A booking whose date has passed can't be accepted — the
                 // slot is gone; the customer needs to rebook
                 if (booking.scheduled_date && booking.scheduled_date < new Date().toISOString().split('T')[0]) {
-                  alert('This booking\'s date has already passed — it can no longer be accepted. Ask the customer to rebook a new date.')
+                  setActionNotice('This booking’s date has already passed — it can no longer be accepted. Ask the customer to rebook a new date.')
                   return
                 }
                 updateStatus('accepted')
               }}
               disabled={acting}
-              className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50">Accept</button>
+              className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50">{acting ? 'Saving…' : 'Accept'}</button>
             <button onClick={() => updateStatus('rejected')} disabled={acting} className="flex-1 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">Reject</button>
           </>}
           {booking.status === 'accepted' && (
@@ -337,26 +381,24 @@ export default function ProviderBookingDetailPage() {
                 // scheduled day (client: started a job a week early)
                 const today = new Date().toISOString().split('T')[0]
                 if (booking.scheduled_date && booking.scheduled_date > today) {
-                  alert(`This job is scheduled for ${new Date(booking.scheduled_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} — you can mark it in progress on the day.`)
+                  setActionNotice(`This job is scheduled for ${new Date(booking.scheduled_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} — you can mark it in progress on the day.`)
                   return
                 }
                 updateStatus('in_progress')
               }}
               disabled={acting}
-              className="rounded-lg bg-primary px-5 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50">Mark In Progress</button>
+              className="rounded-lg bg-primary px-5 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50">{acting ? 'Saving…' : 'Mark In Progress'}</button>
           )}
-          {booking.status === 'in_progress' && (
+          {booking.status === 'in_progress' && !confirmingComplete && (
             <button
               onClick={() => {
-                if (afterPhotoCount === 0) {
-                  if (!confirm('No after photos uploaded yet. It\'s recommended to add after photos before marking complete. Continue anyway?')) return
-                }
+                if (afterPhotoCount === 0) { setConfirmingComplete(true); return }
                 updateStatus('completed')
               }}
               disabled={acting}
               className="flex-1 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
             >
-              Mark Completed
+              {acting ? 'Saving…' : 'Mark Completed'}
             </button>
           )}
           {['pending', 'accepted', 'in_progress'].includes(booking.status) && (

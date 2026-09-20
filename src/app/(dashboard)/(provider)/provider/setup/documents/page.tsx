@@ -22,6 +22,7 @@ export default function SetupDocumentsPage() {
   const [uploading, setUploading] = useState<string | null>(null)
   const [expiry, setExpiry] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   // Profile photo is gated exactly like the required documents (design item
@@ -52,7 +53,7 @@ export default function SetupDocumentsPage() {
       await supabase.from('provider_profiles').update({ profile_image_url: publicUrl }).eq('user_id', user.id)
       setPhotoUrl(publicUrl)
     } catch (e: any) {
-      alert(`Photo upload failed: ${e.message}`)
+      setUploadError(`Photo upload failed: ${e.message}`)
     } finally {
       setPhotoUploading(false)
     }
@@ -95,7 +96,7 @@ export default function SetupDocumentsPage() {
         { type: docType, fileName: file.name, url: urlData.publicUrl },
       ])
     } catch (e: any) {
-      alert(`Upload failed: ${e.message}`)
+      setUploadError(`Upload failed: ${e.message}`)
     } finally {
       setUploading(null)
     }
@@ -121,6 +122,10 @@ export default function SetupDocumentsPage() {
         <h1 className="text-3xl font-bold text-gray-900">Photo &amp; documents</h1>
         <p className="mt-1 text-gray-500">Items marked * are required before you can go live</p>
       </div>
+
+      {uploadError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{uploadError}</div>
+      )}
 
       {/* Profile photo — required, like every marketplace worth trusting */}
       <div className={`rounded-xl border-2 bg-white p-5 ${photoUrl ? 'border-green-300' : 'border-gray-100'}`}>

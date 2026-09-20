@@ -4,6 +4,7 @@ import "@/app/globals.css"
 import { AuthProvider } from '@/components/providers/AuthProvider'
 import { RoleProvider } from '@/components/providers/RoleProvider'
 import { CookieNotice } from '@/components/shared/CookieNotice'
+import { DeployRefreshGuard } from '@/components/shared/DeployRefreshGuard'
 
 const SITE_URL = (process.env.WEB_URL ?? 'https://servioswebnew.vercel.app').replace(/\/$/, '')
 
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </RoleProvider>
         </AuthProvider>
         <CookieNotice />
+        <DeployRefreshGuard />
       </body>
     </html>
   )

@@ -58,7 +58,10 @@ export default function Footer() {
         </div>
 
         <div className="mt-12 pt-6 border-t border-border/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <p className="text-[12px] text-muted">&copy; 2026 Servios Group Ltd. Registered in England &amp; Wales.</p>
+          <p className="text-[12px] text-muted">
+            &copy; 2026 Servios Group Ltd · Registered in England &amp; Wales · Company No. 16840842<br />
+            Registered office: 167-169 Great Portland Street, London, W1W 5PF
+          </p>
           {/* Social links return when the profiles exist — no dead # links */}
         </div>
       </div>

@@ -160,6 +160,8 @@ export default function CustomerBookingDetailPage() {
   const [cancelling, setCancelling] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [openingMessage, setOpeningMessage] = useState(false)
+  // Which action is awaiting its inline confirmation step
+  const [pendingAction, setPendingAction] = useState<'confirm_complete' | 'cancel' | null>(null)
   const [paying, setPaying] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
   const [showReview, setShowReview] = useState(false)
@@ -226,7 +228,8 @@ export default function CustomerBookingDetailPage() {
   }
 
   async function handleConfirmComplete() {
-    if (!confirm('Confirm the job is complete? This will release payment to the provider.')) return
+    // Two-step inline confirm — no native dialogs (they block the page
+    // invisibly when suppressed and read as a browser freeze)
     setConfirming(true)
 
     // customer_confirmed_at is the escrow gate — provider marking complete
@@ -282,12 +285,12 @@ export default function CustomerBookingDetailPage() {
   }
 
   async function handleCancel() {
-    if (!confirm('Cancel this booking?')) return
     setCancelling(true)
     await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id)
     router.refresh()
     setBooking((b: any) => ({ ...b, status: 'cancelled' }))
     setCancelling(false)
+    setPendingAction(null)
   }
 
   if (loading) return <div className="flex h-64 items-center justify-center"><div className="text-gray-400">Loading…</div></div>
@@ -500,6 +503,48 @@ export default function CustomerBookingDetailPage() {
         <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{payError}</div>
       )}
 
+      {/* Inline confirmation steps — native confirm() dialogs block the page
+          invisibly when suppressed, which reads as a browser freeze */}
+      {pendingAction === 'confirm_complete' && (
+        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+          <p className="text-sm font-medium text-green-900">Confirm the job is complete?</p>
+          <p className="mt-0.5 text-xs text-green-700">
+            This releases {booking.total_amount > 0 ? formatCurrency(booking.total_amount / 100) : 'the payment'} to your provider. Only confirm when you&apos;re happy with the work.
+          </p>
+          <div className="mt-2.5 flex gap-2">
+            <button
+              onClick={() => { setPendingAction(null); handleConfirmComplete() }}
+              disabled={confirming}
+              className="rounded-lg bg-green-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+            >
+              {confirming ? 'Confirming…' : 'Yes — release payment'}
+            </button>
+            <button onClick={() => setPendingAction(null)} className="rounded-lg border border-green-300 px-3.5 py-1.5 text-xs font-medium text-green-800 hover:bg-green-100">
+              Not yet
+            </button>
+          </div>
+        </div>
+      )}
+
+      {pendingAction === 'cancel' && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+          <p className="text-sm font-medium text-red-900">Cancel this booking?</p>
+          <p className="mt-0.5 text-xs text-red-700">The provider will be notified. This can&apos;t be undone.</p>
+          <div className="mt-2.5 flex gap-2">
+            <button
+              onClick={handleCancel}
+              disabled={cancelling}
+              className="rounded-lg bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              {cancelling ? 'Cancelling…' : 'Yes — cancel booking'}
+            </button>
+            <button onClick={() => setPendingAction(null)} className="rounded-lg border border-red-300 px-3.5 py-1.5 text-xs font-medium text-red-800 hover:bg-red-100">
+              Keep booking
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex gap-3">
         {booking.status === 'accepted' && !payment && (
           <button onClick={handlePay} disabled={paying}
@@ -507,14 +552,14 @@ export default function CustomerBookingDetailPage() {
             {paying ? 'Processing…' : <><Lock size={14} /> Pay £{(booking.total_amount / 100).toFixed(2)} securely</>}
           </button>
         )}
-        {canConfirm && (
-          <button onClick={handleConfirmComplete} disabled={confirming}
+        {canConfirm && pendingAction !== 'confirm_complete' && (
+          <button onClick={() => setPendingAction('confirm_complete')} disabled={confirming}
             className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50">
             {confirming ? 'Confirming…' : <><CheckCircle size={14} /> Confirm Job Complete</>}
           </button>
         )}
-        {canCancel && (
-          <button onClick={handleCancel} disabled={cancelling}
+        {canCancel && pendingAction !== 'cancel' && (
+          <button onClick={() => setPendingAction('cancel')} disabled={cancelling}
             className="flex-1 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">
             {cancelling ? 'Cancelling…' : 'Cancel Booking'}
           </button>
