@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/auth'
-import { formatDate, formatCurrency, formatTime, titleCase } from '@/lib/utils'
+import { formatDate, formatCurrency, formatTime, titleCase, localISODate } from '@/lib/utils'
 import { apiClient } from '@/lib/api-client'
 import { BookingPhotos } from '@/components/shared/BookingPhotos'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -364,7 +364,7 @@ export default function ProviderBookingDetailPage() {
               onClick={() => {
                 // A booking whose date has passed can't be accepted — the
                 // slot is gone; the customer needs to rebook
-                if (booking.scheduled_date && booking.scheduled_date < new Date().toISOString().split('T')[0]) {
+                if (booking.scheduled_date && booking.scheduled_date < localISODate()) {
                   setActionNotice('This booking’s date has already passed — it can no longer be accepted. Ask the customer to rebook a new date.')
                   return
                 }
@@ -379,7 +379,7 @@ export default function ProviderBookingDetailPage() {
               onClick={() => {
                 // Status follows the calendar: work can't start before the
                 // scheduled day (client: started a job a week early)
-                const today = new Date().toISOString().split('T')[0]
+                const today = localISODate()
                 if (booking.scheduled_date && booking.scheduled_date > today) {
                   setActionNotice(`This job is scheduled for ${new Date(booking.scheduled_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} — you can mark it in progress on the day.`)
                   return

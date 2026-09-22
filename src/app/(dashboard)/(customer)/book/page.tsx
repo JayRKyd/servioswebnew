@@ -91,6 +91,10 @@ function LocationSearch({
     if (chosen) return
     setChosen(value)
     onSelect(value)
+    // If navigation hasn't happened after 6s (network hiccup, blocked
+    // redirect), unlock the options so a retry isn't dead — without this a
+    // single failed pick leaves every option disabled forever
+    setTimeout(() => setChosen(c => (c === value ? null : c)), 6000)
   }
 
   return (

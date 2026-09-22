@@ -335,7 +335,9 @@ export default function CustomerBookingDetailPage() {
               ? ` — ${booking.provider_profile.business_name?.trim() || booking.provider_profile.first_name?.trim()}`
               : ''}
           </h1>
-          <p className="text-xs text-gray-400 mt-0.5">Job &quot;{booking.service?.title ?? 'Booking'}&quot;</p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {booking.booking_number ? `Booking reference: ${booking.booking_number}` : `Job "${booking.service?.title ?? 'Booking'}"`}
+          </p>
         </div>
       </div>
 

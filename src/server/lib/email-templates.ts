@@ -54,7 +54,7 @@ export function poundsFromCents(cents: number | null | undefined): string {
 
 function personCard(p: EmailPerson): string {
   const avatar = p.avatarUrl
-    ? `<img src="${p.avatarUrl}" width="48" height="48" alt="" style="display:block;border:0;border-radius:24px;object-fit:cover;" />`
+    ? `<img src="${p.avatarUrl}" width="48" height="48" alt="${p.name}" style="display:block;border:0;border-radius:24px;object-fit:cover;" />`
     : `<div style="width:48px;height:48px;border-radius:24px;background-color:#115e56;color:#ffffff;font-size:20px;font-weight:700;text-align:center;line-height:48px;">${p.name.charAt(0).toUpperCase()}</div>`
   const rating = p.rating && p.rating > 0
     ? `<span style="color:#b45309;font-weight:600;">★ ${Number(p.rating).toFixed(1)}</span>${p.ratingCount ? ` <span class="mut" style="color:#6b7280;">(${p.ratingCount} review${p.ratingCount !== 1 ? 's' : ''})</span>` : ''}`

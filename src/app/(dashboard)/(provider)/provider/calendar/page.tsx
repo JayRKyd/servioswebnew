@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/auth'
 import { useProfileIds } from '@/hooks/useProfileIds'
-import { formatTime, titleCase } from '@/lib/utils'
+import { formatTime, titleCase, localISODate } from '@/lib/utils'
 import { MapPin, Clock, ChevronLeft, ChevronRight, CalendarDays, ChevronDown } from 'lucide-react'
 
 function daysInMonth(year: number, month: number) { return new Date(year, month + 1, 0).getDate() }
@@ -65,7 +65,7 @@ export default function ProviderCalendarPage() {
   useEffect(() => {
     if (!providerId) return
     const from = `${year}-${String(month + 1).padStart(2, '0')}-01`
-    const to = new Date(year, month + 1, 0).toISOString().split('T')[0]
+    const to = localISODate(new Date(year, month + 1, 0))
     supabase.from('bookings')
       .select('id, scheduled_date, scheduled_time_start, service:services(title)')
       .eq('provider_id', providerId)
@@ -99,7 +99,7 @@ export default function ProviderCalendarPage() {
 
   const days = daysInMonth(year, month)
   const firstDay = firstDayOfMonth(year, month)
-  const todayStr = now.toISOString().split('T')[0]
+  const todayStr = localISODate(now)
   const trailingCount = (firstDay + days) % 7 === 0 ? 0 : 7 - ((firstDay + days) % 7)
 
   function prevMonth() { if (month === 0) { setMonth(11); setYear(y => y - 1) } else setMonth(m => m - 1) }

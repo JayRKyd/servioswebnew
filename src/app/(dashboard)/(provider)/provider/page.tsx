@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
-import { formatCurrency, formatTime, titleCase } from '@/lib/utils'
+import { formatCurrency, formatTime, titleCase, localISODate } from '@/lib/utils'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import {
   Calendar, Clock, Star, Bell, ChevronRight, Briefcase,
@@ -79,7 +79,7 @@ export default function ProviderDashboard() {
         setProfile(p)
         if (!p) { setLoading(false); return }
 
-        const todayStr = new Date().toISOString().split('T')[0]
+        const todayStr = localISODate()
 
         const [{ data: allB }, { data: upB }, { data: notifs }] = await Promise.all([
           supabase.from('bookings')
@@ -111,7 +111,7 @@ export default function ProviderDashboard() {
   }, [user?.id])
 
   const now = new Date()
-  const todayStr = now.toISOString().split('T')[0]
+  const todayStr = localISODate(now)
   const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
 
   const pending   = bookings.filter(b => b.status === 'pending')

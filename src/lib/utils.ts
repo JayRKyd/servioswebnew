@@ -18,6 +18,16 @@ export function formatTime(time: string | null | undefined): string {
   return time.slice(0, 5)
 }
 
+/** Today's date as YYYY-MM-DD in the user's LOCAL timezone.
+ *  `new Date().toISOString()` is UTC — in BST that blocks "today" bookings
+ *  until 1am and mislabels calendar days after 11pm. */
+export function localISODate(d: Date = new Date()): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 export function titleCase(s: string | null | undefined): string {
   if (!s) return ''
   // Capitalise the first letter of each word; leave the rest of the word

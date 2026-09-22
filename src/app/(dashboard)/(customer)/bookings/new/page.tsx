@@ -6,6 +6,7 @@ import { Camera } from 'lucide-react'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
 import { UKDateInput } from '@/components/shared/UKDateInput'
+import { localISODate } from '@/lib/utils'
 
 export default function NewBookingPage() {
   return <Suspense fallback={<div className="flex h-64 items-center justify-center text-gray-400">Loading…</div>}><NewBookingForm /></Suspense>
@@ -57,6 +58,8 @@ function NewBookingForm() {
     provider_id: searchParams.get('provider') ?? '',
     scheduled_date: '',
     scheduled_time_start: '',
+    address_line1: '',
+    address_postcode: '',
     customer_notes: quoteContext ? `Quote details: ${quoteContext}` : '',
     is_emergency: false,
   })
@@ -131,13 +134,20 @@ function NewBookingForm() {
 
     // Validate the date before it can reach Postgres — UKDateInput is a text
     // field, so form state can be empty or stale even when the input shows text
-    const todayISO = new Date().toISOString().split('T')[0]
+    const todayISO = localISODate()
     if (!/^\d{4}-\d{2}-\d{2}$/.test(form.scheduled_date)) {
       setError('Please enter a valid date (DD/MM/YYYY).')
       return
     }
     if (form.scheduled_date < todayISO) {
       setError('That date has already passed — please choose a future date.')
+      return
+    }
+
+    // The provider needs to know where the job is (client feedback: nowhere
+    // on the form asks for the address)
+    if (!form.address_line1.trim() || !form.address_postcode.trim()) {
+      setError('Please enter the address and postcode where the work is needed.')
       return
     }
 
@@ -209,6 +219,11 @@ function NewBookingForm() {
       provider_id: resolvedProviderId,
       scheduled_date: form.scheduled_date,
       scheduled_time_start: form.scheduled_time_start,
+      service_address: {
+        line1: form.address_line1.trim(),
+        postcode: form.address_postcode.trim().toUpperCase(),
+        formatted_address: `${form.address_line1.trim()}, ${form.address_postcode.trim().toUpperCase()}`,
+      },
       customer_notes: form.customer_notes,
       is_emergency: form.is_emergency,
       status: 'pending',
@@ -328,7 +343,7 @@ function NewBookingForm() {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
           <UKDateInput required value={form.scheduled_date} onChange={v => set('scheduled_date', v)}
-            min={new Date().toISOString().split('T')[0]}
+            min={localISODate()}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
         </div>
 
@@ -342,6 +357,23 @@ function NewBookingForm() {
           {providerAvailability && !availabilityError && form.scheduled_date && form.scheduled_time_start && (
             <p className="mt-1.5 text-xs text-green-600">✓ This slot is within the provider's working hours.</p>
           )}
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-[1fr,160px]">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Job address</label>
+            <input required type="text" value={form.address_line1} onChange={e => set('address_line1', e.target.value)}
+              placeholder="House number and street"
+              autoComplete="street-address"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Postcode</label>
+            <input required type="text" value={form.address_postcode} onChange={e => set('address_postcode', e.target.value)}
+              placeholder="e.g. N1 9GU"
+              autoComplete="postal-code"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-primary" />
+          </div>
         </div>
 
         <div>

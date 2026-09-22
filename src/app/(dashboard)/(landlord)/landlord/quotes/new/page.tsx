@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
 import { UKDateInput } from '@/components/shared/UKDateInput'
+import { localISODate } from '@/lib/utils'
 
 type Property = { id: string; address: string }
 type Service = { id: string; name: string; category: string }
@@ -191,7 +192,7 @@ export default function NewQuoteRequestPage() {
           <label className="block text-sm font-medium text-gray-700">Preferred date</label>
           <UKDateInput
             value={scheduledDate}
-            min={new Date().toISOString().split('T')[0]}
+            min={localISODate()}
             onChange={setScheduledDate}
             className="w-48 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />

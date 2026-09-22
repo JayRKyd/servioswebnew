@@ -63,11 +63,103 @@ async function notifyInApp(userId: string, type: string, title: string, body: st
   })
 }
 
+async function conversationPathFor(bookingId: string, fallback: string): Promise<string> {
+  // "Message" links should land in the chat, not on the booking page the
+  // primary button already opens (client feedback)
+  const { data: conv } = await supabase
+    .from('conversations').select('id').eq('booking_id', bookingId).maybeSingle()
+  return conv ? `/messages/${conv.id}` : fallback
+}
+
+async function handlePaymentReleased(record: Record<string, any>) {
+  const [{ data: cp }, { data: pp }, { data: svc }] = await Promise.all([
+    supabase.from('customer_profiles').select('user_id, first_name, last_name').eq('id', record.customer_id).maybeSingle(),
+    record.provider_id
+      ? supabase.from('provider_profiles').select('user_id, business_name, first_name, last_name, profile_image_url, rating_average, total_reviews').eq('id', record.provider_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    record.service_id
+      ? supabase.from('services').select('title, duration_minutes').eq('id', record.service_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
+
+  const providerName = escapeHtml(pp?.business_name?.trim() || `${pp?.first_name ?? ''} ${pp?.last_name ?? ''}`.trim() || 'Your provider')
+  const service = escapeHtml(svc?.title ?? 'your booking')
+  const when = record.scheduled_date ? `${ukDate(record.scheduled_date)}, ${ukTime(record.scheduled_time_start)}` : ''
+  const total = poundsFromCents(record.total_amount)
+  const payout = poundsFromCents((record.total_amount ?? 0) - (record.platform_fee ?? 0))
+  const ref = record.booking_number ? String(record.booking_number) : ''
+
+  // Customer: the receipt
+  if (cp?.user_id) {
+    const email = await emailForUser(cp.user_id)
+    if (email) {
+      await sendEmail(email, `Payment receipt — ${svc?.title ?? 'your booking'}${total ? `, ${total}` : ''}`, renderNotificationEmail({
+        heading: 'Payment released — your receipt',
+        body: 'Thanks for confirming the job. Here are the details for your records.',
+        person: pp ? { name: providerName, avatarUrl: pp.profile_image_url ?? null, rating: Number(pp.rating_average) || null, ratingCount: pp.total_reviews ?? null } : undefined,
+        details: [
+          { label: 'Service', value: service },
+          ...(when ? [{ label: 'When', value: escapeHtml(when) }] : []),
+          ...(total ? [{ label: 'Amount paid', value: total }] : []),
+          ...(ref ? [{ label: 'Reference', value: escapeHtml(ref) }] : []),
+        ],
+        ctaLabel: 'Leave a review',
+        ctaPath: `/bookings/${record.id}`,
+        secondaryCtas: [{ label: 'View booking', path: `/bookings/${record.id}` }],
+        preheader: `${total || 'Payment'} released to ${providerName} for ${service}`,
+      }))
+    }
+  }
+
+  // Provider: you've been paid
+  if (pp?.user_id) {
+    const email = await emailForUser(pp.user_id)
+    if (email) {
+      await sendEmail(email, `You've been paid — ${payout || total}`, renderNotificationEmail({
+        heading: "You've been paid",
+        body: 'The customer confirmed the job is complete and your payout has been released.',
+        details: [
+          { label: 'Service', value: service },
+          ...(when ? [{ label: 'When', value: escapeHtml(when) }] : []),
+          ...(total ? [{ label: 'Job amount', value: total }] : []),
+          ...(payout ? [{ label: 'Your payout', value: payout }] : []),
+          ...(ref ? [{ label: 'Reference', value: escapeHtml(ref) }] : []),
+        ],
+        ctaLabel: 'View earnings',
+        ctaPath: '/provider/earnings',
+        secondaryCtas: [{ label: 'View booking', path: `/provider/bookings/${record.id}` }],
+        preheader: `${payout || total} released for ${service}`,
+      }))
+    }
+  }
+}
+
+async function handleReviewInsert(record: Record<string, any>) {
+  if (!record.reviewee_id) return
+  const reviewer = await personFor(record.reviewer_id)
+  const stars = Math.max(1, Math.min(5, Math.round(Number(record.rating) || 0)))
+
+  const email = await emailForUser(record.reviewee_id)
+  if (!email) return
+
+  await sendEmail(email, `New ${stars}-star review from ${reviewer.name}`, renderNotificationEmail({
+    heading: `New review — ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}`,
+    person: { ...reviewer, name: escapeHtml(reviewer.name) },
+    note: record.review_text ? escapeHtml(String(record.review_text)) : undefined,
+    ctaLabel: 'View your reviews',
+    ctaPath: '/provider/reviews',
+    preheader: `${reviewer.name} left you ${stars} star${stars !== 1 ? 's' : ''}`,
+  }))
+}
+
 function addressOf(record: Record<string, any>): string {
   const sa = record.service_address
   if (!sa) return ''
   if (typeof sa === 'string') return sa
-  if (typeof sa === 'object') return sa.formatted_address ?? sa.line1 ?? [sa.street, sa.city].filter(Boolean).join(', ')
+  if (typeof sa === 'object') {
+    return sa.formatted_address
+      ?? [sa.line1 ?? sa.street, sa.line2, sa.city, sa.postcode].filter(Boolean).join(', ')
+  }
   return ''
 }
 
@@ -78,7 +170,7 @@ async function handleBookingInsert(record: Record<string, any>) {
     supabase.from('provider_profiles').select('user_id').eq('id', record.provider_id).maybeSingle(),
     supabase.from('customer_profiles').select('user_id, first_name, last_name, profile_image_url').eq('id', record.customer_id).maybeSingle(),
     record.service_id
-      ? supabase.from('services').select('title').eq('id', record.service_id).maybeSingle()
+      ? supabase.from('services').select('title, duration_minutes').eq('id', record.service_id).maybeSingle()
       : Promise.resolve({ data: null }),
   ])
   if (!pp?.user_id) return
@@ -92,14 +184,17 @@ async function handleBookingInsert(record: Record<string, any>) {
   const when = `${ukDate(record.scheduled_date)}, ${ukTime(record.scheduled_time_start)}`
   const price = poundsFromCents(record.total_amount)
   const address = addressOf(record)
+  const chatPath = await conversationPathFor(record.id, `/provider/bookings/${record.id}`)
 
   // The two things a tradesperson decides on are the price and the location
   // (client feedback) — plus the customer's notes, all on a details card.
   const details = [
     { label: 'Service', value: service },
     { label: 'When', value: escapeHtml(when) },
+    ...(svc?.duration_minutes ? [{ label: 'Duration', value: `${svc.duration_minutes} min` }] : []),
     ...(address ? [{ label: 'Location', value: escapeHtml(address) }] : []),
     ...(price ? [{ label: 'Job amount', value: price }] : []),
+    ...(record.booking_number ? [{ label: 'Reference', value: escapeHtml(String(record.booking_number)) }] : []),
   ]
 
   // In-app "New booking request" already comes from the booking form itself —
@@ -114,13 +209,19 @@ async function handleBookingInsert(record: Record<string, any>) {
       note: record.customer_notes ? escapeHtml(String(record.customer_notes)) : undefined,
       ctaLabel: 'Accept or decline',
       ctaPath: `/provider/bookings/${record.id}`,
-      secondaryCtas: [{ label: 'Message customer', path: `/provider/bookings/${record.id}` }],
+      secondaryCtas: [{ label: 'Message customer', path: chatPath }],
       preheader: `${customerName} — ${service}, ${when}${price ? `, ${price}` : ''}`,
     })
   )
 }
 
 async function handleBookingStatusChange(record: Record<string, any>, oldRecord: Record<string, any>) {
+  // Customer confirming completion releases the escrow — that transition
+  // (not the status, which is already 'completed') sends the receipt and
+  // the you've-been-paid emails both sides look for in a dispute.
+  if (record.customer_confirmed_at && !oldRecord.customer_confirmed_at) {
+    return handlePaymentReleased(record)
+  }
   if (record.status === oldRecord.status) return
   if (!['accepted', 'rejected', 'in_progress', 'completed', 'cancelled'].includes(record.status)) return
 
@@ -133,7 +234,7 @@ async function handleBookingStatusChange(record: Record<string, any>, oldRecord:
       ? supabase.from('provider_profiles').select('user_id, business_name, first_name, last_name, profile_image_url, rating_average, total_reviews, trade_category').eq('id', record.provider_id).maybeSingle()
       : Promise.resolve({ data: null }),
     record.service_id
-      ? supabase.from('services').select('title').eq('id', record.service_id).maybeSingle()
+      ? supabase.from('services').select('title, duration_minutes').eq('id', record.service_id).maybeSingle()
       : Promise.resolve({ data: null }),
   ])
 
@@ -143,6 +244,7 @@ async function handleBookingStatusChange(record: Record<string, any>, oldRecord:
   const price = poundsFromCents(record.total_amount)
   const address = addressOf(record)
   const detail = [when, price].filter(Boolean).join(' — ')
+  const chatPath = await conversationPathFor(record.id, `/bookings/${record.id}`)
 
   const providerPerson = pp ? {
     name: providerName,
@@ -153,12 +255,19 @@ async function handleBookingStatusChange(record: Record<string, any>, oldRecord:
   const bookingDetails = [
     { label: 'Service', value: service },
     ...(when ? [{ label: 'When', value: escapeHtml(when) }] : []),
+    ...(svc?.duration_minutes ? [{ label: 'Duration', value: `${svc.duration_minutes} min` }] : []),
     ...(address ? [{ label: 'Location', value: escapeHtml(address) }] : []),
     ...(price ? [{ label: 'Price', value: price }] : []),
+    // Reference the customer can quote to support — it appears nowhere else
+    // in their app (client feedback)
+    ...(record.booking_number ? [{ label: 'Reference', value: escapeHtml(String(record.booking_number)) }] : []),
   ]
   const customerCtas = [
-    { label: 'Message provider', path: `/bookings/${record.id}` },
+    { label: 'Message provider', path: chatPath },
     ...(pp?.user_id ? [{ label: 'View profile', path: `/providers/${pp.user_id}` }] : []),
+    // The accepted email is the moment a change of mind happens — the page
+    // has the cancel button; give the email the link
+    ...(record.status === 'accepted' ? [{ label: 'Cancel booking', path: `/bookings/${record.id}` }] : []),
   ]
 
   const COPY: Record<string, { subject: string; heading: string; body: string; pre: string }> = {
@@ -194,6 +303,7 @@ async function handleBookingStatusChange(record: Record<string, any>, oldRecord:
     },
   }
   const copy = COPY[record.status]
+  if (!copy) return
 
   // Customer is the audience for status changes (providers drive them);
   // on a cancellation both sides hear about it.
@@ -206,6 +316,12 @@ async function handleBookingStatusChange(record: Record<string, any>, oldRecord:
   // Email only — the booking pages already insert in-app notifications for
   // status changes, and doing it here too double-notified everyone with
   // slightly different wording (Round 4 finding D)
+  // The button names the one action the email exists for (client feedback:
+  // "confirm and release £90" can't hide behind a View booking label)
+  const ctaLabelFor = record.status === 'completed'
+    ? `Confirm & release ${price || 'payment'}`
+    : 'View booking'
+
   await Promise.all(targets.map(async ({ userId, path }) => {
     const email = await emailForUser(userId)
     if (email) {
@@ -217,7 +333,7 @@ async function handleBookingStatusChange(record: Record<string, any>, oldRecord:
         // doesn't need their own face in the email
         person: isCustomer ? providerPerson : undefined,
         details: bookingDetails,
-        ctaLabel: 'View booking',
+        ctaLabel: isCustomer ? ctaLabelFor : 'View booking',
         ctaPath: path,
         secondaryCtas: isCustomer ? customerCtas : undefined,
         preheader: copy.pre,
@@ -360,6 +476,8 @@ export async function POST(req: NextRequest) {
       await handleQuoteInvite(payload.record)
     } else if (payload.table === 'quote_responses' && payload.type === 'INSERT') {
       await handleQuoteResponse(payload.record)
+    } else if (payload.table === 'reviews' && payload.type === 'INSERT') {
+      await handleReviewInsert(payload.record)
     }
   } catch (e) {
     // Log and swallow — a notification failure must never look like a data

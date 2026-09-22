@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
-import { formatDate, formatCurrency, formatTime, titleCase } from '@/lib/utils'
+import { formatDate, formatCurrency, formatTime, titleCase, localISODate } from '@/lib/utils'
 import { CATEGORY_META } from '@/lib/service-questions'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import {
@@ -89,7 +89,7 @@ export default function CustomerDashboard() {
   }, [user?.id])
 
   const now = new Date()
-  const todayStr = now.toISOString().split('T')[0]
+  const todayStr = localISODate(now)
 
   const pending  = bookings.filter(b => b.status === 'pending')
   const active   = bookings.filter(b => ['accepted', 'in_progress'].includes(b.status))
