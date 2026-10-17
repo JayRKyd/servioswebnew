@@ -1,6 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { type Role, ROLE_ROUTES, SHARED_ROUTES, getDefaultRoute } from '@/lib/permissions'
+import { type Role, ROLE_ROUTES, SHARED_ROUTES, getDefaultRoute, isAdminUser } from '@/lib/permissions'
 
 // Feature flags — read at edge runtime
 const LANDLORD_TENANT_ENABLED = process.env.NEXT_PUBLIC_LANDLORD_TENANT_ENABLED === 'true'
@@ -41,6 +41,15 @@ function isPublicRoute(pathname: string) {
 
 function isLandlordTenantRoute(pathname: string) {
   return pathname.startsWith('/landlord') || pathname.startsWith('/tenant')
+}
+
+/** The role used for routing. `user_metadata.active_role` is user-editable,
+ *  so a claimed "admin" only counts when `app_metadata` (service-role only)
+ *  backs it up — otherwise the user is routed as a customer. */
+function effectiveRole(user: { user_metadata?: Record<string, unknown> | null; app_metadata?: Record<string, unknown> | null }): Role {
+  const claimed = (user.user_metadata?.active_role ?? 'customer') as Role
+  if (claimed === 'admin' && !isAdminUser(user)) return 'customer'
+  return claimed
 }
 
 export async function middleware(request: NextRequest) {
@@ -121,8 +130,7 @@ export async function middleware(request: NextRequest) {
     if (AUTHED_ACCESSIBLE_PUBLIC.some((r) => pathname === r || pathname.startsWith(r + '/'))) {
       return response
     }
-    const activeRole = (user.user_metadata?.active_role ?? 'customer') as Role
-    return NextResponse.redirect(new URL(getDefaultRoute(activeRole), request.url))
+    return NextResponse.redirect(new URL(getDefaultRoute(effectiveRole(user)), request.url))
   }
 
   // Shared routes are accessible to all authenticated users
@@ -132,7 +140,7 @@ export async function middleware(request: NextRequest) {
   if (isShared) return response
 
   // Role-based access check
-  const activeRole = (user.user_metadata?.active_role ?? 'customer') as Role
+  const activeRole = effectiveRole(user)
   const roleRoutes = ROLE_ROUTES[activeRole] ?? []
   const hasAccess =
     roleRoutes.some((r) => pathname === r || pathname.startsWith(r + '/'))

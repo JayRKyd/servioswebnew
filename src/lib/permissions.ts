@@ -10,6 +10,14 @@ export const ROLE_ROUTES: Record<Role, string[]> = {
 
 export const SHARED_ROUTES = ['/messages', '/notifications', '/settings', '/help', '/providers']
 
+/** Admin membership lives in `app_metadata.roles`, which only the service
+ *  role can write — `user_metadata` is editable by the user themselves, so it
+ *  must never decide admin access. Mirrors `public.is_admin()` in the DB. */
+export function isAdminUser(user: { app_metadata?: Record<string, unknown> | null } | null | undefined): boolean {
+  const roles = user?.app_metadata?.roles
+  return Array.isArray(roles) && roles.includes('admin')
+}
+
 /** Landing route for a role — landlord/tenant fall back to the customer
  *  dashboard while the feature flag is off. */
 export function getDefaultRoute(role: Role): string {
