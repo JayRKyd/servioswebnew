@@ -114,9 +114,9 @@ function CustomerProviderProfileInner() {
           .order('created_at', { ascending: true })
           .limit(20),
         supabase.from('provider_documents')
-          .select('document_type, title')
+          .select('document_type, title, verified_number')
           .eq('provider_id', pp.id)
-          .in('status', ['verified', 'approved']),
+          .eq('status', 'approved'),
       ])
 
       setServices((svcs ?? []) as any)

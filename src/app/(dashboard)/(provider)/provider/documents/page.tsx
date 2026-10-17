@@ -89,7 +89,26 @@ const DOC_GUIDE: Record<string, {
   },
 }
 
-const REQUIRED_TYPES = ['insurance', 'id', 'license'] as const
+// ID + insurance are what verification is gated on; licence/certification
+// are optional and become credential badges with their registration number
+const REQUIRED_TYPES = ['id', 'insurance'] as const
+
+// What to call the credential number per type (null = no number applies)
+const NUMBER_FIELD: Record<string, { number: string; issuer: string; placeholder: string } | null> = {
+  insurance:     { number: 'Policy number',           issuer: 'Insurer',                     placeholder: 'e.g. PL-00123456' },
+  license:       { number: 'Registration number',     issuer: 'Issuing body',                placeholder: 'e.g. 512394 (Gas Safe)' },
+  certification: { number: 'Certificate number',      issuer: 'Issuing body',                placeholder: 'e.g. NICEIC 12345' },
+  other:         { number: 'Reference (optional)',    issuer: 'Issuer (optional)',           placeholder: '' },
+  id: null,
+  contract: null,
+}
+
+const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
+  pending:  { label: 'In review',    cls: 'bg-amber-100 text-amber-700' },
+  approved: { label: 'Approved',     cls: 'bg-green-100 text-green-700' },
+  rejected: { label: 'Not approved', cls: 'bg-red-100 text-red-700' },
+  expired:  { label: 'Expired',      cls: 'bg-gray-200 text-gray-600' },
+}
 
 function expiryStatus(expiry: string | null): 'expired' | 'soon' | 'ok' | null {
   if (!expiry) return null
@@ -107,9 +126,10 @@ export default function ProviderDocumentsPage() {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
-  const [form, setForm] = useState({ type: 'license', title: '', expiry_date: '' })
+  const [form, setForm] = useState({ type: 'license', title: '', expiry_date: '', credential_number: '', issuer: '' })
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [dragging, setDragging] = useState(false)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -166,11 +186,13 @@ export default function ProviderDocumentsPage() {
         file_url,
         storage_path,
         expiry_date: form.expiry_date || null,
+        credential_number: form.credential_number.trim() || null,
+        issuer: form.issuer.trim() || null,
         status: 'pending',
       })
       if (insertErr) throw new Error(insertErr.message)
 
-      setForm({ type: 'license', title: '', expiry_date: '' })
+      setForm({ type: 'license', title: '', expiry_date: '', credential_number: '', issuer: '' })
       setSelectedFile(null)
       if (fileRef.current) fileRef.current.value = ''
       setSuccess(true)
@@ -184,10 +206,21 @@ export default function ProviderDocumentsPage() {
   }
 
   async function handleDelete(doc: any) {
-    if (!confirm(`Remove "${doc.title}"?`)) return
     if (doc.storage_path) await supabase.storage.from('provider-documents').remove([doc.storage_path])
-    await supabase.from('provider_documents').delete().eq('id', doc.id)
+    const { error: delErr } = await supabase.from('provider_documents').delete().eq('id', doc.id)
+    if (delErr) { setError(delErr.message); return }
+    setConfirmDeleteId(null)
     setDocs(d => d.filter(x => x.id !== doc.id))
+  }
+
+  // provider-documents is a private bucket — the stored public URL 404s, so
+  // mint a short-lived signed URL when the provider wants to look at a file
+  async function openFile(doc: any) {
+    if (doc.storage_path) {
+      const { data } = await supabase.storage.from('provider-documents').createSignedUrl(doc.storage_path, 300)
+      if (data?.signedUrl) { window.open(data.signedUrl, '_blank', 'noopener'); return }
+    }
+    if (doc.file_url) window.open(doc.file_url, '_blank', 'noopener')
   }
 
   function handleDrop(e: React.DragEvent) {
@@ -199,8 +232,9 @@ export default function ProviderDocumentsPage() {
 
   // Verification status per required type
   const verifiedCount = REQUIRED_TYPES.filter(t =>
-    docs.some(d => d.document_type === t && d.status === 'verified')
+    docs.some(d => d.document_type === t && d.status === 'approved')
   ).length
+  const numberField = NUMBER_FIELD[form.type] ?? null
 
   return (
     <div className="space-y-6">
@@ -222,35 +256,45 @@ export default function ProviderDocumentsPage() {
         </span>
       </div>
 
-      {/* ── Required documents checklist ── */}
-      <div className="grid grid-cols-3 gap-3">
-        {REQUIRED_TYPES.map(type => {
+      {/* ── Required documents checklist — an approved doc wins over any
+             rejected/expired one of the same type ── */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {[...REQUIRED_TYPES, 'license' as const].map(type => {
           const meta = DOC_META[type]
-          const submitted = docs.find(d => d.document_type === type)
-          const status = submitted?.status ?? null
+          const ofType = docs.filter(d => d.document_type === type || (type === 'license' && d.document_type === 'certification'))
+          const status = ofType.some(d => d.status === 'approved') ? 'approved'
+            : ofType.some(d => d.status === 'pending') ? 'pending'
+            : ofType.some(d => d.status === 'expired') ? 'expired'
+            : ofType.some(d => d.status === 'rejected') ? 'rejected'
+            : null
+          const required = type !== 'license'
+          const tone = status === 'approved' ? 'border-green-200 bg-green-50'
+            : status === 'pending' ? 'border-amber-200 bg-amber-50'
+            : status === 'rejected' || status === 'expired' ? 'border-red-200 bg-red-50'
+            : 'border-gray-100 bg-white'
           return (
-            <div key={type} className={`rounded-2xl border p-4 ${
-              status === 'verified'
-                ? 'border-green-200 bg-green-50'
-                : submitted
-                ? 'border-amber-200 bg-amber-50'
-                : 'border-gray-100 bg-white'
-            }`}>
+            <div key={type} className={`rounded-2xl border p-4 ${tone}`}>
               <div className="flex items-start justify-between gap-2">
                 <div className={`rounded-xl p-2 ${meta.color}`}>{meta.icon}</div>
-                {status === 'verified'
+                {status === 'approved'
                   ? <CheckCircle2 size={16} className="text-green-500 mt-0.5 shrink-0" />
-                  : submitted
+                  : status === 'pending'
                   ? <Clock size={16} className="text-amber-500 mt-0.5 shrink-0" />
+                  : status
+                  ? <AlertTriangle size={16} className="text-red-500 mt-0.5 shrink-0" />
                   : <div className="h-4 w-4 rounded-full border-2 border-gray-200 mt-0.5 shrink-0" />}
               </div>
-              <p className="mt-3 text-sm font-semibold text-gray-900">{meta.label}</p>
-              <p className={`mt-0.5 text-xs font-medium capitalize ${
-                status === 'verified' ? 'text-green-600'
-                : submitted ? 'text-amber-600'
+              <p className="mt-3 text-sm font-semibold text-gray-900">
+                {type === 'license' ? 'Licence / certification' : meta.label}
+                <span className="ml-1 text-[10px] font-medium uppercase tracking-wider text-gray-400">{required ? 'required' : 'optional'}</span>
+              </p>
+              <p className={`mt-0.5 text-xs font-medium ${
+                status === 'approved' ? 'text-green-600'
+                : status === 'pending' ? 'text-amber-600'
+                : status ? 'text-red-600'
                 : 'text-gray-400'
               }`}>
-                {status === 'verified' ? 'Verified' : submitted ? `${submitted.status} review` : 'Not submitted'}
+                {status === 'approved' ? 'Approved' : status === 'pending' ? 'In review' : status === 'rejected' ? 'Needs re-upload' : status === 'expired' ? 'Expired — upload renewal' : 'Not submitted'}
               </p>
             </div>
           )
@@ -315,6 +359,34 @@ export default function ProviderDocumentsPage() {
                 className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
+
+            {/* Credential number + issuer — the admin confirms the number
+                against the file and it becomes the public badge */}
+            {numberField && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-gray-500 uppercase tracking-wider">{numberField.number}</label>
+                  <input
+                    value={form.credential_number}
+                    onChange={e => setForm(f => ({ ...f, credential_number: e.target.value }))}
+                    placeholder={numberField.placeholder}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-gray-500 uppercase tracking-wider">{numberField.issuer}</label>
+                  <input
+                    value={form.issuer}
+                    onChange={e => setForm(f => ({ ...f, issuer: e.target.value }))}
+                    placeholder={form.type === 'insurance' ? 'e.g. Aviva' : 'e.g. Gas Safe Register'}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                {(form.type === 'license' || form.type === 'certification') && (
+                  <p className="col-span-2 -mt-1 text-[11px] text-gray-400">Shown on your public profile once approved — e.g. “Gas Safe registered · 512394”.</p>
+                )}
+              </div>
+            )}
 
             {/* Expiry */}
             <div>
@@ -469,19 +541,24 @@ export default function ProviderDocumentsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <p className="font-semibold text-gray-900 truncate">{d.title}</p>
-                        {/* Status badge */}
-                        <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${
-                          d.status === 'verified'
-                            ? 'bg-green-100 text-green-700'
-                            : d.status === 'rejected'
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-amber-100 text-amber-700'
-                        }`}>
-                          {d.status === 'pending' ? 'In review' : d.status}
+                        <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${(STATUS_LABEL[d.status] ?? { cls: 'bg-amber-100 text-amber-700' }).cls}`}>
+                          {(STATUS_LABEL[d.status] ?? { label: 'In review' }).label}
                         </span>
                       </div>
 
-                      <p className="mt-0.5 text-xs text-gray-400 capitalize">{meta.label}</p>
+                      <p className="mt-0.5 text-xs text-gray-400">
+                        {meta.label}
+                        {d.status === 'approved' && d.verified_number ? <span className="text-gray-600"> · No. {d.verified_number}</span> : d.credential_number ? ` · No. ${d.credential_number}` : ''}
+                        {d.issuer ? ` · ${d.issuer}` : ''}
+                      </p>
+
+                      {d.status === 'rejected' && (
+                        <div className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
+                          <p className="font-semibold">Why it wasn&apos;t approved</p>
+                          <p className="mt-0.5">{d.rejection_reason || 'Please upload a clearer or more recent copy.'}</p>
+                          <p className="mt-1 text-red-500">Upload a replacement using the form — it goes straight back to our team.</p>
+                        </div>
+                      )}
 
                       {/* Expiry */}
                       {d.expiry_date && (
@@ -496,22 +573,29 @@ export default function ProviderDocumentsPage() {
 
                       {/* Actions */}
                       <div className="mt-2 flex items-center gap-3">
-                        {d.file_url && (
-                          <a
-                            href={d.file_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                        {(d.storage_path || d.file_url) && (
+                          <button
+                            type="button"
+                            onClick={() => openFile(d)}
                             className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
                           >
                             <Eye size={11} /> View file
-                          </a>
+                          </button>
                         )}
-                        <button
-                          onClick={() => handleDelete(d)}
-                          className="text-xs text-gray-300 hover:text-red-500 transition-colors"
-                        >
-                          Remove
-                        </button>
+                        {confirmDeleteId === d.id ? (
+                          <span className="flex items-center gap-2 text-xs">
+                            <span className="text-gray-500">Remove this document?</span>
+                            <button onClick={() => handleDelete(d)} className="font-semibold text-red-600 hover:underline">Yes, remove</button>
+                            <button onClick={() => setConfirmDeleteId(null)} className="text-gray-400 hover:text-gray-600">Keep</button>
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmDeleteId(d.id)}
+                            className="text-xs text-gray-300 hover:text-red-500 transition-colors"
+                          >
+                            Remove
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

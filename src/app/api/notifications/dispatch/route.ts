@@ -451,6 +451,133 @@ async function handleQuoteResponse(record: Record<string, any>) {
   }
 }
 
+const DOC_LABELS: Record<string, string> = {
+  id: 'photo ID',
+  insurance: 'insurance certificate',
+  license: 'licence',
+  certification: 'certification',
+  contract: 'contract',
+  other: 'document',
+}
+
+/** Admin reviewed a document (approved / rejected) or it lapsed (expired). */
+async function handleDocumentStatusChange(record: Record<string, any>, oldRecord: Record<string, any>) {
+  if (record.status === oldRecord.status) return
+  if (!['approved', 'rejected', 'expired'].includes(record.status)) return
+
+  const { data: pp } = await supabase
+    .from('provider_profiles').select('user_id, first_name').eq('id', record.provider_id).maybeSingle()
+  if (!pp?.user_id) return
+
+  const title = String(record.title ?? 'Document')
+  const typeLabel = DOC_LABELS[record.document_type] ?? 'document'
+  const details = [
+    { label: 'Document', value: escapeHtml(title) },
+    ...(record.verified_number ? [{ label: 'Number', value: escapeHtml(String(record.verified_number)) }] : []),
+    ...(record.issuer ? [{ label: 'Issuer', value: escapeHtml(String(record.issuer)) }] : []),
+    ...(record.expiry_date ? [{ label: 'Expires', value: escapeHtml(ukDate(record.expiry_date)) }] : []),
+  ]
+
+  if (record.status === 'approved') {
+    await notifyInApp(pp.user_id, 'document_verified', 'Document approved', `Your ${typeLabel} "${title}" has been approved.`, { document_id: record.id })
+    const email = await emailForUser(pp.user_id)
+    if (!email) return
+    await sendEmail(email, `Approved: ${title}`, renderNotificationEmail({
+      heading: 'Document approved',
+      body: `We've checked your ${typeLabel} and it's all in order.${['license', 'certification'].includes(record.document_type) ? ' It now shows as a verified credential on your public profile.' : ''}`,
+      details,
+      ctaLabel: 'View your documents',
+      ctaPath: '/provider/documents',
+      preheader: `Your ${typeLabel} has been approved`,
+    }))
+    return
+  }
+
+  if (record.status === 'rejected') {
+    const reason = record.rejection_reason ? String(record.rejection_reason) : ''
+    await notifyInApp(pp.user_id, 'document_rejected', 'Document not approved', reason ? `"${title}" wasn't approved: ${reason}` : `"${title}" wasn't approved. Please upload a replacement.`, { document_id: record.id })
+    const email = await emailForUser(pp.user_id)
+    if (!email) return
+    await sendEmail(email, `Action needed: ${title} wasn't approved`, renderNotificationEmail({
+      heading: 'We couldn’t approve this document',
+      body: `Our team reviewed your ${typeLabel} and couldn't accept it. Upload a replacement and we'll take another look — usually within one working day.`,
+      details: [{ label: 'Document', value: escapeHtml(title) }],
+      note: reason ? escapeHtml(reason) : undefined,
+      ctaLabel: 'Upload a replacement',
+      ctaPath: '/provider/documents',
+      preheader: reason || `Your ${typeLabel} needs to be re-uploaded`,
+    }))
+    return
+  }
+
+  // expired
+  await notifyInApp(pp.user_id, 'document_expired', 'Document expired', `Your ${typeLabel} "${title}" has expired. Upload a renewed copy to stay verified.`, { document_id: record.id })
+  const email = await emailForUser(pp.user_id)
+  if (!email) return
+  await sendEmail(email, `Your ${typeLabel} has expired`, renderNotificationEmail({
+    heading: 'Document expired',
+    body: `The expiry date on your ${typeLabel} has passed. Upload the renewed copy to keep your verified status and stay visible to customers.`,
+    details,
+    ctaLabel: 'Upload the renewal',
+    ctaPath: '/provider/documents',
+    preheader: `${title} expired on ${ukDate(record.expiry_date)}`,
+  }))
+}
+
+/** provider_profiles.verification_status changed — by document approval, an
+ *  admin decision, or a lapsed document. */
+async function handleVerificationChange(record: Record<string, any>, oldRecord: Record<string, any>) {
+  const next = record.verification_status
+  const prev = oldRecord.verification_status
+  if (next === prev || !record.user_id) return
+  const userId = record.user_id as string
+  const firstName = record.first_name ? escapeHtml(String(record.first_name)) : ''
+
+  if (next === 'verified') {
+    await notifyInApp(userId, 'account_verified', 'You’re verified!', 'Your Servios profile is now verified and visible to customers.', {})
+    const email = await emailForUser(userId)
+    if (!email) return
+    await sendEmail(email, 'You’re verified — you’re live on Servios', renderNotificationEmail({
+      heading: `You’re verified${firstName ? `, ${firstName}` : ''}`,
+      body: 'Your identity and insurance have been checked and your profile is now live. Customers can find you in search and send booking requests. Keep your availability up to date so the right jobs reach you.',
+      ctaLabel: 'Go to your dashboard',
+      ctaPath: '/provider',
+      secondaryCtas: [{ label: 'See your public profile', path: `/providers/${userId}` }],
+      preheader: 'Your profile is live — customers can book you now',
+    }))
+    return
+  }
+
+  if (next === 'rejected') {
+    await notifyInApp(userId, 'account_rejected', 'Verification unsuccessful', 'Your provider application wasn’t approved. Contact support if you think this is a mistake.', {})
+    const email = await emailForUser(userId)
+    if (!email) return
+    await sendEmail(email, 'Your Servios application', renderNotificationEmail({
+      heading: 'We couldn’t approve your application',
+      body: 'After reviewing your profile and documents we’re not able to verify your account at this time. If you believe this is a mistake, or you can provide further documents, reply to this email or contact support and we’ll take another look.',
+      note: record.verification_notes ? escapeHtml(String(record.verification_notes)) : undefined,
+      ctaLabel: 'Contact support',
+      ctaPath: '/help',
+      preheader: 'Your provider application wasn’t approved',
+    }))
+    return
+  }
+
+  if (prev === 'verified' && next === 'pending') {
+    await notifyInApp(userId, 'verification_on_hold', 'Verification on hold', 'Your profile has been hidden from search until your documents are up to date.', {})
+    const email = await emailForUser(userId)
+    if (!email) return
+    await sendEmail(email, 'Your verification is on hold', renderNotificationEmail({
+      heading: 'Your verification is on hold',
+      body: 'Your profile has been temporarily removed from search. This usually means a required document has expired or been withdrawn. Upload an up-to-date copy and you’ll be live again as soon as it’s approved.',
+      note: record.verification_notes ? escapeHtml(String(record.verification_notes)) : undefined,
+      ctaLabel: 'Check your documents',
+      ctaPath: '/provider/documents',
+      preheader: 'Your profile is hidden until your documents are up to date',
+    }))
+  }
+}
+
 export async function POST(req: NextRequest) {
   const secret = req.headers.get('x-webhook-secret')
   if (!secret || secret !== process.env.SYNC_SECRET) {
@@ -478,6 +605,10 @@ export async function POST(req: NextRequest) {
       await handleQuoteResponse(payload.record)
     } else if (payload.table === 'reviews' && payload.type === 'INSERT') {
       await handleReviewInsert(payload.record)
+    } else if (payload.table === 'provider_documents' && payload.type === 'UPDATE' && payload.old_record) {
+      await handleDocumentStatusChange(payload.record, payload.old_record)
+    } else if (payload.table === 'provider_profiles' && payload.type === 'UPDATE' && payload.old_record) {
+      await handleVerificationChange(payload.record, payload.old_record)
     }
   } catch (e) {
     // Log and swallow — a notification failure must never look like a data

@@ -21,6 +21,9 @@ export default function SetupDocumentsPage() {
   const [uploads, setUploads] = useState<UploadedDoc[]>([])
   const [uploading, setUploading] = useState<string | null>(null)
   const [expiry, setExpiry] = useState<Record<string, string>>({})
+  // Policy / registration numbers — the admin confirms them against the file
+  // and they become the public credential badge ("Gas Safe · 512394")
+  const [numbers, setNumbers] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({})
@@ -88,6 +91,7 @@ export default function SetupDocumentsPage() {
         file_url: urlData.publicUrl,
         storage_path: storagePath,
         expiry_date: expiry[docType] || null,
+        credential_number: numbers[docType]?.trim() || null,
         status: 'pending',
       })
 
@@ -191,9 +195,19 @@ export default function SetupDocumentsPage() {
               </div>
 
               {!uploaded && (
-                <UKDateInput value={expiry[doc.value] ?? ''} onChange={(v) => setExpiry((prev) => ({ ...prev, [doc.value]: v }))}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="Expiry date (optional)" />
+                <div className={`grid gap-2 ${doc.value === 'id' ? '' : 'sm:grid-cols-2'}`}>
+                  <UKDateInput value={expiry[doc.value] ?? ''} onChange={(v) => setExpiry((prev) => ({ ...prev, [doc.value]: v }))}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="Expiry date (optional)" />
+                  {doc.value !== 'id' && (
+                    <input
+                      value={numbers[doc.value] ?? ''}
+                      onChange={(e) => setNumbers((prev) => ({ ...prev, [doc.value]: e.target.value }))}
+                      placeholder={doc.value === 'insurance' ? 'Policy number (optional)' : 'Registration number (optional)'}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  )}
+                </div>
               )}
 
               <input

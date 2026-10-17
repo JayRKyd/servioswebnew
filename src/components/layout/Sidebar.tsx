@@ -14,7 +14,7 @@ import {
   Bell, Settings, HelpCircle, Star, BookOpen, Home,
   Users, ShieldCheck, AlertTriangle, Mail, Image,
   ClipboardList, Building2, FileCheck, Wallet, Quote,
-  MapPin, Siren, CreditCard, CalendarPlus, Bookmark, ChevronDown
+  MapPin, Siren, CreditCard, CalendarPlus, Bookmark, ChevronDown, BadgeCheck
 } from "lucide-react"
 
 interface SidebarProps {
@@ -63,6 +63,7 @@ const NAV_LABELS: Record<string, string> = {
   "/tenant/maintenance": "Maintenance",
   "/tenant/emergency": "Emergency",
   "/admin": "Dashboard",
+  "/admin/verification": "Verification",
   "/admin/users": "Users",
   "/admin/providers": "Providers",
   "/admin/landlords": "Landlords",
@@ -111,6 +112,7 @@ const NAV_ICONS: Record<string, React.ElementType> = {
   "My Property":    MapPin,
   "Chat Landlord":  MessageSquare,
   "Users":          Users,
+  "Verification":   BadgeCheck,
   "Landlords":      Building2,
   "Disputes":       AlertTriangle,
   "Invitations":    Mail,
