@@ -86,8 +86,10 @@ bookings.post('/', zValidator('json', createBookingSchema), async (c) => {
   const body = c.req.valid('json')
 
   const commissionRate = await calculateCommissionRate(body.landlordId, body.providerId, body.isEmergency || false)
-  const platformFee = (body.baseAmount * commissionRate) / 100
-  const totalAmount = body.baseAmount + (body.travelFee || 0) + platformFee
+  // Commission is deducted from the provider's side — the payer's total is
+  // the listed price plus travel, never plus the fee
+  const platformFee = Math.round((body.baseAmount * commissionRate) / 100)
+  const totalAmount = body.baseAmount + (body.travelFee || 0)
   const bookingNumber = `SRV-${new Date().getFullYear()}-${Date.now()}`
 
   let bookingType = 'direct_customer'
@@ -113,7 +115,7 @@ bookings.post('/', zValidator('json', createBookingSchema), async (c) => {
       travel_fee: body.travelFee || 0,
       platform_fee: platformFee,
       total_amount: totalAmount,
-      commission_rate: commissionRate,
+      commission_rate: commissionRate / 100,
       booking_type: bookingType,
       payer_type: body.landlordId ? 'landlord' : 'customer',
       payer_id: body.landlordId || userId,

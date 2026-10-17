@@ -8,12 +8,7 @@ import { formatDate, formatCurrency, formatTime, titleCase } from '@/lib/utils'
 import { BookingPhotos } from '@/components/shared/BookingPhotos'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Lock, CheckCircle, Shield, AlertTriangle, MessageCircle } from 'lucide-react'
-import { loadStripe } from '@stripe/stripe-js'
-
-// loadStripe throws when the key is undefined — production without the env
-// var crashed every booking page. Simulation mode handles the no-key path.
-const stripeKey = (process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '').trim()
-const stripePromise = stripeKey && stripeKey !== 'pk_test_placeholder' ? loadStripe(stripeKey) : null
+import { StripePaymentForm } from '@/components/payments/StripePaymentForm'
 
 
 function ReviewModal({ bookingId, revieweeId, serviceTitle, onClose }: { bookingId: string; revieweeId?: string | null; serviceTitle?: string | null; onClose: () => void }) {
@@ -164,6 +159,8 @@ export default function CustomerBookingDetailPage() {
   const [pendingAction, setPendingAction] = useState<'confirm_complete' | 'cancel' | null>(null)
   const [paying, setPaying] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
+  // Set once Stripe has an intent for this booking — renders the card form
+  const [checkout, setCheckout] = useState<{ clientSecret: string; paymentId: string } | null>(null)
   const [showReview, setShowReview] = useState(false)
   const [showClaim, setShowClaim] = useState(false)
 
@@ -173,7 +170,7 @@ export default function CustomerBookingDetailPage() {
         .select('*, service:services(title), provider_profile:provider_profiles(id, user_id, first_name, last_name, business_name, profile_image_url), customer_profile:customer_profiles(id, user_id)')
         .eq('id', id).single(),
       supabase.from('payments')
-        .select('id, status, amount, captured_at, paid_at')
+        .select('id, payment_status, amount, captured_at, paid_at, payment_method, refund_amount')
         .eq('booking_id', id)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -190,41 +187,40 @@ export default function CustomerBookingDetailPage() {
     setPaying(true)
     setPayError(null)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const token = session?.access_token
-      const { data, error } = await apiClient('/api/v1/payments/intent', {
+      const { data, error } = await apiClient<{ paymentId: string; clientSecret: string | null; simulated: boolean; status: string }>('/api/v1/payments/intent', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
         body: JSON.stringify({ bookingId: booking.id }),
       })
-      if (error) {
-        setPayError(error ?? 'Failed to create payment. Please try again.')
+      if (error || !data) {
+        setPayError(error ?? 'We couldn’t start the payment. Please try again.')
         setPaying(false)
         return
       }
-      // Simulation mode — no Stripe keys configured, payment held in DB directly
-      if (data?.simulated) {
-        setPayment((p: any) => ({ ...p, status: 'authorized' }))
+      // Already authorised (refresh mid-flow) or simulation mode (no Stripe key)
+      if (data.simulated || data.status === 'authorized' || data.status === 'succeeded') {
+        setPayment((p: any) => ({ ...(p ?? {}), id: data.paymentId, payment_status: data.status }))
         setPaying(false)
         return
       }
-      if (!data?.clientSecret) {
-        setPayError('Failed to create payment. Please try again.')
+      if (!data.clientSecret) {
+        setPayError('We couldn’t start the payment. Please try again.')
         setPaying(false)
         return
       }
-      const stripe = await stripePromise
-      if (!stripe) { setPayError('Stripe failed to load.'); setPaying(false); return }
-      const result = await stripe.confirmCardPayment(data.clientSecret)
-      if (result.error) {
-        setPayError(result.error.message ?? 'Payment failed.')
-      } else {
-        setPayment((p: any) => ({ ...p, status: 'authorized' }))
-      }
+      setCheckout({ clientSecret: data.clientSecret, paymentId: data.paymentId })
     } catch (e: any) {
       setPayError(e.message ?? 'Unexpected error.')
     }
     setPaying(false)
+  }
+
+  // Stripe accepted the card — pull the authoritative state from the server
+  // (the webhook also does this, but the page shouldn't wait on it)
+  async function handleAuthorised() {
+    if (!checkout) return
+    const { data } = await apiClient<{ payment: any }>(`/api/v1/payments/sync/${checkout.paymentId}`, { method: 'POST' })
+    setPayment(data?.payment ?? { id: checkout.paymentId, payment_status: 'authorized' })
+    setCheckout(null)
   }
 
   async function handleConfirmComplete() {
@@ -242,10 +238,11 @@ export default function CustomerBookingDetailPage() {
 
     setBooking((b: any) => ({ ...b, status: 'completed', customer_confirmed_at: confirmedAt }))
 
-    // Trigger payment capture if a payment is held
-    if (payment?.id && payment.status === 'authorized') {
-      const { data: captured } = await apiClient(`/api/v1/payments/capture/${payment.id}`, { method: 'POST' })
-      if (captured) setPayment((p: any) => ({ ...p, status: 'succeeded', captured_at: new Date().toISOString() }))
+    // Capture the held funds — the server re-checks customer_confirmed_at
+    if (payment?.payment_status === 'authorized') {
+      const { data: captured, error: captureError } = await apiClient<{ payment: any }>(`/api/v1/payments/capture/${id}`, { method: 'POST' })
+      if (captured?.payment) setPayment(captured.payment)
+      else if (captureError) setPayError(`Job confirmed, but the payment couldn’t be released automatically: ${captureError}. Support has been notified.`)
     }
 
     // Notify provider
@@ -392,7 +389,20 @@ export default function CustomerBookingDetailPage() {
         {booking.total_amount > 0 && (
           <div className="border-t pt-4">
             {(() => {
-              const ps = payment?.status
+              const ps = payment?.payment_status
+              // Refunds win over everything else
+              if (ps === 'refunded' || ps === 'partially_refunded') {
+                const refunded = Number(payment?.refund_amount ?? booking.total_amount)
+                return (
+                  <div className="rounded-lg bg-gray-50 border border-gray-200 px-4 py-3 flex items-start gap-3">
+                    <span className="text-lg">↩</span>
+                    <div>
+                      <p className="text-[13px] font-semibold text-gray-700">{ps === 'refunded' ? 'Payment refunded' : 'Partially refunded'}</p>
+                      <p className="text-[12px] text-gray-500 mt-0.5">{formatCurrency(refunded / 100)} has been returned to your card — allow 5–10 working days to appear.</p>
+                    </div>
+                  </div>
+                )
+              }
               // Released — only once the CUSTOMER has confirmed (or the
               // payment was actually captured), never on the provider's word
               if (ps === 'succeeded' || booking.customer_confirmed_at) {
@@ -447,32 +457,36 @@ export default function CustomerBookingDetailPage() {
                   <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 flex items-start gap-3">
                     <span className="text-lg">⚠</span>
                     <div>
-                      <p className="text-[13px] font-semibold text-red-800">Payment failed</p>
-                      <p className="text-[12px] text-red-700 mt-0.5">There was a problem processing your payment. Please contact support.</p>
+                      <p className="text-[13px] font-semibold text-red-800">Your card wasn’t accepted</p>
+                      <p className="text-[12px] text-red-700 mt-0.5">Nothing was charged. Try again below with the same or a different card.</p>
                     </div>
                   </div>
                 )
               }
-              // Refunded
-              if (ps === 'refunded' || ps === 'cancelled') {
+              // Hold released (booking cancelled or declined)
+              if (ps === 'cancelled') {
                 return (
                   <div className="rounded-lg bg-gray-50 border border-gray-200 px-4 py-3 flex items-start gap-3">
                     <span className="text-lg">↩</span>
                     <div>
-                      <p className="text-[13px] font-semibold text-gray-700">Payment refunded</p>
-                      <p className="text-[12px] text-gray-500 mt-0.5">{formatCurrency(booking.total_amount / 100)} has been returned.</p>
+                      <p className="text-[13px] font-semibold text-gray-700">Card hold released</p>
+                      <p className="text-[12px] text-gray-500 mt-0.5">Nothing was charged. If a pending amount shows on your statement it will drop off within a few days.</p>
                     </div>
                   </div>
                 )
               }
-              // Awaiting payment (no payment row yet)
+              // Awaiting payment (no payment yet, or a checkout that wasn't finished)
               if (['pending', 'accepted', 'in_progress'].includes(booking.status)) {
                 return (
                   <div className="rounded-lg bg-[#fafbfa] border border-border px-4 py-3 flex items-start gap-3">
                     <span className="text-lg">⏳</span>
                     <div>
-                      <p className="text-[13px] font-semibold text-dark">Awaiting payment</p>
-                      <p className="text-[12px] text-muted mt-0.5">{formatCurrency(booking.total_amount / 100)} will be collected before work begins.</p>
+                      <p className="text-[13px] font-semibold text-dark">{booking.status === 'pending' ? 'Payment opens once accepted' : 'Awaiting payment'}</p>
+                      <p className="text-[12px] text-muted mt-0.5">
+                        {booking.status === 'pending'
+                          ? `${formatCurrency(booking.total_amount / 100)} will be authorised on your card once the provider accepts — nothing is charged until you confirm the job is done.`
+                          : `${formatCurrency(booking.total_amount / 100)} is authorised on your card before work begins and only charged when you confirm the job is complete.`}
+                      </p>
                     </div>
                   </div>
                 )
@@ -503,6 +517,15 @@ export default function CustomerBookingDetailPage() {
 
       {payError && (
         <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{payError}</div>
+      )}
+
+      {checkout && (
+        <StripePaymentForm
+          clientSecret={checkout.clientSecret}
+          amountLabel={formatCurrency(booking.total_amount / 100)}
+          onAuthorised={handleAuthorised}
+          onCancel={() => setCheckout(null)}
+        />
       )}
 
       {/* Inline confirmation steps — native confirm() dialogs block the page
@@ -548,10 +571,13 @@ export default function CustomerBookingDetailPage() {
       )}
 
       <div className="flex gap-3">
-        {booking.status === 'accepted' && !payment && (
+        {['accepted', 'in_progress'].includes(booking.status)
+          && booking.total_amount > 0
+          && !checkout
+          && !['authorized', 'succeeded', 'refunded', 'partially_refunded'].includes(payment?.payment_status) && (
           <button onClick={handlePay} disabled={paying}
             className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50">
-            {paying ? 'Processing…' : <><Lock size={14} /> Pay £{(booking.total_amount / 100).toFixed(2)} securely</>}
+            {paying ? 'Starting secure checkout…' : <><Lock size={14} /> {payment?.payment_status === 'failed' ? 'Try payment again' : `Pay £${(booking.total_amount / 100).toFixed(2)} securely`}</>}
           </button>
         )}
         {canConfirm && pendingAction !== 'confirm_complete' && (

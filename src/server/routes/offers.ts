@@ -242,10 +242,12 @@ offers.post('/:conversationId/offers/:offerId/accept', async (c) => {
   if (bookingId) {
     // Existing booking: apply the agreed contract financials; move a pending
     // request to accepted (never downgrade an in-progress/completed job)
+    // Customer pays the agreed price; the commission comes out of the
+    // provider's side (client-confirmed model, 2026-09-11)
     await supabase.from('bookings').update({
       base_amount:     totalCents,
       platform_fee:    platformFee,
-      total_amount:    totalCents + platformFee,
+      total_amount:    totalCents,
       commission_rate: COMMISSION_RATE,
     }).eq('id', bookingId)
     await supabase.from('bookings').update({ status: 'accepted' })
@@ -290,8 +292,10 @@ offers.post('/:conversationId/offers/:offerId/accept', async (c) => {
       booking_type:         'direct_customer',
       base_amount:          totalCents,
       platform_fee:         platformFee,
-      total_amount:         totalCents + platformFee,
+      total_amount:         totalCents,
       commission_rate:      COMMISSION_RATE,
+      payer_id:             conv.customer_id,
+      payer_type:           'customer',
       customer_notes:       `Contract: ${offer.title}`,
     }).select('id').single()
 

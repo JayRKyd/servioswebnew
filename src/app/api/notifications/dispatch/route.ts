@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendEmail } from '@/server/lib/notifications'
 import { renderNotificationEmail, escapeHtml, ukDate, ukTime, poundsFromCents } from '@/server/lib/email-templates'
+import { cancelHeldPayment } from '@/server/lib/payments'
 
 /** Called by Postgres triggers (pg_net http_post) on bookings insert,
  *  bookings status change, and messages insert. Sends the transactional
@@ -225,6 +226,16 @@ async function handleBookingStatusChange(record: Record<string, any>, oldRecord:
   if (record.status === oldRecord.status) return
   if (!['accepted', 'rejected', 'in_progress', 'completed', 'cancelled'].includes(record.status)) return
 
+  // A cancelled or declined booking must never keep a card hold — whichever
+  // screen cancelled it, the authorisation is released here
+  if (record.status === 'cancelled' || record.status === 'rejected') {
+    try {
+      await cancelHeldPayment(record.id, `booking_${record.status}`)
+    } catch (e) {
+      console.error('[dispatch] releasing card hold failed:', e)
+    }
+  }
+
   // Full context — "Booking BK-… accepted" identifies nothing for a customer
   // with two jobs on the go (client feedback). Name the provider, service,
   // date, time and price, with the provider's photo and rating up top.
@@ -298,7 +309,7 @@ async function handleBookingStatusChange(record: Record<string, any>, oldRecord:
     cancelled: {
       subject: `Booking cancelled — ${svc?.title ?? 'your job'}`,
       heading: 'Booking cancelled',
-      body: `This booking has been cancelled.`,
+      body: `This booking has been cancelled. If a payment was authorised on your card, the hold has been released — a pending amount can take a few days to disappear from your statement.`,
       pre: `${service}${when ? ` on ${when}` : ''} cancelled`,
     },
   }

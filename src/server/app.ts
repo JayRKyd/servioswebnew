@@ -14,7 +14,6 @@ import { reviewRoutes } from './routes/reviews'
 import { providerRoutes } from './routes/providers'
 import { serviceRoutes } from './routes/services'
 import { connectRoutes } from './routes/connect'
-import { milestoneRoutes } from './routes/milestones'
 import { pushTokenRoutes } from './routes/push-tokens'
 import { searchRoutes } from './routes/search'
 import { photoRoutes } from './routes/photos'
@@ -42,7 +41,6 @@ app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOStri
 app.route('/v1/auth', authRoutes)
 app.route('/v1/users', userRoutes)
 app.route('/v1/bookings', bookingRoutes)
-app.route('/v1/bookings', milestoneRoutes)
 app.route('/v1/properties', propertyRoutes)
 app.route('/v1/maintenance', maintenanceRoutes)
 app.route('/v1/messages', messageRoutes)

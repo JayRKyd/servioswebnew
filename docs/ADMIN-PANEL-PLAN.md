@@ -3,6 +3,14 @@
 Client's admin-panel brief (2026-10-16) mapped against what exists in the
 codebase. Sizes: S = under half a day, M = a day, L = two to three days.
 
+**Progress:** Phase 0.1/0.2 shipped 2026-10-16 (`02c408f5`, migration
+`20261016_admin_gate_audit_and_read_policies.sql`). Phase 1 shipped
+2026-10-16 (`1aa79978`, migration `20261016_document_verification.sql`) —
+required documents are ID + insurance; licence/certification are optional
+badge credentials with the admin-confirmed number. Phase 0.3 (Stripe) next.
+DDL must be pasted into the Supabase SQL editor by Jay (the MCP tool declines
+statements containing `drop`); SQL files live in `supabase/migrations/`.
+
 The headline: the admin panel is a skeleton, not a blank. 17 pages exist and
 most read real data, but only four of them actually write anything
 (commission rates, the verification page's per-document approve/reject, the

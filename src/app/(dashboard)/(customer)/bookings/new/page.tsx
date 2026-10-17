@@ -228,6 +228,8 @@ function NewBookingForm() {
       is_emergency: form.is_emergency,
       status: 'pending',
       booking_type: bookingTypeVal,
+      payer_id: user.id,
+      payer_type: 'customer',
       base_amount: baseAmount,
       platform_fee: platformFee,
       total_amount: totalAmount,
