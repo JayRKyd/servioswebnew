@@ -7,7 +7,13 @@ codebase. Sizes: S = under half a day, M = a day, L = two to three days.
 `20261016_admin_gate_audit_and_read_policies.sql`). Phase 1 shipped
 2026-10-16 (`1aa79978`, migration `20261016_document_verification.sql`) —
 required documents are ID + insurance; licence/certification are optional
-badge credentials with the admin-confirmed number. Phase 0.3 (Stripe) next.
+badge credentials with the admin-confirmed number. Phase 0.3 shipped
+2026-10-17 (`453aa641`, migration `20261016_payments_real_mode.sql`): real
+sandbox payment verified end to end on production (authorise £45 with test
+Visa → webhook → customer confirms → capture → Stripe shows succeeded).
+Webhook endpoints live on the sandbox; `STRIPE_CONNECT_WEBHOOK_SECRET` is a
+new env var. Next: Phase 2 (disputes & refunds) — the refund endpoint
+already exists at `POST /api/admin/payments/[id]/refund`.
 DDL must be pasted into the Supabase SQL editor by Jay (the MCP tool declines
 statements containing `drop`); SQL files live in `supabase/migrations/`.
 
