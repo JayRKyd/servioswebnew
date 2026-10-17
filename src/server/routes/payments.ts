@@ -14,6 +14,22 @@ const payments = new Hono<{ Variables: { userId: string; user: any; activeRole: 
 
 const createIntentSchema = z.object({ bookingId: z.string().uuid() })
 
+// The browser key is inlined at build time (next.config env) from either name
+const publishableKeyConfigured = () => {
+  const key = (process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? process.env.STRIPE_PUBLISHABLE_KEY ?? '').trim()
+  return !!key && key !== 'pk_test_placeholder'
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /config — is card checkout actually possible on this deployment?
+// ─────────────────────────────────────────────────────────────────────────────
+payments.get('/config', authMiddleware, (c) => c.json({
+  stripeConfigured: stripeConfigured(),
+  publishableKeyConfigured: publishableKeyConfigured(),
+  webhookConfigured: !!process.env.STRIPE_WEBHOOK_SECRET?.trim(),
+  connectWebhookConfigured: !!process.env.STRIPE_CONNECT_WEBHOOK_SECRET?.trim(),
+}))
+
 async function assertPayer(bookingId: string, userId: string) {
   const loaded = await loadPayableBooking(bookingId)
   if (!loaded) throw new HTTPException(404, { message: 'Booking not found' })
@@ -36,7 +52,7 @@ payments.post('/intent', authMiddleware, zValidator('json', createIntentSchema),
 
   try {
     const result = await createOrReuseIntent(booking, userId)
-    return c.json({ ...result, publishableKeyConfigured: !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY, stripeConfigured: stripeConfigured() })
+    return c.json({ ...result, publishableKeyConfigured: publishableKeyConfigured(), stripeConfigured: stripeConfigured() })
   } catch (e: any) {
     console.error('create intent failed:', e)
     throw new HTTPException(400, { message: e?.message ?? 'Could not start the payment' })

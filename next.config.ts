@@ -6,6 +6,13 @@ import { env } from "./env.mjs"
 const config: NextConfig = {
   serverExternalPackages: ['mapbox-gl'],
   reactStrictMode: true,
+  // Vercel's secret scanner rejects the Stripe publishable key under a
+  // NEXT_PUBLIC_ name, so it is stored as STRIPE_PUBLISHABLE_KEY and inlined
+  // here at build time. Publishable keys are designed to ship to browsers.
+  env: {
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:
+      process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? process.env.STRIPE_PUBLISHABLE_KEY ?? '',
+  },
   eslint: {
     ignoreDuringBuilds: true,
   },
