@@ -12,8 +12,15 @@ badge credentials with the admin-confirmed number. Phase 0.3 shipped
 sandbox payment verified end to end on production (authorise £45 with test
 Visa → webhook → customer confirms → capture → Stripe shows succeeded).
 Webhook endpoints live on the sandbox; `STRIPE_CONNECT_WEBHOOK_SECRET` is a
-new env var. Next: Phase 2 (disputes & refunds) — the refund endpoint
-already exists at `POST /api/admin/payments/[id]/refund`.
+new env var. Phase 2 shipped 2026-10-18 (`87684ee0`, migration
+`20261018_disputes_and_payout_holds.sql`), verified live: customer report →
+provider reply → admin thread/internal note → £20 partial refund on a real
+sandbox charge (re_1US15DV05dqN9YGs22qUqjvG), commission rescaled to 12% of
+what's kept, all party emails delivered. Policy (client, 2026-10-18): 30-day
+window, Servios absorbs Stripe fee, payout clearing 7 days (UK minimum) / 14
+for a provider's first 5 jobs, disputed amount held on open. Not yet live-
+tested: Stripe transfers/reversals (no provider has completed Connect
+onboarding). Next: Phase 3 (payout oversight).
 DDL must be pasted into the Supabase SQL editor by Jay (the MCP tool declines
 statements containing `drop`); SQL files live in `supabase/migrations/`.
 

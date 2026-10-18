@@ -742,8 +742,13 @@ async function handleDisputeMessage(record: Record<string, any>) {
     : (await personFor(record.sender_id)).name
 
   const recipients: { userId: string; path: string }[] = []
-  const toCustomer = ['all', 'customer'].includes(record.visible_to) && record.sender_role !== 'customer'
-  const toProvider = ['all', 'provider'].includes(record.visible_to) && record.sender_role !== 'provider'
+  // Status notes ("support is reviewing") stay in the thread; only an "over
+  // to you" note emails anyone, and only the party being asked
+  const systemOnlyTo = record.sender_role === 'system'
+    ? (dispute.status === 'awaiting_customer' ? 'customer' : dispute.status === 'awaiting_provider' ? 'provider' : 'none')
+    : null
+  const toCustomer = ['all', 'customer'].includes(record.visible_to) && record.sender_role !== 'customer' && (systemOnlyTo === null || systemOnlyTo === 'customer')
+  const toProvider = ['all', 'provider'].includes(record.visible_to) && record.sender_role !== 'provider' && (systemOnlyTo === null || systemOnlyTo === 'provider')
   if (toCustomer && dispute.source !== 'chargeback') recipients.push({ userId: dispute.filed_by, path: `/bookings/${dispute.booking_id}#problem` })
   if (toProvider) recipients.push({ userId: dispute.filed_against, path: `/provider/bookings/${dispute.booking_id}#problem` })
 
