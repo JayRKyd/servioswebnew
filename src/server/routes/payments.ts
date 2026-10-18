@@ -65,7 +65,7 @@ payments.post('/intent', authMiddleware, zValidator('json', createIntentSchema),
 // ─────────────────────────────────────────────────────────────────────────────
 payments.post('/sync/:paymentId', authMiddleware, async (c) => {
   const userId = c.get('userId')
-  const payment = await paymentById(c.req.param('paymentId'))
+  const payment = await paymentById(c.req.param('paymentId') ?? '')
   if (!payment) throw new HTTPException(404, { message: 'Payment not found' })
   await assertPayer(payment.booking_id, userId)
   const synced = await syncIntentStatus(payment)
@@ -77,11 +77,17 @@ payments.post('/sync/:paymentId', authMiddleware, async (c) => {
 // customer's confirmation: nothing is captured until customer_confirmed_at.
 // ─────────────────────────────────────────────────────────────────────────────
 payments.post('/capture/:bookingId', authMiddleware, async (c) => {
-  const bookingId = c.req.param('bookingId')
+  const bookingId = c.req.param('bookingId') ?? ''
   const userId = c.get('userId')
   const booking = await assertPayer(bookingId, userId)
   if (!booking.customer_confirmed_at) {
     throw new HTTPException(400, { message: 'Confirm the job is complete before payment is released' })
+  }
+  const { data: openDispute } = await supabase
+    .from('disputes').select('id').eq('booking_id', bookingId)
+    .in('status', ['open', 'under_review', 'awaiting_customer', 'awaiting_provider']).limit(1).maybeSingle()
+  if (openDispute) {
+    throw new HTTPException(409, { message: 'There’s an open problem report on this booking — Servios support will release or refund the payment when it’s resolved' })
   }
   try {
     const payment = await capturePayment(bookingId)
@@ -96,7 +102,7 @@ payments.post('/capture/:bookingId', authMiddleware, async (c) => {
 // GET /booking/:bookingId — latest payment for a booking (payer or provider)
 // ─────────────────────────────────────────────────────────────────────────────
 payments.get('/booking/:bookingId', authMiddleware, async (c) => {
-  const bookingId = c.req.param('bookingId')
+  const bookingId = c.req.param('bookingId') ?? ''
   const userId = c.get('userId')
   const loaded = await loadPayableBooking(bookingId)
   if (!loaded) throw new HTTPException(404, { message: 'Booking not found' })

@@ -1,10 +1,12 @@
 'use client'
 import Link from 'next/link'
+
 export default function AdminSettingsPage() {
+  // Placeholder rows ("Service Categories", "Service Areas") linked to # —
+  // removed until those editors exist (Phase 8)
   const items = [
+    { label: 'Disputes & payouts', description: 'Dispute window and provider payout clearing delays', href: '/admin/settings/payments' },
     { label: 'Commission Rates', description: 'Adjust platform commission rates by service type', href: '/admin/settings/commission-rates' },
-    { label: 'Service Categories', description: 'Manage available service categories', href: '#' },
-    { label: 'Service Areas', description: 'Configure available service areas', href: '#' },
   ]
   return (
     <div className="space-y-6">

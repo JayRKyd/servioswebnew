@@ -589,6 +589,193 @@ async function handleVerificationChange(record: Record<string, any>, oldRecord: 
   }
 }
 
+/* ── Disputes ─────────────────────────────────────────────────────────────── */
+
+const DISPUTE_TYPE_LABEL: Record<string, string> = {
+  not_completed: 'Work not finished',
+  poor_quality: 'Poor quality work',
+  damage: 'Damage to property',
+  no_show: 'Provider didn’t turn up',
+  overcharged: 'Charged more than agreed',
+  problem_after: 'Problem appeared after the job',
+  other: 'Something else',
+  chargeback: 'Bank chargeback',
+}
+
+async function adminEmails(): Promise<string[]> {
+  const { data } = await supabase.from('users').select('email').contains('roles', ['admin'])
+  return (data ?? []).map(u => u.email).filter(Boolean)
+}
+
+async function disputeContext(dispute: Record<string, any>) {
+  const [{ data: booking }, { data: payment }] = await Promise.all([
+    supabase.from('bookings').select('id, booking_number, total_amount, service:services(title)').eq('id', dispute.booking_id).maybeSingle(),
+    dispute.payment_id
+      ? supabase.from('payments').select('amount, refund_amount, provider_payout_amount').eq('id', dispute.payment_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
+  const service = escapeHtml(String((booking?.service as any)?.title ?? 'your booking'))
+  const ref = escapeHtml(String(dispute.dispute_number ?? ''))
+  const details = [
+    { label: 'Case', value: ref },
+    { label: 'Job', value: service },
+    ...(booking?.booking_number ? [{ label: 'Booking', value: escapeHtml(String(booking.booking_number)) }] : []),
+    { label: 'Issue', value: escapeHtml(DISPUTE_TYPE_LABEL[dispute.dispute_type] ?? 'Problem reported') },
+  ]
+  return { booking, payment, service, ref, details }
+}
+
+async function handleDisputeInsert(record: Record<string, any>) {
+  const ctx = await disputeContext(record)
+  const [customer, provider] = await Promise.all([personFor(record.filed_by), personFor(record.filed_against)])
+  const providerPath = `/provider/bookings/${record.booking_id}#problem`
+  const customerPath = `/bookings/${record.booking_id}#problem`
+
+  if (record.source === 'chargeback') {
+    const providerEmail = await emailForUser(record.filed_against)
+    if (providerEmail) {
+      await sendEmail(providerEmail, `A payment is being disputed — ${ctx.service}`, renderNotificationEmail({
+        heading: 'The customer’s bank has disputed a payment',
+        body: 'Your share of this payment is on hold while Servios responds to the bank. If you have photos, messages or anything that shows the work was done, reply on the case so we can include it.',
+        details: ctx.details,
+        ctaLabel: 'Add evidence',
+        ctaPath: providerPath,
+        preheader: `Payment for ${ctx.service} is on hold`,
+      }))
+    }
+  } else {
+    await notifyInApp(record.filed_against, 'dispute_opened', 'A customer reported a problem', `${customer.name} reported a problem with ${ctx.service}. Please respond.`, { booking_id: record.booking_id, dispute_id: record.id })
+    const providerEmail = await emailForUser(record.filed_against)
+    if (providerEmail) {
+      await sendEmail(providerEmail, `Action needed: a problem was reported — ${ctx.service}`, renderNotificationEmail({
+        heading: 'A customer reported a problem',
+        body: 'Please give your side as soon as you can — Servios support reads both before deciding anything. The amount in question is held until the case is resolved; the rest of your earnings aren’t affected.',
+        person: { name: escapeHtml(customer.name), avatarUrl: customer.avatarUrl, meta: 'Customer' },
+        details: ctx.details,
+        note: escapeHtml(String(record.dispute_reason ?? '')),
+        ctaLabel: 'Respond to the customer',
+        ctaPath: providerPath,
+        preheader: `${customer.name}: ${String(record.dispute_reason ?? '').slice(0, 90)}`,
+      }))
+    }
+    const customerEmail = await emailForUser(record.filed_by)
+    if (customerEmail) {
+      await sendEmail(customerEmail, `We’ve received your report — ${ctx.ref}`, renderNotificationEmail({
+        heading: 'We’ve got your report',
+        body: `We’ve asked ${escapeHtml(provider.name)} for their side, and the payment for this job is on hold until it’s sorted. Servios support will review both and be in touch — you can add photos or more detail any time.`,
+        details: ctx.details,
+        ctaLabel: 'View your case',
+        ctaPath: customerPath,
+        preheader: `Case ${ctx.ref} — payment on hold while we review`,
+      }))
+    }
+  }
+
+  const admins = await adminEmails()
+  await Promise.all(admins.map(email => sendEmail(email, `New ${record.source === 'chargeback' ? 'chargeback' : 'dispute'} ${ctx.ref} — ${ctx.service}`, renderNotificationEmail({
+    heading: record.source === 'chargeback' ? 'New bank chargeback' : 'New dispute to review',
+    body: `${escapeHtml(customer.name)} vs ${escapeHtml(provider.name)}.`,
+    details: ctx.details,
+    note: escapeHtml(String(record.dispute_reason ?? '')),
+    ctaLabel: 'Open the case',
+    ctaPath: `/admin/disputes/${record.id}`,
+    preheader: `${ctx.ref}: ${String(record.dispute_reason ?? '').slice(0, 90)}`,
+  }))))
+}
+
+async function handleDisputeResolved(record: Record<string, any>, oldRecord: Record<string, any>) {
+  if (record.status !== 'resolved' || oldRecord.status === 'resolved') return
+  const ctx = await disputeContext(record)
+  const provider = await personFor(record.filed_against)
+  const refunded = Number(record.refund_amount ?? 0)
+  const providerGets = Number(ctx.payment?.provider_payout_amount ?? 0)
+  const notes = record.resolution_notes ? escapeHtml(String(record.resolution_notes)) : undefined
+  const pounds = (p: number) => `£${(p / 100).toFixed(2)}`
+
+  const copy: Record<string, { customer?: [string, string]; provider: [string, string] }> = {
+    full_refund: {
+      customer: ['Refund approved', `We’ve refunded ${pounds(refunded)} to your card. It usually shows within 5–10 working days.`],
+      provider: ['Case decided: customer refunded', `After reviewing both sides, the customer has been refunded in full and no payout is due for this job.`],
+    },
+    partial_refund: {
+      customer: ['Partial refund approved', `We’ve refunded ${pounds(refunded)} to your card. It usually shows within 5–10 working days.`],
+      provider: ['Case decided: partial refund', `The customer was refunded ${pounds(refunded)}. You keep ${pounds(providerGets)} for this job — commission is only taken on what you keep.`],
+    },
+    release_to_provider: {
+      customer: ['Case closed', `After reviewing both sides, the payment has been released to ${escapeHtml(provider.name)}.`],
+      provider: ['Case decided in your favour', `The held payment has been released — ${pounds(providerGets)} for this job.`],
+    },
+    no_action: {
+      customer: ['Case closed', 'Servios support has closed this case.'],
+      provider: ['Case closed', 'Servios support has closed this case. Your payment for this job is unaffected.'],
+    },
+    chargeback_won: { provider: ['Chargeback decided in your favour', `The bank ruled for Servios — your ${pounds(providerGets)} for this job has been released.`] },
+    chargeback_lost: { provider: ['Chargeback decided for the customer', `The bank returned ${pounds(refunded)} to the customer, so your share of that amount has been reversed.`] },
+  }
+  const c = copy[record.resolution_type] ?? copy.no_action!
+
+  const providerEmail = await emailForUser(record.filed_against)
+  if (providerEmail) {
+    await sendEmail(providerEmail, `${c.provider[0]} — ${ctx.ref}`, renderNotificationEmail({
+      heading: c.provider[0], body: c.provider[1], details: ctx.details, note: notes,
+      ctaLabel: 'View the case', ctaPath: `/provider/bookings/${record.booking_id}#problem`, preheader: c.provider[1],
+    }))
+  }
+  if (c.customer && record.source !== 'chargeback') {
+    const customerEmail = await emailForUser(record.filed_by)
+    if (customerEmail) {
+      await sendEmail(customerEmail, `${c.customer[0]} — ${ctx.ref}`, renderNotificationEmail({
+        heading: c.customer[0], body: c.customer[1], details: ctx.details, note: notes,
+        ctaLabel: 'View the case', ctaPath: `/bookings/${record.booking_id}#problem`, preheader: c.customer[1],
+      }))
+    }
+  }
+}
+
+async function handleDisputeMessage(record: Record<string, any>) {
+  if (record.visible_to === 'admin') return
+  const { data: dispute } = await supabase.from('disputes').select('*').eq('id', record.dispute_id).maybeSingle()
+  if (!dispute) return
+  const ctx = await disputeContext(dispute)
+  const fromLabel = record.sender_role === 'admin' ? 'Servios support'
+    : record.sender_role === 'system' ? 'Servios'
+    : (await personFor(record.sender_id)).name
+
+  const recipients: { userId: string; path: string }[] = []
+  const toCustomer = ['all', 'customer'].includes(record.visible_to) && record.sender_role !== 'customer'
+  const toProvider = ['all', 'provider'].includes(record.visible_to) && record.sender_role !== 'provider'
+  if (toCustomer && dispute.source !== 'chargeback') recipients.push({ userId: dispute.filed_by, path: `/bookings/${dispute.booking_id}#problem` })
+  if (toProvider) recipients.push({ userId: dispute.filed_against, path: `/provider/bookings/${dispute.booking_id}#problem` })
+
+  const preview = String(record.body ?? '').slice(0, 140)
+  await Promise.all(recipients.map(async r => {
+    await notifyInApp(r.userId, 'dispute_message', `Update on case ${dispute.dispute_number}`, `${fromLabel}: ${preview}`, { dispute_id: dispute.id, booking_id: dispute.booking_id })
+    const email = await emailForUser(r.userId)
+    if (!email) return
+    await sendEmail(email, `${fromLabel} replied — case ${ctx.ref}`, renderNotificationEmail({
+      heading: `New reply from ${escapeHtml(fromLabel)}`,
+      details: ctx.details,
+      note: escapeHtml(String(record.body ?? '')).replace(/\n/g, '<br>'),
+      ctaLabel: 'Reply on Servios',
+      ctaPath: r.path,
+      preheader: preview,
+    }))
+  }))
+
+  // Parties replying → support needs to know
+  if (record.sender_role === 'customer' || record.sender_role === 'provider') {
+    const admins = await adminEmails()
+    await Promise.all(admins.map(email => sendEmail(email, `Reply on ${ctx.ref} from the ${record.sender_role}`, renderNotificationEmail({
+      heading: `${record.sender_role === 'customer' ? 'Customer' : 'Provider'} replied`,
+      details: ctx.details,
+      note: escapeHtml(String(record.body ?? '')).replace(/\n/g, '<br>'),
+      ctaLabel: 'Open the case',
+      ctaPath: `/admin/disputes/${dispute.id}`,
+      preheader: preview,
+    }))))
+  }
+}
+
 export async function POST(req: NextRequest) {
   const secret = req.headers.get('x-webhook-secret')
   if (!secret || secret !== process.env.SYNC_SECRET) {
@@ -597,7 +784,7 @@ export async function POST(req: NextRequest) {
 
   let payload: WebhookPayload
   try {
-    payload = await req.json()
+    payload = (await req.json()) as WebhookPayload
   } catch {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
   }
@@ -620,6 +807,12 @@ export async function POST(req: NextRequest) {
       await handleDocumentStatusChange(payload.record, payload.old_record)
     } else if (payload.table === 'provider_profiles' && payload.type === 'UPDATE' && payload.old_record) {
       await handleVerificationChange(payload.record, payload.old_record)
+    } else if (payload.table === 'disputes' && payload.type === 'INSERT') {
+      await handleDisputeInsert(payload.record)
+    } else if (payload.table === 'disputes' && payload.type === 'UPDATE' && payload.old_record) {
+      await handleDisputeResolved(payload.record, payload.old_record)
+    } else if (payload.table === 'dispute_messages' && payload.type === 'INSERT') {
+      await handleDisputeMessage(payload.record)
     }
   } catch (e) {
     // Log and swallow — a notification failure must never look like a data

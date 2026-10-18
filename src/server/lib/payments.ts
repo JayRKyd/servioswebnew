@@ -36,6 +36,8 @@ export interface PaymentRow {
   captured_at: string | null
   paid_at: string | null
   released_at: string | null
+  transferred_amount: number | null
+  reversed_amount: number | null
   created_at: string
 }
 
@@ -53,7 +55,7 @@ export interface PayableBooking {
   payment_status: string | null
 }
 
-export const PAYMENT_COLUMNS = 'id, booking_id, payment_intent_id, amount, currency, payment_status, payment_method, payer_id, stripe_charge_id, transfer_id, refund_id, refund_amount, platform_fee_amount, provider_payout_amount, captured_at, paid_at, released_at, created_at'
+export const PAYMENT_COLUMNS = 'id, booking_id, payment_intent_id, amount, currency, payment_status, payment_method, payer_id, stripe_charge_id, transfer_id, refund_id, refund_amount, platform_fee_amount, provider_payout_amount, captured_at, paid_at, released_at, transferred_amount, reversed_amount, created_at'
 
 export async function latestPaymentForBooking(bookingId: string): Promise<PaymentRow | null> {
   const { data } = await supabase
@@ -255,6 +257,16 @@ export async function capturePayment(bookingId: string): Promise<PaymentRow | nu
   }
   const updated = await updatePayment(payment.id, { payment_status: 'succeeded', captured_at: now, paid_at: now, stripe_charge_id: chargeId })
   await setBookingPaymentStatus(bookingId, 'paid')
+
+  // Provider is paid on confirmation (into their Stripe balance; the bank
+  // payout clears after the delay). A failure here must not undo the capture.
+  try {
+    await syncProviderShare(payment.id)
+    const { data: b } = await supabase.from('bookings').select('provider_id').eq('id', bookingId).maybeSingle()
+    if (b?.provider_id) await refreshProviderPayoutDelay(b.provider_id)
+  } catch (e) {
+    console.error('provider transfer after capture failed (will retry on next sync):', e)
+  }
   return updated
 }
 
@@ -276,62 +288,247 @@ export async function cancelHeldPayment(bookingId: string, reason: string): Prom
   return updated
 }
 
+/* ── Commission + provider share ──────────────────────────────────────────── */
+
+/** The booking's commission rate as a fraction (stored as 0.12; legacy rows
+ *  may hold 12). */
+async function commissionRateFor(bookingId: string): Promise<number> {
+  const { data } = await supabase.from('bookings').select('commission_rate').eq('id', bookingId).maybeSingle()
+  const raw = Number(data?.commission_rate ?? 0.12)
+  return raw >= 1 ? raw / 100 : raw
+}
+
+/** Commission scales with what the provider actually keeps (client,
+ *  2026-10-18): refunding half a job refunds half the commission too. */
+export function splitKept(keptPence: number, rate: number) {
+  const kept = Math.max(0, Math.round(keptPence))
+  const commission = Math.round(kept * rate)
+  return { kept, commission, providerShare: kept - commission }
+}
+
+/** Provider share of a given customer-facing amount at this payment's rate. */
+export function providerShareOf(amountPence: number, rate: number): number {
+  return splitKept(amountPence, rate).providerShare
+}
+
+/* ── Transfers: make the provider's Stripe balance match what they're owed ── */
+
+const transferGroupFor = (paymentId: string) => `payment_${paymentId}`
+
+async function providerConnectAccount(bookingId: string): Promise<{ accountId: string; profileId: string } | null> {
+  const { data: booking } = await supabase.from('bookings').select('provider_id').eq('id', bookingId).maybeSingle()
+  if (!booking?.provider_id) return null
+  const { data: pp } = await supabase
+    .from('provider_profiles')
+    .select('id, stripe_account_id, stripe_account_status')
+    .eq('id', booking.provider_id)
+    .maybeSingle()
+  if (!pp?.stripe_account_id || pp.stripe_account_status !== 'active') return null
+  return { accountId: pp.stripe_account_id, profileId: pp.id }
+}
+
+/** Provider share currently held back by open disputes on this booking. */
+async function heldShareForBooking(bookingId: string): Promise<number> {
+  const { data } = await supabase
+    .from('disputes')
+    .select('held_amount')
+    .eq('booking_id', bookingId)
+    .in('status', ['open', 'under_review', 'awaiting_customer', 'awaiting_provider'])
+  return (data ?? []).reduce((n, d) => n + Number(d.held_amount ?? 0), 0)
+}
+
+export interface ShareSync {
+  mode: 'stripe' | 'manual' | 'not_captured'
+  target: number
+  net: number
+  moved: number
+}
+
+/**
+ * Bring the provider's net transfer for this payment to exactly what they're
+ * owed right now: their share of what the customer kept, minus anything held
+ * by an open dispute. Transfers more when owed more (release), reverses when
+ * owed less (hold / refund). Idempotent — safe to call after every change.
+ *
+ * Providers without an active Stripe account are paid by the team manually
+ * (Phase 3 payouts screen); the numbers are still kept current here.
+ */
+export async function syncProviderShare(paymentId: string): Promise<ShareSync> {
+  const payment = await paymentById(paymentId)
+  if (!payment) throw new Error('Payment not found')
+
+  const captured = ['succeeded', 'partially_refunded', 'refunded'].includes(payment.payment_status)
+  const held = await heldShareForBooking(payment.booking_id)
+  const owed = Number(payment.provider_payout_amount ?? 0)
+  const target = captured ? Math.max(0, owed - held) : 0
+  const transferred = Number(payment.transferred_amount ?? 0)
+  const reversed = Number(payment.reversed_amount ?? 0)
+  const net = transferred - reversed
+
+  if (!captured) return { mode: 'not_captured', target, net, moved: 0 }
+
+  const connect = isSimulatedIntent(payment.payment_intent_id) ? null : await providerConnectAccount(payment.booking_id)
+  if (!connect || !stripeConfigured() || !payment.stripe_charge_id) {
+    return { mode: 'manual', target, net, moved: 0 }
+  }
+
+  const delta = target - net
+  if (delta === 0) return { mode: 'stripe', target, net, moved: 0 }
+
+  if (delta > 0) {
+    // source_transaction ties the transfer to the charge, so it succeeds even
+    // before the card funds are "available" in the Servios balance
+    const transfer = await stripe.transfers.create({
+      amount: delta,
+      currency: 'gbp',
+      destination: connect.accountId,
+      source_transaction: payment.stripe_charge_id,
+      transfer_group: transferGroupFor(payment.id),
+      metadata: { payment_id: payment.id, booking_id: payment.booking_id },
+    })
+    await updatePayment(payment.id, {
+      transferred_amount: transferred + delta,
+      transfer_id: payment.transfer_id ?? transfer.id,
+      released_at: payment.released_at ?? new Date().toISOString(),
+    })
+    return { mode: 'stripe', target, net: net + delta, moved: delta }
+  }
+
+  // Reverse newest-first across this payment's transfers
+  let toReverse = -delta
+  const list = await stripe.transfers.list({ transfer_group: transferGroupFor(payment.id), limit: 100 })
+  for (const t of list.data) {
+    if (toReverse <= 0) break
+    const reversible = t.amount - t.amount_reversed
+    if (reversible <= 0) continue
+    const amount = Math.min(reversible, toReverse)
+    await stripe.transfers.createReversal(t.id, { amount, metadata: { payment_id: payment.id, booking_id: payment.booking_id } })
+    toReverse -= amount
+  }
+  const reversedNow = -delta - toReverse
+  await updatePayment(payment.id, { reversed_amount: reversed + reversedNow })
+  return { mode: 'stripe', target, net: net - reversedNow, moved: -reversedNow }
+}
+
+/* ── Refunds ──────────────────────────────────────────────────────────────── */
+
 export interface RefundResult {
   kind: 'cancelled' | 'refunded' | 'partially_refunded'
   payment: PaymentRow
   refundId: string | null
-  reversalId: string | null
   amount: number
+  commission: number
+  providerShare: number
+  share: ShareSync | null
 }
 
-/** Refund a captured payment (full or partial). If the provider has already
- *  been paid out, their proportional share is reversed from the transfer. */
+/**
+ * Return money to the customer — full or partial — at any stage:
+ *  - authorised, full refund   → cancel the card hold
+ *  - authorised, partial       → capture only what the customer keeps paying
+ *  - captured                  → Stripe refund
+ * Then recompute commission on what's kept and resync the provider's share
+ * (which reverses their part of the refund if they'd been paid).
+ * Servios absorbs Stripe's processing fee on the refunded part.
+ */
 export async function refundPayment(paymentId: string, opts: { amountPence?: number; reason: string; actorUserId: string }): Promise<RefundResult> {
   const payment = await paymentById(paymentId)
   if (!payment) throw new Error('Payment not found')
+  const rate = await commissionRateFor(payment.booking_id)
+  const original = Number(payment.amount)
+  const alreadyRefunded = Number(payment.refund_amount ?? 0)
+  const remaining = original - alreadyRefunded
+  const amount = opts.amountPence != null ? Math.round(opts.amountPence) : remaining
+  if (!(amount > 0) || amount > remaining) throw new Error(`Refund must be between £0.01 and £${(remaining / 100).toFixed(2)}`)
+  const real = !isSimulatedIntent(payment.payment_intent_id) && !!payment.payment_intent_id && stripeConfigured()
+  const now = new Date().toISOString()
 
+  // Not captured yet: never charge what we'd only refund
   if (['pending', 'authorized'].includes(payment.payment_status)) {
-    const cancelled = await cancelHeldPayment(payment.booking_id, opts.reason)
-    return { kind: 'cancelled', payment: cancelled ?? payment, refundId: null, reversalId: null, amount: Number(payment.amount) }
+    if (amount === remaining) {
+      const cancelled = await cancelHeldPayment(payment.booking_id, opts.reason)
+      const split = splitKept(0, rate)
+      await updatePayment(payment.id, { platform_fee_amount: split.commission, provider_payout_amount: split.providerShare })
+      return { kind: 'cancelled', payment: cancelled ?? payment, refundId: null, amount, commission: 0, providerShare: 0, share: null }
+    }
+    if (payment.payment_status !== 'authorized') throw new Error('The card has not been authorised yet — cancel the payment instead')
+    let chargeId = payment.stripe_charge_id
+    if (real) {
+      const pi = await stripe.paymentIntents.capture(payment.payment_intent_id!, { amount_to_capture: original - amount })
+      chargeId = typeof pi.latest_charge === 'string' ? pi.latest_charge : pi.latest_charge?.id ?? null
+    }
+    const split = splitKept(original - amount, rate)
+    const updated = await updatePayment(payment.id, {
+      payment_status: 'partially_refunded',
+      captured_at: now, paid_at: now, stripe_charge_id: chargeId,
+      refund_amount: amount, refunded_at: now,
+      platform_fee_amount: split.commission, provider_payout_amount: split.providerShare,
+    })
+    await setBookingPaymentStatus(payment.booking_id, 'partially_refunded')
+    const share = await syncProviderShare(payment.id)
+    return { kind: 'partially_refunded', payment: updated ?? payment, refundId: null, amount, commission: split.commission, providerShare: split.providerShare, share }
   }
+
   if (!['succeeded', 'partially_refunded'].includes(payment.payment_status)) {
     throw new Error(`Payment is ${payment.payment_status} and cannot be refunded`)
   }
 
-  const alreadyRefunded = Number(payment.refund_amount ?? 0)
-  const remaining = Number(payment.amount) - alreadyRefunded
-  const amount = opts.amountPence != null ? Math.round(opts.amountPence) : remaining
-  if (!(amount > 0) || amount > remaining) throw new Error(`Refund must be between £0.01 and £${(remaining / 100).toFixed(2)}`)
-
   let refundId: string | null = null
-  let reversalId: string | null = null
-  if (!isSimulatedIntent(payment.payment_intent_id) && payment.payment_intent_id) {
+  if (real) {
     const refund = await stripe.refunds.create({
-      payment_intent: payment.payment_intent_id,
+      payment_intent: payment.payment_intent_id!,
       amount,
       reason: 'requested_by_customer',
       metadata: { booking_id: payment.booking_id, payment_id: payment.id, actor: opts.actorUserId, note: opts.reason.slice(0, 450) },
     })
     refundId = refund.id
-    if (payment.transfer_id && payment.provider_payout_amount) {
-      const share = Math.round(amount * (Number(payment.provider_payout_amount) / Number(payment.amount)))
-      if (share > 0) {
-        const reversal = await stripe.transfers.createReversal(payment.transfer_id, { amount: share, metadata: { refund_id: refund.id } })
-        reversalId = reversal.id
-      }
-    }
   }
 
-  const total = alreadyRefunded + amount
-  const status = total >= Number(payment.amount) ? 'refunded' : 'partially_refunded'
+  const totalRefunded = alreadyRefunded + amount
+  const status = totalRefunded >= original ? 'refunded' : 'partially_refunded'
+  const split = splitKept(original - totalRefunded, rate)
   const updated = await updatePayment(payment.id, {
     payment_status: status,
     refund_id: refundId ?? payment.refund_id,
-    refund_amount: total,
-    refunded_at: new Date().toISOString(),
+    refund_amount: totalRefunded,
+    refunded_at: now,
+    platform_fee_amount: split.commission,
+    provider_payout_amount: split.providerShare,
   })
   await setBookingPaymentStatus(payment.booking_id, status)
-  return { kind: status, payment: updated ?? payment, refundId, reversalId, amount }
+  const share = await syncProviderShare(payment.id)
+  return { kind: status, payment: updated ?? payment, refundId, amount, commission: split.commission, providerShare: split.providerShare, share }
+}
+
+/* ── Provider payout delay ────────────────────────────────────────────────── */
+
+/** New providers clear in 14 days; after N confirmed jobs with no upheld
+ *  disputes they move to the standard 7 (both admin settings). Applied to
+ *  the Stripe account's payout schedule; recorded on the profile. */
+export async function refreshProviderPayoutDelay(providerProfileId: string): Promise<number | null> {
+  const { getSettings } = await import('./settings')
+  const settings = await getSettings()
+  const { data: pp } = await supabase
+    .from('provider_profiles')
+    .select('id, user_id, stripe_account_id, payout_delay_days')
+    .eq('id', providerProfileId)
+    .maybeSingle()
+  if (!pp) return null
+
+  const [{ count: jobs }, { count: upheld }] = await Promise.all([
+    supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('provider_id', pp.id).not('customer_confirmed_at', 'is', null),
+    supabase.from('disputes').select('id', { count: 'exact', head: true }).eq('filed_against', pp.user_id).in('resolution_type', ['full_refund', 'partial_refund']),
+  ])
+  const established = (jobs ?? 0) >= settings.new_provider_job_threshold && (upheld ?? 0) === 0
+  const delay = established ? settings.payout_delay_days : settings.new_provider_payout_delay_days
+
+  if (pp.payout_delay_days !== delay) {
+    if (pp.stripe_account_id && stripeConfigured()) {
+      await stripe.accounts.update(pp.stripe_account_id, { settings: { payouts: { schedule: { interval: 'daily', delay_days: delay } } } })
+    }
+    await supabase.from('provider_profiles').update({ payout_delay_days: delay }).eq('id', pp.id)
+  }
+  return delay
 }
 
 /* ── Webhooks ─────────────────────────────────────────────────────────────── */
@@ -395,35 +592,47 @@ export async function applyStripeEvent(event: Stripe.Event): Promise<string> {
       if (!payment) return 'no matching payment'
       const charge = event.type === 'charge.refunded' ? (obj as Stripe.Charge) : await stripe.charges.retrieve(chargeId)
       const refunded = charge.amount_refunded ?? 0
+      if (refunded === Number(payment.refund_amount ?? 0)) return 'already recorded'
+      // Refunds made in the Stripe dashboard (not through Servios) still
+      // rescale commission and claw back the provider's part
       const status = refunded >= Number(payment.amount) ? 'refunded' : refunded > 0 ? 'partially_refunded' : payment.payment_status
-      if (status !== payment.payment_status || refunded !== Number(payment.refund_amount ?? 0)) {
-        await updatePayment(payment.id, { payment_status: status, refund_amount: refunded, refunded_at: refunded > 0 ? new Date().toISOString() : null })
-        if (status !== payment.payment_status) await setBookingPaymentStatus(payment.booking_id, status)
-      }
+      const split = splitKept(Number(payment.amount) - refunded, await commissionRateFor(payment.booking_id))
+      await updatePayment(payment.id, {
+        payment_status: status,
+        refund_amount: refunded,
+        refunded_at: refunded > 0 ? new Date().toISOString() : null,
+        platform_fee_amount: split.commission,
+        provider_payout_amount: split.providerShare,
+      })
+      if (status !== payment.payment_status) await setBookingPaymentStatus(payment.booking_id, status)
+      await syncProviderShare(payment.id)
       return 'applied'
     }
-    case 'transfer.created': {
-      const transfer = event.data.object as Stripe.Transfer
-      const paymentId = transfer.metadata?.payment_id
-      if (!paymentId) return 'no payment_id metadata'
-      await updatePayment(paymentId, { transfer_id: transfer.id, released_at: new Date(transfer.created * 1000).toISOString() })
-      return 'applied'
+    case 'charge.dispute.created':
+    case 'charge.dispute.closed':
+    case 'charge.dispute.funds_withdrawn':
+    case 'charge.dispute.funds_reinstated': {
+      const { handleChargebackEvent } = await import('./disputes')
+      return handleChargebackEvent(event.type, event.data.object as Stripe.Dispute)
     }
-    case 'transfer.reversed': {
-      const transfer = event.data.object as Stripe.Transfer
-      const paymentId = transfer.metadata?.payment_id
-      if (!paymentId) return 'no payment_id metadata'
-      const payment = await paymentById(paymentId)
-      await updatePayment(paymentId, { payment_metadata: { ...(payment as any)?.payment_metadata, reversed_amount: transfer.amount_reversed } })
-      return 'applied'
-    }
+    case 'transfer.created':
+    case 'transfer.reversed':
+      // Transfers are created and reversed by syncProviderShare, which records
+      // the amounts itself — the events are just an audit trail in stripe_events
+      return 'recorded'
     case 'account.updated': {
       const account = event.data.object as Stripe.Account
-      const complete = account.details_submitted && account.charges_enabled && account.payouts_enabled
+      const complete = account.details_submitted && account.payouts_enabled && account.capabilities?.transfers === 'active'
       const restricted = !!account.requirements?.disabled_reason
         || (account.details_submitted && ((account.requirements?.currently_due?.length ?? 0) > 0 || (account.requirements?.past_due?.length ?? 0) > 0))
       const status = complete ? 'active' : restricted ? 'restricted' : 'pending'
-      await supabase.from('provider_profiles').update({ stripe_account_status: status, bank_account_verified: !!account.payouts_enabled }).eq('stripe_account_id', account.id)
+      const { data: pp } = await supabase
+        .from('provider_profiles')
+        .update({ stripe_account_status: status, bank_account_verified: !!account.payouts_enabled })
+        .eq('stripe_account_id', account.id)
+        .select('id')
+        .maybeSingle()
+      if (pp?.id && status === 'active') await refreshProviderPayoutDelay(pp.id)
       return `account ${status}`
     }
     case 'account.application.deauthorized': {

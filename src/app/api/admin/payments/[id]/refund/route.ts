@@ -27,7 +27,7 @@ export const POST = withAdmin<{ params: Promise<{ id: string }> }>(async ({ user
     targetTable: 'payments',
     targetId: id,
     before: { payment_status: before.payment_status, refund_amount: before.refund_amount },
-    after: { payment_status: result.payment.payment_status, refund_amount: result.payment.refund_amount, refund_id: result.refundId, reversal_id: result.reversalId, amount: result.amount },
+    after: { payment_status: result.payment.payment_status, refund_amount: result.payment.refund_amount, refund_id: result.refundId, amount: result.amount, commission: result.commission, provider_share: result.providerShare, provider_transfer: result.share },
     reason,
   })
 

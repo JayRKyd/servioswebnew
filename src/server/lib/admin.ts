@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js'
 import { createSupabaseServerClient } from '@/lib/auth-server'
 import { isAdminUser } from '@/lib/permissions'
+import { DisputeError } from './disputes'
 
 /** Service-role client for admin route handlers. Bypasses RLS, so every
  *  caller must go through `requireAdmin` first. */
@@ -72,6 +73,9 @@ export function withAdmin<Ctx = unknown>(handler: AdminHandler<Ctx>) {
       }
       if (err instanceof AdminInputError) {
         return NextResponse.json({ error: err.message }, { status: 400 })
+      }
+      if (err instanceof DisputeError) {
+        return NextResponse.json({ error: err.message }, { status: err.status })
       }
       console.error('admin route failed:', err)
       return NextResponse.json({ error: 'Something went wrong' }, { status: 500 })

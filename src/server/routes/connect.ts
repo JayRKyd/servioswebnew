@@ -3,8 +3,44 @@ import { supabase } from '../db/client'
 import { stripe } from '../lib/stripe'
 import { authMiddleware } from '../middleware/auth'
 import { HTTPException } from 'hono/http-exception'
+import { refreshProviderPayoutDelay } from '../lib/payments'
 
-const connect = new Hono()
+const connect = new Hono<{ Variables: { userId: string; user: any; activeRole: string } }>()
+
+const STRIPE_V2_VERSION = '2026-09-30.endive'
+
+/** UK Express-dashboard recipient account: Servios collects fees and carries
+ *  losses (separate charges & transfers). Returns the acct_ id. */
+async function createRecipientAccount(opts: { email?: string; displayName?: string; userId: string }): Promise<string> {
+  const res = await fetch('https://api.stripe.com/v2/core/accounts', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY!.trim()}`,
+      'Stripe-Version': STRIPE_V2_VERSION,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      ...(opts.email ? { contact_email: opts.email } : {}),
+      ...(opts.displayName ? { display_name: opts.displayName } : {}),
+      identity: { country: 'GB' },
+      dashboard: 'express',
+      defaults: { responsibilities: { fees_collector: 'application', losses_collector: 'application' } },
+      configuration: { recipient: { capabilities: { stripe_balance: { stripe_transfers: { requested: true } } } } },
+      metadata: { userId: opts.userId },
+    }),
+  })
+  const json = (await res.json().catch(() => ({}))) as { id?: string }
+  if (!res.ok || !json?.id) {
+    console.error('Stripe v2 account create failed:', json)
+    throw new HTTPException(502, { message: 'We couldn’t start bank setup with Stripe — please try again in a minute.' })
+  }
+  return json.id as string
+}
+
+/** Recipient accounts never take charges — "ready" means transfers + payouts. */
+function accountReady(account: { details_submitted?: boolean; payouts_enabled?: boolean; capabilities?: { transfers?: string } | null }) {
+  return !!account.details_submitted && !!account.payouts_enabled && account.capabilities?.transfers === 'active'
+}
 
 connect.use('*', authMiddleware)
 
@@ -38,33 +74,26 @@ connect.post('/onboard', async (c) => {
 
   let accountId = profile.stripe_account_id
 
-  // Create Express account if none exists
+  // Create the provider's Stripe account if none exists. Stripe refuses
+  // Accounts v1 creation for new Connect integrations, so this goes through
+  // Accounts v2; everything after (links, payout schedule) works on v1.
   if (!accountId) {
-    const { data: user } = await supabase
-      .from('users')
-      .select('email')
-      .eq('id', userId)
-      .single()
+    const { data: user } = await supabase.from('users').select('email').eq('id', userId).single()
+    const { data: names } = await supabase.from('provider_profiles').select('business_name, first_name, last_name').eq('user_id', userId).single()
+    const displayName = names?.business_name?.trim() || `${names?.first_name ?? ''} ${names?.last_name ?? ''}`.trim() || undefined
 
-    const account = await stripe.accounts.create({
-      type: 'express',
-      country: 'GB',
-      email: user?.email,
-      capabilities: {
-        transfers: { requested: true },
-      },
-      metadata: { userId },
-    })
+    accountId = await createRecipientAccount({ email: user?.email ?? undefined, displayName, userId })
 
-    accountId = account.id
-
-    await supabase
+    const { data: pp } = await supabase
       .from('provider_profiles')
-      .update({
-        stripe_account_id: accountId,
-        stripe_account_status: 'pending',
-      })
+      .update({ stripe_account_id: accountId, stripe_account_status: 'pending' })
       .eq('user_id', userId)
+      .select('id')
+      .single()
+    // New providers start on the longer clearing delay
+    if (pp?.id) {
+      try { await refreshProviderPayoutDelay(pp.id) } catch (e) { console.error('initial payout delay failed:', e) }
+    }
   }
 
   // Always regenerate the onboarding link (links expire after a few minutes)
@@ -105,12 +134,9 @@ connect.get('/status', async (c) => {
   // Fetch live status from Stripe
   const account = await stripe.accounts.retrieve(profile.stripe_account_id)
 
-  const connected =
-    account.details_submitted &&
-    account.charges_enabled &&
-    account.payouts_enabled
-
-  const status = connected ? 'active' : 'pending'
+  const connected = accountReady(account)
+  const restricted = !!account.requirements?.disabled_reason
+  const status = connected ? 'active' : restricted ? 'restricted' : 'pending'
 
   // Sync status back to DB if it changed
   if (status !== profile.stripe_account_status) {
@@ -124,8 +150,9 @@ connect.get('/status', async (c) => {
     connected,
     status,
     accountId: profile.stripe_account_id,
-    chargesEnabled: account.charges_enabled,
+    chargesEnabled: account.capabilities?.transfers === 'active',
     payoutsEnabled: account.payouts_enabled,
+    payoutDelayDays: account.settings?.payouts?.schedule?.delay_days ?? null,
     detailsSubmitted: account.details_submitted,
     requirements: account.requirements,
   })

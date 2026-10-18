@@ -9,6 +9,7 @@ type ConnectStatus = {
   status: 'not_connected' | 'pending' | 'active' | 'restricted'
   chargesEnabled?: boolean
   payoutsEnabled?: boolean
+  payoutDelayDays?: number | null
   detailsSubmitted?: boolean
   accountId?: string
   requirements?: {
@@ -165,13 +166,12 @@ function ProviderPayoutsInner() {
         {status?.status === 'active' && (
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-3">
-              <Capability label="Charges" enabled={status.chargesEnabled ?? false} />
+              <Capability label="Transfers" enabled={status.chargesEnabled ?? false} />
               <Capability label="Payouts" enabled={status.payoutsEnabled ?? false} />
               <Capability label="Verified" enabled={status.detailsSubmitted ?? false} />
             </div>
             <p className="text-sm text-gray-500">
-              Your Stripe account is fully active. Funds are transferred to your bank account
-              automatically after each job is marked complete.
+              Your Stripe account is fully active. You're paid as soon as the customer confirms a job, and each payment clears to your bank {status.payoutDelayDays ?? 7} days later.
             </p>
             <div className="flex gap-3">
               <button
@@ -197,10 +197,10 @@ function ProviderPayoutsInner() {
         <h2 className="text-base font-semibold text-gray-900">How payouts work</h2>
         <ol className="space-y-3 text-sm text-gray-600">
           {[
-            ['Customer pays', 'When a customer pays for a booking, funds are held in escrow — not transferred to you yet.'],
-            ['Job completed', 'Once the job is marked complete and the customer confirms, the escrow is released.'],
-            ['Funds transferred', 'Your earnings (minus platform commission) are transferred to your Stripe account.'],
-            ['Bank payout', 'Stripe sends the money to your linked bank account, typically within 2 business days.'],
+            ['Customer pays', 'The customer’s card is authorised when you accept — the money is held, not charged, until the job is done.'],
+            ['Customer confirms', 'When the customer confirms the job is complete, the card is charged and you’re paid straight away.'],
+            ['In your Stripe balance', 'Your earnings (the job price minus Servios commission) land in your Stripe balance immediately.'],
+            ['Bank payout', 'Each payment clears to your bank 7 days later (14 for your first few jobs) — a short window so customer problems can be put right fairly. After that it arrives daily.'],
           ].map(([step, desc], i) => (
             <li key={step} className="flex gap-3">
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">

@@ -9,6 +9,7 @@ import { BookingPhotos } from '@/components/shared/BookingPhotos'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Lock, CheckCircle, Shield, AlertTriangle, MessageCircle } from 'lucide-react'
 import { StripePaymentForm } from '@/components/payments/StripePaymentForm'
+import { DisputePanel } from '@/components/shared/DisputePanel'
 
 
 function ReviewModal({ bookingId, revieweeId, serviceTitle, onClose }: { bookingId: string; revieweeId?: string | null; serviceTitle?: string | null; onClose: () => void }) {
@@ -161,6 +162,9 @@ export default function CustomerBookingDetailPage() {
   const [payError, setPayError] = useState<string | null>(null)
   // Set once Stripe has an intent for this booking — renders the card form
   const [checkout, setCheckout] = useState<{ clientSecret: string; paymentId: string } | null>(null)
+  // An open problem report freezes confirmation — support decides instead
+  const [disputeState, setDisputeState] = useState({ hasOpenDispute: false, canReport: false })
+  const [openReport, setOpenReport] = useState(false)
   const [showReview, setShowReview] = useState(false)
   const [showClaim, setShowClaim] = useState(false)
 
@@ -295,9 +299,9 @@ export default function CustomerBookingDetailPage() {
 
   // Customer can confirm while work is underway, or after the provider marks
   // complete — until they do, nothing is released (finding A)
-  const canConfirm =
+  const canConfirm = !disputeState.hasOpenDispute && (
     ['in_progress', 'accepted'].includes(booking.status) ||
-    (booking.status === 'completed' && !booking.customer_confirmed_at)
+    (booking.status === 'completed' && !booking.customer_confirmed_at))
   const canCancel = ['pending', 'accepted'].includes(booking.status)
   const canReview = booking.status === 'completed'
   const canClaim = booking.status === 'completed' && (() => {
@@ -535,6 +539,9 @@ export default function CustomerBookingDetailPage() {
           <p className="text-sm font-medium text-green-900">Confirm the job is complete?</p>
           <p className="mt-0.5 text-xs text-green-700">
             This releases {booking.total_amount > 0 ? formatCurrency(booking.total_amount / 100) : 'the payment'} to your provider. Only confirm when you&apos;re happy with the work.
+            {disputeState.canReport && (
+              <> Not happy? <button type="button" onClick={() => { setPendingAction(null); setOpenReport(true) }} className="font-semibold text-red-600 underline underline-offset-2">Report a problem instead</button> — the payment stays held.</>
+            )}
           </p>
           <div className="mt-2.5 flex gap-2">
             <button
@@ -605,6 +612,14 @@ export default function CustomerBookingDetailPage() {
           </button>
         )}
       </div>
+      <DisputePanel
+        bookingId={id as string}
+        totalPence={Number(booking.total_amount) || 0}
+        openForm={openReport}
+        onFormClosed={() => setOpenReport(false)}
+        onState={setDisputeState}
+      />
+
       {/* Workmanship-claim entry point hidden until a real guarantee policy
           and claims process exist (client, 2026-09-12) — backend claim
           routes and the admin queue stay in place for when it returns.

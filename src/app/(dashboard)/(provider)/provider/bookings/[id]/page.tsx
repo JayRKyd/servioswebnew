@@ -8,6 +8,7 @@ import { BookingPhotos } from '@/components/shared/BookingPhotos'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { JobOfferPanel } from '@/components/shared/JobOfferPanel'
 import { MilestoneTracker } from '@/components/shared/MilestoneTracker'
+import { DisputePanel } from '@/components/shared/DisputePanel'
 import { MessageCircle, Lock, CheckCircle2 } from 'lucide-react'
 
 export default function ProviderBookingDetailPage() {
@@ -311,7 +312,9 @@ export default function ProviderBookingDetailPage() {
               <div>
                 <p className="text-sm font-semibold text-green-900">Payment released</p>
                 <p className="text-xs text-green-700 mt-0.5">
-                  {formatCurrency(((booking.base_amount ?? booking.total_amount) - (booking.platform_fee ?? 0)) / 100)} has been released to your account.
+                  {formatCurrency(((booking.base_amount ?? booking.total_amount) - (booking.platform_fee ?? 0)) / 100)} has been released to you.
+                  If you&apos;ve connected your bank on the Payouts page it clears to your account after the clearing period;
+                  otherwise the Servios team pays it out.
                 </p>
               </div>
             </div>
@@ -407,6 +410,8 @@ export default function ProviderBookingDetailPage() {
             </button>
           )}
         </div>
+
+        <DisputePanel bookingId={id as string} totalPence={Number(booking.total_amount) || 0} />
 
         <BookingPhotos
           bookingId={id as string}
