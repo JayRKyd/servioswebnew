@@ -46,14 +46,15 @@ interface View {
     desiredOutcome: string | null; desiredAmount: number | null; providerResponse: string | null
     resolutionType: string | null; resolutionNotes: string | null; refundAmount: number | null
     filedAt: string; resolvedAt: string | null; evidence: FileRef[]
+    heldAmount: number
   }
   booking: { id: string; number: string | null; total: number } | null
   customer: { name: string } | null
   provider: { name: string } | null
   thread: { id: string; role: string; senderName: string; body: string; createdAt: string; attachments: FileRef[] }[]
 }
-interface Eligibility { allowed: boolean; reason: string | null; deadline: string | null }
-interface Payload { viewer: Viewer; view: View | null; eligibility: Eligibility | null }
+interface Eligibility { allowed: boolean; reason: string | null; deadline: string | null; closed?: boolean }
+interface Payload { viewer: Viewer; view: View | null; eligibility: Eligibility | null; paymentState?: 'none' | 'authorized' | 'paid'; windowEndsAt?: string | null; windowDays?: number }
 
 async function uploadEvidence(bookingId: string, files: File[]): Promise<string[]> {
   const { data: { user } } = await supabase.auth.getUser()
@@ -112,7 +113,7 @@ function FilePicker({ files, onChange, label = 'Add photos or files' }: { files:
 
 /** Report-a-problem + dispute thread for one booking. Rendered on both the
  *  customer and provider booking pages; anchored at #problem for email links. */
-export function DisputePanel({ bookingId, totalPence, openForm, onFormClosed, onState }: {
+export function DisputePanel({ bookingId, totalPence, openForm, onFormClosed, onState, refreshKey }: {
   bookingId: string
   totalPence: number
   /** Parent can open the report form (e.g. from the confirm-complete banner). */
@@ -120,6 +121,8 @@ export function DisputePanel({ bookingId, totalPence, openForm, onFormClosed, on
   onFormClosed?: () => void
   /** Lets the page hide Confirm/Pay while a case is open. */
   onState?: (s: { hasOpenDispute: boolean; canReport: boolean }) => void
+  /** Changes when the booking does (status / confirmation / payment) so eligibility is re-fetched. */
+  refreshKey?: string
 }) {
   const [data, setData] = useState<Payload | null>(null)
   const [loading, setLoading] = useState(true)
@@ -150,7 +153,8 @@ export function DisputePanel({ bookingId, totalPence, openForm, onFormClosed, on
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookingId])
 
-  useEffect(() => { load() }, [load])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { load() }, [load, refreshKey])
   useEffect(() => {
     if (openForm) {
       setShowForm(true)
@@ -212,9 +216,12 @@ export function DisputePanel({ bookingId, totalPence, openForm, onFormClosed, on
 
   if (loading || !data) return null
   const { viewer, view, eligibility } = data
+  const paymentState = data.paymentState ?? 'none'
+  const windowEnds = data.windowEndsAt ? new Date(data.windowEndsAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : null
   const d = view?.dispute
-  // Nothing to show: provider with no case, or customer who can't report and has no case
-  if (!d && (viewer === 'provider' || (!eligibility?.allowed && !showForm))) return null
+  // Nothing to show: provider with no case, or customer who can't report (and
+  // the window hasn't simply closed — that case gets an explanation)
+  if (!d && (viewer === 'provider' || (!eligibility?.allowed && !eligibility?.closed && !showForm))) return null
 
   return (
     <section id="problem" className="scroll-mt-6 space-y-4">
@@ -224,14 +231,24 @@ export function DisputePanel({ bookingId, totalPence, openForm, onFormClosed, on
           <div>
             <p className="text-sm font-semibold text-gray-900">Something not right?</p>
             <p className="mt-0.5 text-xs text-gray-500">
-              Tell us what happened and we’ll hold the payment while Servios support looks into it.
-              {eligibility.deadline && <> You can report a problem until {new Date(eligibility.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}.</>}
+              {paymentState === 'none'
+                ? 'Tell us what happened and Servios support will look into it.'
+                : 'Tell us what happened and we’ll hold the payment while Servios support looks into it.'}
+              {eligibility.deadline && <> You can report a problem until {new Date(eligibility.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}.</>}
             </p>
           </div>
           <button onClick={() => setShowForm(true)} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50">
             <ShieldAlert size={15} /> Report a problem
           </button>
         </div>
+      )}
+
+      {/* Window closed — explain rather than vanish (client Round 6 #8) */}
+      {!d && viewer === 'customer' && eligibility?.closed && !showForm && (
+        <p className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-500">
+          The {data.windowDays ?? 30}-day window to report a problem with this job closed on {windowEnds ?? 'its deadline'}.
+          If something’s wrong, <a href="/help" className="font-medium text-primary underline underline-offset-2">contact support</a>.
+        </p>
       )}
 
       {/* ── Report form ── */}
@@ -314,9 +331,23 @@ export function DisputePanel({ bookingId, totalPence, openForm, onFormClosed, on
           {d.open && (
             <div className="flex items-start gap-2.5 bg-amber-50/60 px-5 py-3 text-xs text-amber-800">
               <Lock size={14} className="mt-0.5 shrink-0" />
-              {viewer === 'customer'
-                ? <span>The payment for this job is on hold. Servios support will review both sides and decide — usually within 2 working days.</span>
-                : <span>The amount in question is on hold until this is resolved. {d.providerResponse ? 'Thanks for responding — support will be in touch.' : <strong>Please give your side below — support reads both before deciding.</strong>}</span>}
+              {viewer === 'customer' ? (
+                <span>
+                  {paymentState === 'none'
+                    ? 'No payment has been taken for this job. '
+                    : `The ${pounds(totalPence)} payment for this job is on hold. `}
+                  Servios support will review both sides and decide — usually within 2 working days.
+                </span>
+              ) : (
+                <span>
+                  {d.heldAmount > 0
+                    ? <><strong>{pounds(d.heldAmount)} of your payout is on hold</strong> until this is resolved. </>
+                    : paymentState === 'none'
+                      ? 'No payment has been taken for this job yet. '
+                      : 'The amount in question is on hold until this is resolved. '}
+                  {d.providerResponse ? 'Thanks for responding — support will be in touch.' : <strong>Please give your side below — support reads both before deciding.</strong>}
+                </span>
+              )}
             </div>
           )}
 
@@ -383,7 +414,13 @@ export function DisputePanel({ bookingId, totalPence, openForm, onFormClosed, on
 
       {/* A new report after a resolved one */}
       {d && !d.open && viewer === 'customer' && eligibility?.allowed && !showForm && (
-        <button onClick={() => setShowForm(true)} className="text-xs font-medium text-red-600 hover:underline">Report another problem with this job</button>
+        <p className="text-xs text-gray-500">
+          <button onClick={() => setShowForm(true)} className="font-medium text-red-600 hover:underline">Report another problem with this job</button>
+          {windowEnds && <> — you can do this until {windowEnds}.</>}
+        </p>
+      )}
+      {d && !d.open && viewer === 'customer' && eligibility?.closed && (
+        <p className="text-xs text-gray-400">The window to report further problems with this job closed on {windowEnds}.</p>
       )}
     </section>
   )

@@ -67,36 +67,38 @@ export interface Eligibility {
   reason: string | null
   /** Last moment a dispute can be opened (ISO), when a window applies. */
   deadline: string | null
+  /** True when the window has passed — the UI explains instead of hiding. */
+  closed: boolean
   openDisputeId: string | null
 }
 
 /** Can this customer report a problem on this booking right now? */
 export async function disputeEligibility(bookingId: string, userId: string): Promise<Eligibility> {
   const parties = await loadBookingParties(bookingId)
-  if (!parties) return { allowed: false, reason: 'Booking not found', deadline: null, openDisputeId: null }
+  if (!parties) return { allowed: false, reason: 'Booking not found', deadline: null, closed: false, openDisputeId: null }
   const { booking } = parties
-  if (parties.customerUserId !== userId) return { allowed: false, reason: 'Only the customer can report a problem with this booking', deadline: null, openDisputeId: null }
+  if (parties.customerUserId !== userId) return { allowed: false, reason: 'Only the customer can report a problem with this booking', deadline: null, closed: false, openDisputeId: null }
 
   const { data: open } = await supabase
     .from('disputes').select('id').eq('booking_id', bookingId).in('status', OPEN_STATUSES as unknown as string[]).neq('source', 'chargeback').maybeSingle()
-  if (open) return { allowed: false, reason: 'A problem report is already open for this booking', deadline: null, openDisputeId: open.id }
+  if (open) return { allowed: false, reason: 'A problem report is already open for this booking', deadline: null, closed: false, openDisputeId: open.id }
 
-  if (!parties.providerUserId) return { allowed: false, reason: 'This booking has no provider', deadline: null, openDisputeId: null }
+  if (!parties.providerUserId) return { allowed: false, reason: 'This booking has no provider', deadline: null, closed: false, openDisputeId: null }
 
   const today = new Date().toISOString().slice(0, 10)
   const started = ['in_progress', 'completed'].includes(booking.status)
     || (booking.status === 'accepted' && !!booking.scheduled_date && booking.scheduled_date <= today)
-  if (!started) return { allowed: false, reason: 'You can report a problem once the job date has arrived', deadline: null, openDisputeId: null }
+  if (!started) return { allowed: false, reason: 'You can report a problem once the job date has arrived', deadline: null, closed: false, openDisputeId: null }
 
   if (booking.customer_confirmed_at) {
     const { dispute_window_days } = await getSettings()
     const deadline = new Date(new Date(booking.customer_confirmed_at).getTime() + dispute_window_days * 86_400_000)
     if (Date.now() > deadline.getTime()) {
-      return { allowed: false, reason: `Problems can be reported up to ${dispute_window_days} days after you confirm a job. Please contact support.`, deadline: deadline.toISOString(), openDisputeId: null }
+      return { allowed: false, reason: `Problems can be reported up to ${dispute_window_days} days after you confirm a job. Please contact support.`, deadline: deadline.toISOString(), closed: true, openDisputeId: null }
     }
-    return { allowed: true, reason: null, deadline: deadline.toISOString(), openDisputeId: null }
+    return { allowed: true, reason: null, deadline: deadline.toISOString(), closed: true, openDisputeId: null }
   }
-  return { allowed: true, reason: null, deadline: null, openDisputeId: null }
+  return { allowed: true, reason: null, deadline: null, closed: false, openDisputeId: null }
 }
 
 /** The provider share to hold back for a disputed amount. */

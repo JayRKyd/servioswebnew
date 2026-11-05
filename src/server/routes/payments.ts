@@ -91,8 +91,10 @@ payments.post('/capture/:bookingId', authMiddleware, async (c) => {
   }
   try {
     const payment = await capturePayment(bookingId)
+    if (!payment) throw new HTTPException(409, { message: 'No payment has been authorised for this booking' })
     return c.json({ payment })
   } catch (e: any) {
+    if (e instanceof HTTPException) throw e
     console.error('capture failed:', e)
     throw new HTTPException(400, { message: e?.message ?? 'Could not release the payment' })
   }

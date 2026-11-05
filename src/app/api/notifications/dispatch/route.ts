@@ -64,72 +64,102 @@ async function notifyInApp(userId: string, type: string, title: string, body: st
   })
 }
 
-async function conversationPathFor(bookingId: string, fallback: string): Promise<string> {
-  // "Message" links should land in the chat, not on the booking page the
-  // primary button already opens (client feedback)
-  const { data: conv } = await supabase
-    .from('conversations').select('id').eq('booking_id', bookingId).maybeSingle()
-  return conv ? `/messages/${conv.id}` : fallback
+/** "Message" links open the booking's chat — the route finds or creates the
+ *  conversation for whichever party clicks, so it works before anyone has
+ *  written (client: links landed on the booking page instead) */
+function conversationPathFor(bookingId: string): string {
+  return `/messages/for-booking/${bookingId}`
 }
 
-async function handlePaymentReleased(record: Record<string, any>) {
+/** payments.payment_status → succeeded: the money was actually captured.
+ *  Receipt to the customer, "you've been paid" to the provider. Keyed off the
+ *  payment row, not customer_confirmed_at, so an unpaid booking can never
+ *  produce a paid email (client Round 6 blocker 1). */
+async function handlePaymentCaptured(record: Record<string, any>, oldRecord: Record<string, any>) {
+  if (record.payment_status !== 'succeeded' || oldRecord.payment_status === 'succeeded') return
+  const { data: b } = await supabase
+    .from('bookings')
+    .select('id, booking_number, scheduled_date, scheduled_time_start, customer_id, provider_id, service_id, commission_rate')
+    .eq('id', record.booking_id).maybeSingle()
+  if (!b) return
+
   const [{ data: cp }, { data: pp }, { data: svc }] = await Promise.all([
-    supabase.from('customer_profiles').select('user_id, first_name, last_name').eq('id', record.customer_id).maybeSingle(),
-    record.provider_id
-      ? supabase.from('provider_profiles').select('user_id, business_name, first_name, last_name, profile_image_url, rating_average, total_reviews').eq('id', record.provider_id).maybeSingle()
+    supabase.from('customer_profiles').select('user_id, first_name, last_name').eq('id', b.customer_id).maybeSingle(),
+    b.provider_id
+      ? supabase.from('provider_profiles').select('id, user_id, business_name, first_name, last_name, profile_image_url, rating_average, total_reviews, stripe_account_status, payout_delay_days').eq('id', b.provider_id).maybeSingle()
       : Promise.resolve({ data: null }),
-    record.service_id
-      ? supabase.from('services').select('title, duration_minutes').eq('id', record.service_id).maybeSingle()
-      : Promise.resolve({ data: null }),
+    b.service_id ? supabase.from('services').select('title').eq('id', b.service_id).maybeSingle() : Promise.resolve({ data: null }),
   ])
 
   const providerName = escapeHtml(pp?.business_name?.trim() || `${pp?.first_name ?? ''} ${pp?.last_name ?? ''}`.trim() || 'Your provider')
+  const customerName = `${cp?.first_name ?? ''} ${cp?.last_name ?? ''}`.trim() || 'Customer'
+  const customerShort = `${cp?.first_name ?? ''} ${(cp?.last_name ?? '').charAt(0)}${cp?.last_name ? '.' : ''}`.trim()
   const service = escapeHtml(svc?.title ?? 'your booking')
-  const when = record.scheduled_date ? `${ukDate(record.scheduled_date)}, ${ukTime(record.scheduled_time_start)}` : ''
-  const total = poundsFromCents(record.total_amount)
-  const payout = poundsFromCents((record.total_amount ?? 0) - (record.platform_fee ?? 0))
-  const ref = record.booking_number ? String(record.booking_number) : ''
+  const when = b.scheduled_date ? `${ukDate(b.scheduled_date)}, ${ukTime(b.scheduled_time_start)}` : ''
+  const amount = Number(record.amount ?? 0)
+  const commission = Number(record.platform_fee_amount ?? 0)
+  const payoutPence = Number(record.provider_payout_amount ?? amount - commission)
+  const total = poundsFromCents(amount)
+  const payout = poundsFromCents(payoutPence)
+  const ref = b.booking_number ? String(b.booking_number) : ''
+  const rawRate = Number(b.commission_rate ?? 0.12)
+  const ratePct = Math.round((rawRate >= 1 ? rawRate : rawRate * 100))
+  const card = record.payment_metadata?.card as { brand?: string; last4?: string } | undefined
+  const paidOn = ukDate((record.captured_at ?? new Date().toISOString()).slice(0, 10))
 
-  // Customer: the receipt
+  // Customer: a receipt that reads like a receipt
   if (cp?.user_id) {
     const email = await emailForUser(cp.user_id)
     if (email) {
-      await sendEmail(email, `Payment receipt — ${svc?.title ?? 'your booking'}${total ? `, ${total}` : ''}`, renderNotificationEmail({
-        heading: 'Payment released — your receipt',
-        body: 'Thanks for confirming the job. Here are the details for your records.',
+      await sendEmail(email, `Receipt — ${svc?.title ?? 'your booking'}, ${total} · ${ref}`, renderNotificationEmail({
+        heading: 'Your receipt',
+        body: `Thanks for confirming the job. ${total} has been charged to your card and paid to ${providerName}. Keep this email for your records.`,
         person: pp ? { name: providerName, avatarUrl: pp.profile_image_url ?? null, rating: Number(pp.rating_average) || null, ratingCount: pp.total_reviews ?? null } : undefined,
         details: [
           { label: 'Service', value: service },
           ...(when ? [{ label: 'When', value: escapeHtml(when) }] : []),
-          ...(total ? [{ label: 'Amount paid', value: total }] : []),
+          { label: 'Amount paid', value: total },
+          ...(card?.last4 ? [{ label: 'Paid with', value: `${escapeHtml(String(card.brand ?? 'Card')).replace(/^\w/, c => c.toUpperCase())} •••• ${escapeHtml(String(card.last4))}` }] : []),
+          { label: 'Paid on', value: escapeHtml(paidOn) },
+          { label: 'Statement shows', value: `SERVIOS* BK-${escapeHtml(ref.split('-').pop() ?? '')}` },
           ...(ref ? [{ label: 'Reference', value: escapeHtml(ref) }] : []),
+          { label: 'Billed by', value: 'Servios Group Ltd' },
         ],
         ctaLabel: 'Leave a review',
-        ctaPath: `/bookings/${record.id}`,
-        secondaryCtas: [{ label: 'View booking', path: `/bookings/${record.id}` }],
-        preheader: `${total || 'Payment'} released to ${providerName} for ${service}`,
+        ctaPath: `/bookings/${b.id}`,
+        secondaryCtas: [{ label: 'View booking', path: `/bookings/${b.id}` }],
+        preheader: `${total} paid for ${service} — ${ref}`,
       }))
     }
   }
 
-  // Provider: you've been paid
+  // Provider: you've been paid — with the commission line and the bank date
   if (pp?.user_id) {
     const email = await emailForUser(pp.user_id)
     if (email) {
-      await sendEmail(email, `You've been paid — ${payout || total}`, renderNotificationEmail({
-        heading: "You've been paid",
-        body: 'The customer confirmed the job is complete and your payout has been released.',
+      const connected = pp.stripe_account_status === 'active'
+      const delay = Number(pp.payout_delay_days ?? 7)
+      const clears = new Date(new Date(record.captured_at ?? Date.now()).getTime() + delay * 86_400_000)
+      const bankLine = connected
+        ? `It's in your Stripe balance now and clears to your bank on ${escapeHtml(ukDate(clears.toISOString().slice(0, 10)))} — the ${delay}-day clearing period that lets us put any customer problem right fairly.`
+        : `Your bank isn't connected yet, so the Servios team will pay this out to you. Connect your bank on the Payouts page to receive future payments automatically.`
+      await sendEmail(email, `You've been paid — ${payout} · ${customerShort} · ${ref}`, renderNotificationEmail({
+        heading: `You've been paid ${payout}`,
+        body: `${escapeHtml(customerName)} confirmed the job is complete. ${bankLine}`,
         details: [
+          { label: 'Customer', value: escapeHtml(customerName) },
           { label: 'Service', value: service },
           ...(when ? [{ label: 'When', value: escapeHtml(when) }] : []),
-          ...(total ? [{ label: 'Job amount', value: total }] : []),
-          ...(payout ? [{ label: 'Your payout', value: payout }] : []),
+          { label: 'Job amount', value: total },
+          { label: `Servios commission (${ratePct}%)`, value: `−${poundsFromCents(commission)}` },
+          { label: 'Your payout', value: payout },
+          ...(connected ? [{ label: 'Clears to bank', value: escapeHtml(ukDate(clears.toISOString().slice(0, 10))) }] : []),
           ...(ref ? [{ label: 'Reference', value: escapeHtml(ref) }] : []),
         ],
         ctaLabel: 'View earnings',
         ctaPath: '/provider/earnings',
-        secondaryCtas: [{ label: 'View booking', path: `/provider/bookings/${record.id}` }],
-        preheader: `${payout || total} released for ${service}`,
+        secondaryCtas: [{ label: 'View booking', path: `/provider/bookings/${b.id}` }],
+        preheader: `${payout} from ${customerName} for ${service}`,
       }))
     }
   }
@@ -144,7 +174,7 @@ async function handleReviewInsert(record: Record<string, any>) {
   if (!email) return
 
   await sendEmail(email, `New ${stars}-star review from ${reviewer.name}`, renderNotificationEmail({
-    heading: `New review — ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}`,
+    heading: `New review — ${stars} out of 5`,
     person: { ...reviewer, name: escapeHtml(reviewer.name) },
     note: record.review_text ? escapeHtml(String(record.review_text)) : undefined,
     ctaLabel: 'View your reviews',
@@ -185,7 +215,7 @@ async function handleBookingInsert(record: Record<string, any>) {
   const when = `${ukDate(record.scheduled_date)}, ${ukTime(record.scheduled_time_start)}`
   const price = poundsFromCents(record.total_amount)
   const address = addressOf(record)
-  const chatPath = await conversationPathFor(record.id, `/provider/bookings/${record.id}`)
+  const chatPath = conversationPathFor(record.id)
 
   // The two things a tradesperson decides on are the price and the location
   // (client feedback) — plus the customer's notes, all on a details card.
@@ -217,12 +247,8 @@ async function handleBookingInsert(record: Record<string, any>) {
 }
 
 async function handleBookingStatusChange(record: Record<string, any>, oldRecord: Record<string, any>) {
-  // Customer confirming completion releases the escrow — that transition
-  // (not the status, which is already 'completed') sends the receipt and
-  // the you've-been-paid emails both sides look for in a dispute.
-  if (record.customer_confirmed_at && !oldRecord.customer_confirmed_at) {
-    return handlePaymentReleased(record)
-  }
+  // Confirmation itself sends nothing — the receipt / paid emails fire from
+  // the payments row when the capture actually succeeds (handlePaymentCaptured)
   if (record.status === oldRecord.status) return
   if (!['accepted', 'rejected', 'in_progress', 'completed', 'cancelled'].includes(record.status)) return
 
@@ -255,7 +281,8 @@ async function handleBookingStatusChange(record: Record<string, any>, oldRecord:
   const price = poundsFromCents(record.total_amount)
   const address = addressOf(record)
   const detail = [when, price].filter(Boolean).join(' — ')
-  const chatPath = await conversationPathFor(record.id, `/bookings/${record.id}`)
+  const chatPath = conversationPathFor(record.id)
+  const paid = ['authorized', 'paid', 'partially_refunded'].includes(record.payment_status ?? '') || !(Number(record.total_amount) > 0)
 
   const providerPerson = pp ? {
     name: providerName,
@@ -283,10 +310,14 @@ async function handleBookingStatusChange(record: Record<string, any>, oldRecord:
 
   const COPY: Record<string, { subject: string; heading: string; body: string; pre: string }> = {
     accepted: {
-      subject: `Booking accepted — ${svc?.title ?? 'your job'}`,
+      subject: `Booking accepted — ${svc?.title ?? 'your job'} · ${record.booking_number ?? ''}`.trim(),
       heading: 'Booking accepted',
-      body: `You're all set — we'll let you know when work starts.`,
-      pre: `${providerName} accepted ${service}${detail ? ` · ${detail}` : ''}`,
+      // The customer's next step is the card authorisation — say so (client:
+      // "a customer who only reads email won't know payment is pending")
+      body: paid
+        ? `You're all set — we'll let you know when work starts.`
+        : `One thing before the visit: authorise ${price || 'the payment'} on your card. It's only a hold — nothing is charged until you confirm the job is done, and ${providerName} can't start until it's in place.`,
+      pre: paid ? `${providerName} accepted ${service}${detail ? ` · ${detail}` : ''}` : `Next step: authorise ${price || 'payment'} for ${service}`,
     },
     rejected: {
       subject: `Booking declined — ${svc?.title ?? 'your job'}`,
@@ -331,7 +362,9 @@ async function handleBookingStatusChange(record: Record<string, any>, oldRecord:
   // "confirm and release £90" can't hide behind a View booking label)
   const ctaLabelFor = record.status === 'completed'
     ? `Confirm & release ${price || 'payment'}`
-    : 'View booking'
+    : record.status === 'accepted' && !paid
+      ? `Authorise ${price || 'payment'}`
+      : 'View booking'
 
   await Promise.all(targets.map(async ({ userId, path }) => {
     const email = await emailForUser(userId)
@@ -649,7 +682,9 @@ async function handleDisputeInsert(record: Record<string, any>) {
     if (providerEmail) {
       await sendEmail(providerEmail, `Action needed: a problem was reported — ${ctx.service}`, renderNotificationEmail({
         heading: 'A customer reported a problem',
-        body: 'Please give your side as soon as you can — Servios support reads both before deciding anything. The amount in question is held until the case is resolved; the rest of your earnings aren’t affected.',
+        body: Number(record.held_amount) > 0
+          ? `Please give your side as soon as you can — Servios support reads both before deciding anything. <strong>${poundsFromCents(Number(record.held_amount))} of your payout for this job is on hold</strong> until the case is resolved; the rest of your earnings aren’t affected.`
+          : 'Please give your side as soon as you can — Servios support reads both before deciding anything. No payment has been taken for this job yet, so nothing is held.',
         person: { name: escapeHtml(customer.name), avatarUrl: customer.avatarUrl, meta: 'Customer' },
         details: ctx.details,
         note: escapeHtml(String(record.dispute_reason ?? '')),
@@ -812,6 +847,8 @@ export async function POST(req: NextRequest) {
       await handleDocumentStatusChange(payload.record, payload.old_record)
     } else if (payload.table === 'provider_profiles' && payload.type === 'UPDATE' && payload.old_record) {
       await handleVerificationChange(payload.record, payload.old_record)
+    } else if (payload.table === 'payments' && payload.type === 'UPDATE' && payload.old_record) {
+      await handlePaymentCaptured(payload.record, payload.old_record)
     } else if (payload.table === 'disputes' && payload.type === 'INSERT') {
       await handleDisputeInsert(payload.record)
     } else if (payload.table === 'disputes' && payload.type === 'UPDATE' && payload.old_record) {

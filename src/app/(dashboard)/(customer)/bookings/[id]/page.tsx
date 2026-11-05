@@ -232,13 +232,20 @@ export default function CustomerBookingDetailPage() {
     // invisibly when suppressed and read as a browser freeze)
     setConfirming(true)
 
-    // customer_confirmed_at is the escrow gate — provider marking complete
-    // alone never releases payment (Round 4 finding A)
+    // customer_confirmed_at is the escrow gate. The provider must already have
+    // marked the job complete and the card must be authorised — the database
+    // enforces both, so a stale page can't slip through (Round 6 blockers 1/2)
     const confirmedAt = new Date().toISOString()
     const { error } = await supabase.from('bookings')
-      .update({ status: 'completed', completed_at: confirmedAt, customer_confirmed_at: confirmedAt })
+      .update({ customer_confirmed_at: confirmedAt, completed_at: booking?.completed_at ?? confirmedAt })
       .eq('id', id)
-    if (error) { setConfirming(false); return }
+    if (error) {
+      setConfirming(false)
+      setPayError(error.message.includes('authorise') ? 'Authorise the payment first — then you can confirm the job.'
+        : error.message.includes('mark the job complete') ? 'Your provider hasn’t marked this job complete yet.'
+        : 'We couldn’t confirm the job — please refresh and try again.')
+      return
+    }
 
     setBooking((b: any) => ({ ...b, status: 'completed', customer_confirmed_at: confirmedAt }))
 
@@ -299,11 +306,24 @@ export default function CustomerBookingDetailPage() {
 
   // Customer can confirm while work is underway, or after the provider marks
   // complete — until they do, nothing is released (finding A)
-  const canConfirm = !disputeState.hasOpenDispute && (
-    ['in_progress', 'accepted'].includes(booking.status) ||
-    (booking.status === 'completed' && !booking.customer_confirmed_at))
+  // Payment authorised (or nothing to pay)
+  const paidUp = !(Number(booking.total_amount) > 0)
+    || ['authorized', 'succeeded', 'partially_refunded'].includes(payment?.payment_status)
+  // The customer confirms only after the provider has marked the job complete
+  // (client, Round 6) and only once the card is authorised
+  const awaitingConfirmation = booking.status === 'completed' && !booking.customer_confirmed_at
+  const canConfirm = awaitingConfirmation && paidUp && !disputeState.hasOpenDispute
+  const canPay = Number(booking.total_amount) > 0 && !checkout
+    && (['accepted', 'in_progress'].includes(booking.status) || awaitingConfirmation)
+    && !['authorized', 'succeeded', 'refunded', 'partially_refunded'].includes(payment?.payment_status)
   const canCancel = ['pending', 'accepted'].includes(booking.status)
-  const canReview = booking.status === 'completed'
+  const canReview = booking.status === 'completed' && !!booking.customer_confirmed_at && !disputeState.hasOpenDispute
+  const addressText = (() => {
+    const sa = booking.service_address
+    if (!sa) return null
+    if (typeof sa === 'string') return sa
+    return sa.formatted_address ?? ([sa.line1, sa.line2, sa.city, sa.postcode].filter(Boolean).join(', ') || null)
+  })()
   const canClaim = booking.status === 'completed' && (() => {
     if (!booking.completed_at) return true
     const days = (Date.now() - new Date(booking.completed_at).getTime()) / (1000 * 60 * 60 * 24)
@@ -380,6 +400,13 @@ export default function CustomerBookingDetailPage() {
           <span className="text-sm text-gray-500">Time</span>
           <span className="text-sm font-medium">{formatTime(booking.scheduled_time_start)}</span>
         </div>
+        {addressText && (
+          <div className="flex items-start justify-between gap-6 border-t pt-4">
+            <span className="shrink-0 text-sm text-gray-500">Address</span>
+            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressText)}`} target="_blank" rel="noopener noreferrer"
+              className="text-right text-sm font-medium text-gray-900 hover:text-primary hover:underline">{addressText}</a>
+          </div>
+        )}
         <div className="flex items-center justify-between border-t pt-4">
           <span className="text-sm text-gray-500">Amount</span>
           <span className="text-sm font-semibold text-gray-900">{formatCurrency(booking.total_amount / 100)}</span>
@@ -394,6 +421,23 @@ export default function CustomerBookingDetailPage() {
           <div className="border-t pt-4">
             {(() => {
               const ps = payment?.payment_status
+              // An open problem report freezes everything — say so instead of
+              // "released" sitting above "on hold" (client Round 6 #10)
+              if (disputeState.hasOpenDispute) {
+                return (
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 flex items-start gap-3">
+                    <Lock size={16} className="mt-0.5 shrink-0 text-amber-600" />
+                    <div>
+                      <p className="text-[13px] font-semibold text-amber-900">Payment on hold — problem under review</p>
+                      <p className="text-[12px] text-amber-700 mt-0.5">
+                        {ps === 'succeeded' || ps === 'authorized'
+                          ? `${formatCurrency(booking.total_amount / 100)} stays with Servios until support has reviewed both sides. Any refund comes from this.`
+                          : 'No payment has been taken for this job. Support will review both sides and be in touch.'}
+                      </p>
+                    </div>
+                  </div>
+                )
+              }
               // Refunds win over everything else
               if (ps === 'refunded' || ps === 'partially_refunded') {
                 const refunded = Number(payment?.refund_amount ?? booking.total_amount)
@@ -435,7 +479,9 @@ export default function CustomerBookingDetailPage() {
                     <div>
                       <p className="text-[13px] font-semibold text-amber-900">Provider marked this job complete</p>
                       <p className="text-[12px] text-amber-700 mt-0.5">
-                        Happy with the work? Confirm below to release payment. Not right? Message the provider or raise an issue.
+                        {paidUp
+                          ? 'Happy with the work? Confirm below to release payment. Not right? Report a problem and the payment stays held.'
+                          : `Authorise ${formatCurrency(booking.total_amount / 100)} below first — then confirm the job to release it, or report a problem.`}
                       </p>
                     </div>
                   </div>
@@ -578,10 +624,7 @@ export default function CustomerBookingDetailPage() {
       )}
 
       <div className="flex gap-3">
-        {['accepted', 'in_progress'].includes(booking.status)
-          && booking.total_amount > 0
-          && !checkout
-          && !['authorized', 'succeeded', 'refunded', 'partially_refunded'].includes(payment?.payment_status) && (
+        {canPay && (
           <button onClick={handlePay} disabled={paying}
             className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50">
             {paying ? 'Starting secure checkout…' : <><Lock size={14} /> {payment?.payment_status === 'failed' ? 'Try payment again' : `Pay £${(booking.total_amount / 100).toFixed(2)} securely`}</>}
@@ -618,6 +661,7 @@ export default function CustomerBookingDetailPage() {
         openForm={openReport}
         onFormClosed={() => setOpenReport(false)}
         onState={setDisputeState}
+        refreshKey={`${booking.status}|${booking.customer_confirmed_at ?? ''}|${payment?.payment_status ?? ''}`}
       />
 
       {/* Workmanship-claim entry point hidden until a real guarantee policy

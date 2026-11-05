@@ -37,7 +37,9 @@ export function StripePaymentForm({ clientSecret, amountLabel, onAuthorised, onC
         clientSecret,
         appearance: {
           theme: 'stripe',
-          variables: { colorPrimary: '#115e56', borderRadius: '12px', fontFamily: 'inherit', fontSizeBase: '14px' },
+          // The Element lives in an iframe, so "inherit" can't see the page
+          // font — pass the same system stack the site uses
+          variables: { colorPrimary: '#115e56', borderRadius: '12px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif', fontSizeBase: '14px' },
         },
       })
       const el = els.create('payment', { layout: 'tabs' })

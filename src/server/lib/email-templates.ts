@@ -124,7 +124,7 @@ ${preheaderHtml}
           <td style="padding-bottom:28px;">
             <table role="presentation" cellpadding="0" cellspacing="0">
               <tr>
-                <td style="vertical-align:middle;"><img src="${SITE_URL}/brand/servios-mark.png" width="33" height="32" alt="" style="display:block;border:0;" /></td>
+                <td style="vertical-align:middle;"><img src="${SITE_URL}/brand/servios-mark.png" width="33" height="32" alt="Servios" style="display:block;border:0;" /></td>
                 <td class="ink" style="padding-left:10px;font-size:19px;font-weight:600;letter-spacing:-0.03em;vertical-align:middle;"><span style="color:#171717;">servios</span></td>
               </tr>
             </table>
@@ -163,8 +163,9 @@ ${preheaderHtml}
         <tr>
           <td class="mut" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:11.5px;line-height:1.7;color:#9ca3af;text-align:center;padding-top:22px;">
             ${COMPANY_FOOTER}<br>
-            ${COMPANY_ADDRESS}<br>
+            <span style="color:#9ca3af;text-decoration:none;">${COMPANY_ADDRESS.replace(/(\d)/g, '$1&#8288;')}</span><br>
             You received this email because you have a Servios account with activity on it.
+            <a href="${SITE_URL}/settings" class="lnk" style="color:#9ca3af;text-decoration:underline;">Manage notifications</a>
           </td>
         </tr>
       </table>

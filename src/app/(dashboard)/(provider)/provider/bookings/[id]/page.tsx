@@ -26,6 +26,8 @@ export default function ProviderBookingDetailPage() {
   const [conversation, setConversation] = useState<any>(null)
   const [offer, setOffer]               = useState<any>(null)
   const [milestones, setMilestones]     = useState<any[]>([])
+  const [disputeOpen, setDisputeOpen]   = useState(false)
+  const [nudge, setNudge]               = useState<'idle' | 'sending' | 'sent' | string>('idle')
 
   useEffect(() => {
     async function load() {
@@ -91,16 +93,35 @@ export default function ProviderBookingDetailPage() {
     setMilestones(prev => prev.map(m => m.id === milestoneId ? { ...m, ...updates } : m))
   }
 
+  // Card authorised (or nothing to pay) — work can't start without it
+  const paidUp = !(Number(booking?.total_amount) > 0)
+    || ['authorized', 'paid', 'partially_refunded'].includes(booking?.payment_status ?? '')
+
+  async function askForPayment() {
+    setNudge('sending')
+    const res = await fetch(`/api/bookings/${id}/payment-nudge`, { method: 'POST' })
+    const json: any = await res.json().catch(() => ({}))
+    setNudge(res.ok ? 'sent' : (json?.error ?? 'Could not send the reminder'))
+  }
+
   async function updateStatus(status: string) {
     setActing(true)
     setActionNotice(null)
+    if (['in_progress', 'completed'].includes(status) && !paidUp) {
+      setActionNotice('The customer hasn’t authorised payment yet — work can start once their card is secured. Use “Ask them to pay” below.')
+      setActing(false)
+      return
+    }
     const updates: Record<string, any> = { status }
     if (status === 'accepted') updates.accepted_at = new Date().toISOString()
     if (status === 'in_progress') updates.started_at = new Date().toISOString()
+    if (status === 'completed') updates.completed_at = new Date().toISOString()
     const { error } = await supabase.from('bookings').update(updates).eq('id', id)
     if (error) {
       console.error('Status update failed:', error)
-      setActionNotice('Could not update the booking — please try again.')
+      setActionNotice(error.message.includes('authorise')
+        ? 'The customer hasn’t authorised payment yet — work can start once their card is secured.'
+        : 'Could not update the booking — please try again.')
       setActing(false)
       return
     }
@@ -280,20 +301,56 @@ export default function ProviderBookingDetailPage() {
             </div>
           </div>
 
-          {/* ── Escrow / payment status banner ── */}
-          {['pending', 'accepted', 'in_progress'].includes(booking.status) && booking.total_amount > 0 && (
-            <div className="mx-6 mb-5 rounded-xl bg-gray-50 border border-gray-200 px-5 py-4 flex items-start gap-3">
-              <Lock size={16} className="mt-0.5 text-gray-500 shrink-0" />
+          {/* ── Payment state — the provider needs to know whether the card is
+                 secured before they turn up (Round 6 #11) ── */}
+          {disputeOpen && (
+            <div className="mx-6 mb-5 rounded-xl bg-amber-50 border border-amber-200 px-5 py-4 flex items-start gap-3">
+              <Lock size={16} className="mt-0.5 text-amber-600 shrink-0" />
               <div>
-                <p className="text-sm font-semibold text-gray-900">Payment in escrow</p>
-                <p className="text-xs text-gray-500 mt-0.5">Released to you once the customer confirms job completion.</p>
+                <p className="text-sm font-semibold text-amber-900">Payout on hold — problem under review</p>
+                <p className="text-xs text-amber-700 mt-0.5">The amount in question is held until Servios support has reviewed both sides. See the case below.</p>
               </div>
             </div>
+          )}
+          {!disputeOpen && ['pending', 'accepted', 'in_progress'].includes(booking.status) && booking.total_amount > 0 && (
+            paidUp ? (
+              <div className="mx-6 mb-5 rounded-xl bg-green-50 border border-green-200 px-5 py-4 flex items-start gap-3">
+                <CheckCircle2 size={16} className="mt-0.5 text-green-600 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-green-900">Customer’s payment authorised — {formatCurrency((booking.total_amount ?? 0) / 100)} secured</p>
+                  <p className="text-xs text-green-700 mt-0.5">Held by Servios and paid to you when the customer confirms the job is done. You’re good to go.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="mx-6 mb-5 rounded-xl bg-amber-50 border border-amber-200 px-5 py-4">
+                <div className="flex items-start gap-3">
+                  <Lock size={16} className="mt-0.5 text-amber-600 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-amber-900">Awaiting customer payment</p>
+                    <p className="text-xs text-amber-700 mt-0.5">
+                      {booking.status === 'pending'
+                        ? 'Once you accept, the customer is asked to authorise their card. Work can start when it’s secured.'
+                        : 'The customer hasn’t authorised their card yet. You can’t start the job until it’s secured — nothing is charged to them until they confirm the work.'}
+                    </p>
+                    {booking.status !== 'pending' && (
+                      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                        <button onClick={askForPayment} disabled={nudge === 'sending' || nudge === 'sent'}
+                          className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-60">
+                          {nudge === 'sending' ? 'Sending…' : nudge === 'sent' ? 'Reminder sent' : 'Ask them to pay'}
+                        </button>
+                        {nudge !== 'idle' && nudge !== 'sending' && nudge !== 'sent' && <span className="text-xs text-amber-800">{nudge}</span>}
+                        {nudge === 'sent' && <span className="text-xs text-amber-800">We’ve emailed the customer an Authorise button.</span>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
           )}
 
           {/* Marking complete does NOT release payment — the customer confirms
               first (finding A: escrow released on the provider's word) */}
-          {booking.status === 'completed' && !booking.customer_confirmed_at && (
+          {!disputeOpen && booking.status === 'completed' && !booking.customer_confirmed_at && (
             <div className="mx-6 mb-5 rounded-xl bg-amber-50 border border-amber-200 px-5 py-4 flex items-start gap-3">
               <Lock size={16} className="mt-0.5 text-amber-600 shrink-0" />
               <div>
@@ -306,7 +363,7 @@ export default function ProviderBookingDetailPage() {
             </div>
           )}
 
-          {booking.status === 'completed' && booking.customer_confirmed_at && (
+          {!disputeOpen && booking.status === 'completed' && booking.customer_confirmed_at && (
             <div className="mx-6 mb-5 rounded-xl bg-green-50 border border-green-200 px-5 py-4 flex items-start gap-3">
               <CheckCircle2 size={16} className="mt-0.5 text-green-600 shrink-0" />
               <div>
@@ -411,7 +468,9 @@ export default function ProviderBookingDetailPage() {
           )}
         </div>
 
-        <DisputePanel bookingId={id as string} totalPence={Number(booking.total_amount) || 0} />
+        <DisputePanel bookingId={id as string} totalPence={Number(booking.total_amount) || 0}
+          refreshKey={`${booking.status}|${booking.customer_confirmed_at ?? ''}`}
+          onState={s => setDisputeOpen(s.hasOpenDispute)} />
 
         <BookingPhotos
           bookingId={id as string}

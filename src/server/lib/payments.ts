@@ -1,6 +1,8 @@
 import type Stripe from 'stripe'
 import { supabase } from '../db/client'
 import { stripe } from './stripe'
+import { sendEmail } from './notifications'
+import { renderNotificationEmail, escapeHtml, ukDate, ukTime, poundsFromCents } from './email-templates'
 
 /**
  * Payment lifecycle (separate charges & transfers — the Connect model the
@@ -108,7 +110,104 @@ export async function markAuthorized(payment: PaymentRow): Promise<PaymentRow> {
   if (payment.payment_status === 'authorized' || payment.payment_status === 'succeeded') return payment
   const updated = await updatePayment(payment.id, { payment_status: 'authorized' })
   await setBookingPaymentStatus(payment.booking_id, 'authorized')
+  // The provider needs to know the card is secured before they turn up
+  // (client: "a provider can't tell whether to turn up")
+  try { await notifyProviderAuthorised(payment) } catch (e) { console.error('authorised notification failed:', e) }
   return updated ?? { ...payment, payment_status: 'authorized' }
+}
+
+async function notifyProviderAuthorised(payment: PaymentRow) {
+  const { data: b } = await supabase
+    .from('bookings')
+    .select('id, booking_number, scheduled_date, scheduled_time_start, total_amount, provider_id, customer_id, service:services(title)')
+    .eq('id', payment.booking_id).maybeSingle()
+  if (!b?.provider_id) return
+  const [{ data: pp }, { data: cp }] = await Promise.all([
+    supabase.from('provider_profiles').select('user_id').eq('id', b.provider_id).maybeSingle(),
+    supabase.from('customer_profiles').select('first_name, last_name').eq('id', b.customer_id).maybeSingle(),
+  ])
+  if (!pp?.user_id) return
+  const service = (b.service as any)?.title ?? 'the job'
+  const amount = poundsFromCents(Number(b.total_amount))
+  const customer = `${cp?.first_name ?? ''} ${cp?.last_name ?? ''}`.trim() || 'The customer'
+  const when = b.scheduled_date ? `${ukDate(b.scheduled_date)}, ${ukTime(b.scheduled_time_start)}` : ''
+
+  await supabase.from('notifications').insert({
+    user_id: pp.user_id,
+    notification_type: 'payment_authorised',
+    title: `Payment secured — ${amount}`,
+    body: `${customer} has authorised ${amount} for ${service}. You're good to go.`,
+    data: { booking_id: b.id },
+  })
+  const { data: u } = await supabase.auth.admin.getUserById(pp.user_id)
+  const email = u?.user?.email
+  if (!email) return
+  await sendEmail(email, `Payment secured — ${amount} · ${customer} · ${b.booking_number ?? ''}`.trim(), renderNotificationEmail({
+    heading: 'Payment secured',
+    body: `${escapeHtml(customer)} has authorised ${amount} on their card for this job. It's held by Servios and paid to you when they confirm the work is done — you're good to go.`,
+    details: [
+      { label: 'Service', value: escapeHtml(service) },
+      ...(when ? [{ label: 'When', value: escapeHtml(when) }] : []),
+      { label: 'Amount secured', value: amount },
+      ...(b.booking_number ? [{ label: 'Reference', value: escapeHtml(String(b.booking_number)) }] : []),
+    ],
+    ctaLabel: 'View booking',
+    ctaPath: `/provider/bookings/${b.id}`,
+    preheader: `${customer} authorised ${amount} for ${service}`,
+  }))
+}
+
+/** One Stripe Customer per Servios account, so Stripe-side records match. */
+async function ensureStripeCustomer(payerUserId: string): Promise<{ id: string; email: string | null } | null> {
+  const [{ data: cp }, { data: u }] = await Promise.all([
+    supabase.from('customer_profiles').select('id, stripe_customer_id, first_name, last_name').eq('user_id', payerUserId).maybeSingle(),
+    supabase.auth.admin.getUserById(payerUserId),
+  ])
+  const email = u?.user?.email ?? null
+  if (!cp) return email ? { id: '', email } : null
+  if (cp.stripe_customer_id) return { id: cp.stripe_customer_id, email }
+  const customer = await stripe.customers.create({
+    email: email ?? undefined,
+    name: `${cp.first_name ?? ''} ${cp.last_name ?? ''}`.trim() || undefined,
+    metadata: { servios_user_id: payerUserId, customer_profile_id: cp.id },
+  })
+  await supabase.from('customer_profiles').update({ stripe_customer_id: customer.id }).eq('id', cp.id)
+  return { id: customer.id, email }
+}
+
+/** "SERVIOS* BK-4F3C34" on the cardholder's statement. A suffix is only
+ *  valid once the account-level descriptor is set (Stripe dashboard →
+ *  Business → Public details — the API can't set it on our own account), so
+ *  check that first and cache the answer. */
+let accountDescriptorCache: { value: string; at: number } | null = null
+async function accountDescriptor(): Promise<string> {
+  if (accountDescriptorCache && Date.now() - accountDescriptorCache.at < 10 * 60_000) return accountDescriptorCache.value
+  try {
+    const acct = await stripe.accounts.retrieve()
+    accountDescriptorCache = { value: acct.settings?.payments?.statement_descriptor ?? '', at: Date.now() }
+  } catch {
+    accountDescriptorCache = { value: '', at: Date.now() }
+  }
+  return accountDescriptorCache.value
+}
+
+async function descriptorSuffix(bookingNumber: string | null): Promise<string | undefined> {
+  if (!bookingNumber) return undefined
+  const prefix = await accountDescriptor()
+  if (!prefix) return undefined
+  const tail = bookingNumber.split('-').pop() ?? ''
+  // Prefix + "* " + suffix must fit in 22 characters
+  const room = Math.max(0, 22 - prefix.length - 2)
+  const suffix = `BK-${tail}`.replace(/[^A-Za-z0-9 -]/g, '').slice(0, room)
+  return /[A-Za-z]/.test(suffix) && suffix.length >= 3 ? suffix : undefined
+}
+
+/** Card brand + last 4 for receipts. */
+async function cardSummary(chargeOrId: Stripe.Charge | string | null | undefined): Promise<{ brand: string; last4: string } | null> {
+  if (!chargeOrId) return null
+  const charge = typeof chargeOrId === 'string' ? await stripe.charges.retrieve(chargeOrId) : chargeOrId
+  const card = charge.payment_method_details?.card
+  return card?.last4 ? { brand: card.brand ?? 'card', last4: card.last4 } : null
 }
 
 export interface IntentResult {
@@ -168,12 +267,16 @@ export async function createOrReuseIntent(booking: PayableBooking, payerUserId: 
     }
   }
 
+  const stripeCustomer = await ensureStripeCustomer(payerUserId).catch(e => { console.error('stripe customer failed:', e); return null })
   const pi = await stripe.paymentIntents.create({
     amount,
     currency: 'gbp',
     capture_method: 'manual',
     payment_method_types: ['card'],
     description: `Servios booking ${booking.booking_number ?? booking.id}`,
+    statement_descriptor_suffix: await descriptorSuffix(booking.booking_number),
+    ...(stripeCustomer?.id ? { customer: stripeCustomer.id } : {}),
+    ...(stripeCustomer?.email ? { receipt_email: stripeCustomer.email } : {}),
     metadata: {
       booking_id: booking.id,
       booking_number: booking.booking_number ?? '',
@@ -217,8 +320,12 @@ async function applyIntentState(payment: PaymentRow, pi: Stripe.PaymentIntent): 
     case 'succeeded': {
       if (payment.payment_status === 'succeeded') return payment
       const chargeId = typeof pi.latest_charge === 'string' ? pi.latest_charge : pi.latest_charge?.id ?? null
+      const card = await cardSummary(pi.latest_charge).catch(() => null)
       const now = new Date().toISOString()
-      const updated = await updatePayment(payment.id, { payment_status: 'succeeded', captured_at: payment.captured_at ?? now, paid_at: payment.paid_at ?? now, stripe_charge_id: chargeId })
+      const updated = await updatePayment(payment.id, {
+        payment_status: 'succeeded', captured_at: payment.captured_at ?? now, paid_at: payment.paid_at ?? now, stripe_charge_id: chargeId,
+        ...(card ? { payment_metadata: { ...((payment as any).payment_metadata ?? {}), card } } : {}),
+      })
       await setBookingPaymentStatus(payment.booking_id, 'paid')
       return updated ?? payment
     }
@@ -251,11 +358,16 @@ export async function capturePayment(bookingId: string): Promise<PaymentRow | nu
 
   const now = new Date().toISOString()
   let chargeId: string | null = payment.stripe_charge_id
+  let card: { brand: string; last4: string } | null = null
   if (!isSimulatedIntent(payment.payment_intent_id) && payment.payment_intent_id) {
-    const pi = await stripe.paymentIntents.capture(payment.payment_intent_id)
+    const pi = await stripe.paymentIntents.capture(payment.payment_intent_id, { expand: ['latest_charge'] })
     chargeId = typeof pi.latest_charge === 'string' ? pi.latest_charge : pi.latest_charge?.id ?? null
+    card = await cardSummary(pi.latest_charge).catch(() => null)
   }
-  const updated = await updatePayment(payment.id, { payment_status: 'succeeded', captured_at: now, paid_at: now, stripe_charge_id: chargeId })
+  const updated = await updatePayment(payment.id, {
+    payment_status: 'succeeded', captured_at: now, paid_at: now, stripe_charge_id: chargeId,
+    ...(card ? { payment_metadata: { ...((payment as any).payment_metadata ?? {}), card } } : {}),
+  })
   await setBookingPaymentStatus(bookingId, 'paid')
 
   // Provider is paid on confirmation (into their Stripe balance; the bank

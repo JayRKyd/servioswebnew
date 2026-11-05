@@ -91,6 +91,9 @@ export async function loadDisputeView(disputeId: string, viewer: Viewer) {
       filedAt: dispute.filed_at,
       resolvedAt: dispute.resolved_at,
       evidence: asFiles(evidencePaths),
+      // Both sides see the money at stake (client Round 6 #7)
+      heldAmount: Number(dispute.held_amount ?? 0),
+      desiredAmountShare: dispute.desired_amount != null ? Number(dispute.desired_amount) : null,
     },
     booking: booking ? {
       id: booking.id,
