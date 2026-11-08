@@ -108,12 +108,20 @@ async function updatePayment(paymentId: string, patch: Record<string, unknown>):
 
 export async function markAuthorized(payment: PaymentRow): Promise<PaymentRow> {
   if (payment.payment_status === 'authorized' || payment.payment_status === 'succeeded') return payment
-  const updated = await updatePayment(payment.id, { payment_status: 'authorized' })
+  // Conditional update: the webhook and the page's sync call race here, and
+  // only the one that actually flips the row should notify the provider
+  const { data: updated, error } = await supabase.from('payments')
+    .update({ payment_status: 'authorized' })
+    .eq('id', payment.id)
+    .not('payment_status', 'in', '("authorized","succeeded","partially_refunded","refunded")')
+    .select(PAYMENT_COLUMNS).maybeSingle()
+  if (error) throw error
+  if (!updated) return (await paymentById(payment.id)) ?? { ...payment, payment_status: 'authorized' }
   await setBookingPaymentStatus(payment.booking_id, 'authorized')
   // The provider needs to know the card is secured before they turn up
   // (client: "a provider can't tell whether to turn up")
   try { await notifyProviderAuthorised(payment) } catch (e) { console.error('authorised notification failed:', e) }
-  return updated ?? { ...payment, payment_status: 'authorized' }
+  return updated as PaymentRow
 }
 
 async function notifyProviderAuthorised(payment: PaymentRow) {

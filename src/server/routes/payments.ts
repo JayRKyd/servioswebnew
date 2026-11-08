@@ -46,8 +46,12 @@ payments.post('/intent', authMiddleware, zValidator('json', createIntentSchema),
   const userId = c.get('userId')
   const booking = await assertPayer(bookingId, userId)
 
-  if (!['accepted', 'in_progress'].includes(booking.status)) {
-    throw new HTTPException(400, { message: 'Payment opens once the provider has accepted the booking' })
+  // Payable from acceptance until the customer confirms (the Pay step must
+  // survive the provider marking the job complete — Round 6 #10)
+  const payable = ['accepted', 'in_progress'].includes(booking.status)
+    || (booking.status === 'completed' && !booking.customer_confirmed_at)
+  if (!payable) {
+    throw new HTTPException(400, { message: booking.status === 'pending' ? 'Payment opens once the provider has accepted the booking' : 'This booking can no longer be paid' })
   }
 
   try {
