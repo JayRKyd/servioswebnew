@@ -42,7 +42,7 @@ export async function detectCleanup(): Promise<CleanupItem[]> {
     supabase.from('customer_profiles').select('id, user_id, first_name, last_name'),
     supabase.from('users').select('id, email, roles, status, created_at'),
     supabase.from('reviews').select('id, reviewer_id, reviewee_id, reviewer_name, rating, review_text, booking_id'),
-    supabase.from('service_categories').select('id, name'),
+    supabase.from('service_categories').select('id, name, slug, is_active'),
     supabase.from('bookings').select('id, booking_number, status, total_amount').ilike('booking_number', 'BK-SEED-%'),
   ])
   const emailByUser = Object.fromEntries((users ?? []).map(u => [u.id, u.email]))
@@ -70,12 +70,14 @@ export async function detectCleanup(): Promise<CleanupItem[]> {
       items.push({ kind: 'orphan_review', id: r.id, label: `${r.rating}★ "${(r.review_text ?? '').slice(0, 60)}" on ${target?.business_name?.trim() || target?.first_name || 'provider'}`, detail: `Reviewer "${r.reviewer_name ?? 'Customer'}" has no account — a seeded review. Removing it recalculates the provider's rating.` })
     }
   }
-  const byLower: Record<string, { id: string; name: string }[]> = {}
+  // Same name twice (e.g. an old inactive "plumber" slug beside the live
+  // "plumbing"): keep the active one, fold the rest into it
+  const byLower: Record<string, { id: string; name: string; slug: string | null; is_active: boolean | null }[]> = {}
   for (const c of cats ?? []) (byLower[c.name.trim().toLowerCase()] ??= []).push(c)
   for (const group of Object.values(byLower)) {
     if (group.length < 2) continue
-    const canonical = group.find(g => g.name === g.name.charAt(0).toUpperCase() + g.name.slice(1)) ?? group[0]
-    for (const g of group) if (g.id !== canonical.id) items.push({ kind: 'duplicate_category', id: g.id, label: `"${g.name}" duplicates "${canonical.name}"`, detail: `Services in "${g.name}" are moved to "${canonical.name}" and the duplicate category is removed.` })
+    const canonical = group.find(g => g.is_active) ?? group[0]!
+    for (const g of group) if (g.id !== canonical.id) items.push({ kind: 'duplicate_category', id: g.id, label: `"${g.name}" (${g.slug ?? 'no slug'}${g.is_active ? '' : ', inactive'}) duplicates "${canonical.name}" (${canonical.slug ?? 'no slug'})`, detail: `Services under the duplicate are moved to "${canonical.name}" and the duplicate category is removed.` })
   }
   for (const b of seedBookings ?? []) {
     items.push({ kind: 'seed_booking', id: b.id, label: `${b.booking_number} · ${b.status} · £${(Number(b.total_amount) / 100).toFixed(2)}`, detail: 'Seeded booking (BK-SEED-…). Its photos, chat, reviews and disputes go with it.' })
@@ -121,10 +123,11 @@ export async function runCleanup(items: { kind: CleanupKind; id: string }[], act
           results.push({ ...it, ok: !error, outcome: error?.message ?? 'placeholder bio cleared' }); break
         }
         case 'duplicate_category': {
-          const { data: dup } = await supabase.from('service_categories').select('id, name').eq('id', it.id).maybeSingle()
+          const { data: dup } = await supabase.from('service_categories').select('id, name, is_active').eq('id', it.id).maybeSingle()
           if (!dup) { results.push({ ...it, ok: false, outcome: 'category not found' }); break }
-          const { data: all } = await supabase.from('service_categories').select('id, name').ilike('name', dup.name)
-          const canonical = (all ?? []).find(c => c.id !== dup.id)
+          const { data: all } = await supabase.from('service_categories').select('id, name, is_active').ilike('name', dup.name)
+          const others = (all ?? []).filter(c => c.id !== dup.id)
+          const canonical = others.find(c => c.is_active) ?? others[0]
           if (!canonical) { results.push({ ...it, ok: false, outcome: 'no canonical category to merge into' }); break }
           await supabase.from('services').update({ category_id: canonical.id }).eq('category_id', dup.id)
           const e = await del('service_categories', 'id', dup.id)
