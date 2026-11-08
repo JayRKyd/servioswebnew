@@ -3,7 +3,17 @@
 Client's admin-panel brief (2026-10-16) mapped against what exists in the
 codebase. Sizes: S = under half a day, M = a day, L = two to three days.
 
-**Progress:** Phase 0.1/0.2 shipped 2026-10-16 (`02c408f5`, migration
+**Progress (2026-11-07):** Phases 0–7 all coded and pushed. Round 6 fixes
+(`d94450c6`) + phases 3–7 (`/admin/payouts`, `/admin/reviews`,
+`/admin/bookings[/id]`, `/admin/users[/id]` with make-admin, launch cleanup).
+Two migrations awaiting paste by Jay: `20261103_payment_gates.sql` (payment
+gate + paid emails — until applied, receipt/paid emails don't send) and
+`20261107_admin_ops.sql` (review moderation + user status columns). Still
+open: Phase 8 tidy, design pass (section D), live retest, client inputs
+(admin emails, VAT, Daniel's Connect onboarding, statement descriptor in the
+Stripe dashboard).
+
+Phase 0.1/0.2 shipped 2026-10-16 (`02c408f5`, migration
 `20261016_admin_gate_audit_and_read_policies.sql`). Phase 1 shipped
 2026-10-16 (`1aa79978`, migration `20261016_document_verification.sql`) —
 required documents are ID + insurance; licence/certification are optional
