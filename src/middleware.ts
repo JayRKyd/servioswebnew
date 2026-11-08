@@ -15,6 +15,7 @@ const PUBLIC_ROUTES = [
   '/reset-password',
   '/auth',
   '/coming-soon',
+  '/admin/login',
   '/terms',
   '/privacy',
   '/cookies',
@@ -117,11 +118,18 @@ export async function middleware(request: NextRequest) {
   // Not authenticated
   if (!user) {
     if (isPublicRoute(pathname)) return response
+    // Staff land on the admin sign-in, everyone else on the normal one
     const loginUrl = request.nextUrl.clone()
-    loginUrl.pathname = '/login'
+    loginUrl.pathname = pathname.startsWith('/admin') ? '/admin/login' : '/login'
     loginUrl.search = ''
     loginUrl.searchParams.set('redirectTo', `${pathname}${request.nextUrl.search}`)
     return NextResponse.redirect(loginUrl)
+  }
+
+  // Signed-in admin on the admin login page → straight to the panel; a
+  // non-admin stays so the page can tell them why they can't get in
+  if (pathname === '/admin/login') {
+    return isAdminUser(user) ? NextResponse.redirect(new URL('/admin', request.url)) : response
   }
 
   // Authenticated user hitting auth/public pages → redirect to their dashboard
@@ -131,6 +139,16 @@ export async function middleware(request: NextRequest) {
       return response
     }
     return NextResponse.redirect(new URL(getDefaultRoute(effectiveRole(user)), request.url))
+  }
+
+  // A signed-in non-admin asking for the admin area is told so, rather than
+  // silently landing on their own dashboard
+  if (pathname.startsWith('/admin') && !isAdminUser(user)) {
+    const adminLogin = request.nextUrl.clone()
+    adminLogin.pathname = '/admin/login'
+    adminLogin.search = ''
+    adminLogin.searchParams.set('denied', '1')
+    return NextResponse.redirect(adminLogin)
   }
 
   // Shared routes are accessible to all authenticated users
