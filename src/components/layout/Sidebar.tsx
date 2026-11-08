@@ -64,6 +64,8 @@ const NAV_LABELS: Record<string, string> = {
   "/tenant/emergency": "Emergency",
   "/admin": "Dashboard",
   "/admin/verification": "Verification",
+  "/admin/payouts": "Payouts",
+  "/admin/reviews": "Reviews",
   "/admin/users": "Users",
   "/admin/providers": "Providers",
   "/admin/landlords": "Landlords",

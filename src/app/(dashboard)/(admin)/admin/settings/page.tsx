@@ -7,6 +7,7 @@ export default function AdminSettingsPage() {
   const items = [
     { label: 'Disputes & payouts', description: 'Dispute window and provider payout clearing delays', href: '/admin/settings/payments' },
     { label: 'Commission Rates', description: 'Adjust platform commission rates by service type', href: '/admin/settings/commission-rates' },
+    { label: 'Launch cleanup', description: 'Find and remove seeded reviews, placeholder providers, orphan profiles and test accounts', href: '/admin/settings/launch-cleanup' },
   ]
   return (
     <div className="space-y-6">

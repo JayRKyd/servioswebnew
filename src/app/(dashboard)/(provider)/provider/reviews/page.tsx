@@ -20,6 +20,35 @@ function relativeReviewDate(iso: string): string {
   return `${Math.floor(diff / 365)} years ago`
 }
 
+/** Providers can report a review for moderation — one sentence why, no
+ *  native dialogs. Servios decides; the review stays up until then. */
+function ReportReview({ review, onDone }: { review: any; onDone: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  if (review.is_flagged) return <p className="text-xs text-amber-700">Reported — Servios is reviewing it.</p>
+  if (!open) return <button onClick={() => setOpen(true)} className="text-xs text-gray-400 hover:text-red-600">Report this review</button>
+  async function send() {
+    setBusy(true); setError(null)
+    const res = await fetch(`/api/reviews/${review.id}/flag`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }) })
+    const json: any = await res.json().catch(() => ({}))
+    if (!res.ok) { setError(json?.error ?? 'Could not send'); setBusy(false); return }
+    setBusy(false); setOpen(false); onDone()
+  }
+  return (
+    <div className="space-y-2 rounded-lg bg-gray-50 p-3">
+      <p className="text-xs text-gray-600">Tell us why this review shouldn’t be here — e.g. not a real customer, abusive, or about a different job. Servios support will look at it.</p>
+      <textarea rows={2} value={reason} onChange={e => setReason(e.target.value)} className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+      {error && <p className="text-xs text-red-600">{error}</p>}
+      <div className="flex gap-2">
+        <button disabled={busy || reason.trim().length < 10} onClick={send} className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50">{busy ? 'Sending…' : 'Send report'}</button>
+        <button disabled={busy} onClick={() => setOpen(false)} className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-white">Cancel</button>
+      </div>
+    </div>
+  )
+}
+
 export default function ProviderReviewsPage() {
   const { user } = useAuth()
   const [reviews, setReviews] = useState<any[]>([])
@@ -97,6 +126,7 @@ export default function ProviderReviewsPage() {
                 {r.review_text && (
                   <p className="text-sm text-gray-700 leading-relaxed">{r.review_text}</p>
                 )}
+                <ReportReview review={r} onDone={() => setReviews(rs => rs.map(x => x.id === r.id ? { ...x, is_flagged: true } : x))} />
               </div>
             )
           })}

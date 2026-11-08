@@ -816,6 +816,22 @@ async function handleDisputeMessage(record: Record<string, any>) {
   }
 }
 
+/** A provider reported a review — tell the admins. */
+async function handleReviewFlagged(record: Record<string, any>, oldRecord: Record<string, any>) {
+  if (!record.is_flagged || oldRecord.is_flagged) return
+  const [provider, reviewer] = await Promise.all([personFor(record.reviewee_id), personFor(record.reviewer_id)])
+  const admins = await adminEmails()
+  await Promise.all(admins.map(email => sendEmail(email, `Review reported by ${provider.name}`, renderNotificationEmail({
+    heading: 'A review was reported',
+    body: `${escapeHtml(provider.name)} reported a ${record.rating}-star review from ${escapeHtml(reviewer.name)}.`,
+    details: [{ label: 'Rating', value: `${record.rating} out of 5` }, { label: 'Reason given', value: escapeHtml(String(record.flag_reason ?? '')) }],
+    note: record.review_text ? escapeHtml(String(record.review_text)) : undefined,
+    ctaLabel: 'Review it',
+    ctaPath: '/admin/reviews?filter=flagged',
+    preheader: String(record.flag_reason ?? '').slice(0, 90),
+  }))))
+}
+
 export async function POST(req: NextRequest) {
   const secret = req.headers.get('x-webhook-secret')
   if (!secret || secret !== process.env.SYNC_SECRET) {
@@ -849,6 +865,8 @@ export async function POST(req: NextRequest) {
       await handleVerificationChange(payload.record, payload.old_record)
     } else if (payload.table === 'payments' && payload.type === 'UPDATE' && payload.old_record) {
       await handlePaymentCaptured(payload.record, payload.old_record)
+    } else if (payload.table === 'reviews' && payload.type === 'UPDATE' && payload.old_record) {
+      await handleReviewFlagged(payload.record, payload.old_record)
     } else if (payload.table === 'disputes' && payload.type === 'INSERT') {
       await handleDisputeInsert(payload.record)
     } else if (payload.table === 'disputes' && payload.type === 'UPDATE' && payload.old_record) {
