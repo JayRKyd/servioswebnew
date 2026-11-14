@@ -35,5 +35,12 @@ export const GET = withUser<{ params: Promise<{ bookingId: string }> }>(async ({
     ? new Date(new Date(parties.booking.customer_confirmed_at).getTime() + settings.dispute_window_days * 86_400_000).toISOString()
     : null
 
-  return NextResponse.json({ viewer, view, eligibility, paymentState, windowEndsAt, windowDays: settings.dispute_window_days })
+  const paidPence = paymentState === 'none' ? 0 : Number(payment?.amount ?? 0)
+  const refundedPence = Number(payment?.refund_amount ?? 0)
+  return NextResponse.json({
+    viewer, view, eligibility, paymentState, windowEndsAt, windowDays: settings.dispute_window_days,
+    // What can still be claimed / what the provider now stands to receive
+    remainingPence: payment ? Math.max(0, Number(payment.amount) - refundedPence) : Number(parties.booking.total_amount),
+    paidPence, refundedPence,
+  })
 })

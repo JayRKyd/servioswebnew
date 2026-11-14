@@ -71,6 +71,7 @@ export default function ProviderDashboard() {
   const [profile, setProfile] = useState<any>(null)
   const [notifications, setNotifications] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [monthNet, setMonthNet] = useState(0)
 
   useEffect(() => {
     if (!user) return
@@ -103,6 +104,16 @@ export default function ProviderDashboard() {
             .limit(4),
         ])
 
+        // "This month" comes from captured payments, same as the Earnings
+        // page — not from bookings, which include unpaid and refunded jobs
+        const monthStartIso = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
+        const { data: pays } = await supabase.from('payments')
+          .select('provider_payout_amount, booking:bookings!inner(provider_id)')
+          .eq('booking.provider_id', p.id)
+          .in('payment_status', ['succeeded', 'partially_refunded', 'refunded'])
+          .gte('captured_at', monthStartIso)
+        setMonthNet((pays ?? []).reduce((s: number, x: any) => s + Number(x.provider_payout_amount ?? 0), 0))
+
         setBookings(allB ?? [])
         setUpcoming(upB ?? [])
         setNotifications(notifs ?? [])
@@ -115,9 +126,7 @@ export default function ProviderDashboard() {
   const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
 
   const pending   = bookings.filter(b => b.status === 'pending')
-  const thisMonthNet = bookings
-    .filter(b => b.status === 'completed' && b.scheduled_date >= monthStart)
-    .reduce((s, b) => s + ((b.base_amount ?? b.total_amount ?? 0) - (b.platform_fee ?? 0)), 0)
+  const thisMonthNet = monthNet
 
   const name = profile?.first_name ?? 'there'
   const nextJob = upcoming[0]

@@ -90,13 +90,19 @@ export async function disputeEligibility(bookingId: string, userId: string): Pro
     || (booking.status === 'accepted' && !!booking.scheduled_date && booking.scheduled_date <= today)
   if (!started) return { allowed: false, reason: 'You can report a problem once the job date has arrived', deadline: null, closed: false, openDisputeId: null }
 
+  // Nothing left to put right once the whole payment has gone back
+  const existingPayment = await latestPaymentForBooking(bookingId)
+  if (existingPayment?.payment_status === 'refunded') {
+    return { allowed: false, reason: 'This job has already been refunded in full', deadline: null, closed: false, openDisputeId: null }
+  }
+
   if (booking.customer_confirmed_at) {
     const { dispute_window_days } = await getSettings()
     const deadline = new Date(new Date(booking.customer_confirmed_at).getTime() + dispute_window_days * 86_400_000)
     if (Date.now() > deadline.getTime()) {
       return { allowed: false, reason: `Problems can be reported up to ${dispute_window_days} days after you confirm a job. Please contact support.`, deadline: deadline.toISOString(), closed: true, openDisputeId: null }
     }
-    return { allowed: true, reason: null, deadline: deadline.toISOString(), closed: true, openDisputeId: null }
+    return { allowed: true, reason: null, deadline: deadline.toISOString(), closed: false, openDisputeId: null }
   }
   return { allowed: true, reason: null, deadline: null, closed: false, openDisputeId: null }
 }
@@ -140,9 +146,10 @@ export async function openDispute(input: OpenDisputeInput) {
   }
 
   const evidence = (input.evidencePaths ?? []).filter(p => p.startsWith(`${input.userId}/`)).slice(0, 10)
-  // Hold the provider's share of what's being claimed (all of it unless the
-  // customer asked for a specific partial amount)
-  const held = holdFor(payment, desiredAmount ?? remaining, rate)
+  // Hold only the provider's share of what's being claimed. "Put it right"
+  // asks for no money, so nothing is held (client, Round 6 retest); an
+  // unspecified outcome holds the lot until support has read the case.
+  const held = input.desiredOutcome === 'redo' ? 0 : holdFor(payment, desiredAmount ?? remaining, rate)
 
   const { data: dispute, error } = await supabase.from('disputes').insert({
     booking_id: input.bookingId,
@@ -214,6 +221,10 @@ export async function resolveDispute(input: ResolveInput) {
   const { data: dispute } = await supabase.from('disputes').select('*').eq('id', input.disputeId).maybeSingle()
   if (!dispute) throw new DisputeError('Dispute not found', 404)
   if (!isOpen(dispute.status)) throw new DisputeError('This dispute is already closed', 409)
+  // The bank decides a chargeback and has already taken the money — refunding
+  // or releasing here would pay someone twice. It closes itself when Stripe
+  // reports the outcome.
+  if (dispute.source === 'chargeback') throw new DisputeError('Chargebacks are decided by the customer’s bank. Respond in Stripe; this case closes automatically when the bank rules.')
   if (!input.notes.trim()) throw new DisputeError('Add a note explaining the decision — both sides see it')
 
   const payment = dispute.payment_id ? await paymentById(dispute.payment_id) : await latestPaymentForBooking(dispute.booking_id)

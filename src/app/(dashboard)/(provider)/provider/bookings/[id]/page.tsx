@@ -9,6 +9,7 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { JobOfferPanel } from '@/components/shared/JobOfferPanel'
 import { MilestoneTracker } from '@/components/shared/MilestoneTracker'
 import { DisputePanel } from '@/components/shared/DisputePanel'
+import { BookingStepper } from '@/components/shared/BookingStepper'
 import { MessageCircle, Lock, CheckCircle2 } from 'lucide-react'
 
 export default function ProviderBookingDetailPage() {
@@ -28,6 +29,9 @@ export default function ProviderBookingDetailPage() {
   const [milestones, setMilestones]     = useState<any[]>([])
   const [disputeOpen, setDisputeOpen]   = useState(false)
   const [nudge, setNudge]               = useState<'idle' | 'sending' | 'sent' | string>('idle')
+  const [payment, setPayment]           = useState<any>(null)
+  const [rejecting, setRejecting]       = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
 
   useEffect(() => {
     async function load() {
@@ -40,6 +44,13 @@ export default function ProviderBookingDetailPage() {
       setBooking(bk)
 
       if (bk) {
+        // What was actually paid, refunded and is owed — the payout cards
+        // read this, not the booking's original price
+        const { data: pay } = await supabase.from('payments')
+          .select('payment_status, amount, refund_amount, platform_fee_amount, provider_payout_amount')
+          .eq('booking_id', id).order('created_at', { ascending: false }).limit(1).maybeSingle()
+        setPayment(pay)
+
         // Find linked conversation
         const { data: conv } = await supabase
           .from('conversations')
@@ -116,6 +127,10 @@ export default function ProviderBookingDetailPage() {
     if (status === 'accepted') updates.accepted_at = new Date().toISOString()
     if (status === 'in_progress') updates.started_at = new Date().toISOString()
     if (status === 'completed') updates.completed_at = new Date().toISOString()
+    if (status === 'rejected') {
+      updates.cancellation_reason = rejectReason.trim() || null
+      updates.cancelled_by = booking?.provider_profile?.user_id ?? null
+    }
     const { error } = await supabase.from('bookings').update(updates).eq('id', id)
     if (error) {
       console.error('Status update failed:', error)
@@ -171,6 +186,15 @@ export default function ProviderBookingDetailPage() {
   )
   if (!booking) return <div className="text-gray-400 p-6">Booking not found.</div>
 
+  // Once money has been captured, the payment row is the truth (refunds
+  // rescale the fee and the payout); before that, the booking's price
+  const captured = ['succeeded', 'partially_refunded', 'refunded'].includes(payment?.payment_status ?? '')
+  const refundedPence = captured ? Number(payment?.refund_amount ?? 0) : 0
+  const feePence = captured ? Number(payment?.platform_fee_amount ?? 0) : Number(booking.platform_fee ?? 0)
+  const payoutPence = captured
+    ? Number(payment?.provider_payout_amount ?? 0)
+    : Number(booking.base_amount ?? booking.total_amount) - Number(booking.platform_fee ?? 0)
+
   const cp = booking.customer_profile
   const initials = cp ? (cp.first_name?.[0] ?? '?').toUpperCase() : '?'
 
@@ -202,6 +226,8 @@ export default function ProviderBookingDetailPage() {
             </p>
           </div>
         </div>
+
+        <BookingStepper status={booking.status} paymentStatus={payment?.payment_status ?? booking.payment_status} confirmed={!!booking.customer_confirmed_at} hasAmount={Number(booking.total_amount) > 0} />
 
         <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 overflow-hidden">
 
@@ -282,13 +308,19 @@ export default function ProviderBookingDetailPage() {
                   {formatCurrency((booking.base_amount ?? booking.total_amount) / 100)}
                 </span>
               </div>
+              {refundedPence > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500">Refunded to customer</span>
+                  <span className="text-sm font-medium text-red-500">−{formatCurrency(refundedPence / 100)}</span>
+                </div>
+              )}
               {booking.commission_rate && (
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-500">
-                    Platform fee ({Math.round(booking.commission_rate * 100)}%)
+                    Platform fee ({Math.round(booking.commission_rate * 100)}%{refundedPence > 0 ? ' of what you keep' : ''})
                   </span>
                   <span className="text-sm font-medium text-red-500">
-                    −{formatCurrency((booking.platform_fee ?? 0) / 100)}
+                    −{formatCurrency(feePence / 100)}
                   </span>
                 </div>
               )}
@@ -296,7 +328,7 @@ export default function ProviderBookingDetailPage() {
             <div className="flex items-center justify-between bg-white border-t border-gray-100 px-5 py-4">
               <span className="text-sm font-bold text-gray-900">Your payout</span>
               <span className="text-xl font-bold text-green-600">
-                {formatCurrency(((booking.base_amount ?? booking.total_amount) - (booking.platform_fee ?? 0)) / 100)}
+                {formatCurrency(payoutPence / 100)}
               </span>
             </div>
           </div>
@@ -356,7 +388,7 @@ export default function ProviderBookingDetailPage() {
               <div>
                 <p className="text-sm font-semibold text-amber-900">Awaiting customer confirmation</p>
                 <p className="text-xs text-amber-700 mt-0.5">
-                  Your payout of {formatCurrency(((booking.base_amount ?? booking.total_amount) - (booking.platform_fee ?? 0)) / 100)} is
+                  Your payout of {formatCurrency(payoutPence / 100)} is
                   released once the customer confirms the job is complete.
                 </p>
               </div>
@@ -364,17 +396,27 @@ export default function ProviderBookingDetailPage() {
           )}
 
           {!disputeOpen && booking.status === 'completed' && booking.customer_confirmed_at && (
-            <div className="mx-6 mb-5 rounded-xl bg-green-50 border border-green-200 px-5 py-4 flex items-start gap-3">
-              <CheckCircle2 size={16} className="mt-0.5 text-green-600 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-green-900">Payment released</p>
-                <p className="text-xs text-green-700 mt-0.5">
-                  {formatCurrency(((booking.base_amount ?? booking.total_amount) - (booking.platform_fee ?? 0)) / 100)} has been released to you.
-                  If you&apos;ve connected your bank on the Payouts page it clears to your account after the clearing period;
-                  otherwise the Servios team pays it out.
-                </p>
+            payment?.payment_status === 'refunded' ? (
+              <div className="mx-6 mb-5 rounded-xl bg-gray-50 border border-gray-200 px-5 py-4 flex items-start gap-3">
+                <Lock size={16} className="mt-0.5 text-gray-500 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Customer refunded in full</p>
+                  <p className="text-xs text-gray-600 mt-0.5">The customer was refunded {formatCurrency(refundedPence / 100)}, so no payout is due for this job. See the case below for the decision.</p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="mx-6 mb-5 rounded-xl bg-green-50 border border-green-200 px-5 py-4 flex items-start gap-3">
+                <CheckCircle2 size={16} className="mt-0.5 text-green-600 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-green-900">Payment released</p>
+                  <p className="text-xs text-green-700 mt-0.5">
+                    {formatCurrency(payoutPence / 100)} has been released to you{refundedPence > 0 ? ` (after a ${formatCurrency(refundedPence / 100)} refund to the customer)` : ''}.
+                    If you&apos;ve connected your bank on the Payouts page it clears to your account after the clearing period;
+                    otherwise the Servios team pays it out.
+                  </p>
+                </div>
+              </div>
+            )
           )}
 
           {/* ── Customer notes ── */}
@@ -391,6 +433,21 @@ export default function ProviderBookingDetailPage() {
         {actionNotice && (
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             {actionNotice}
+          </div>
+        )}
+
+        {rejecting && booking.status === 'pending' && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+            <p className="text-sm font-medium text-red-900">Decline this request?</p>
+            <p className="mt-0.5 text-xs text-red-700">The customer is told straight away and can book someone else. This can&apos;t be undone.</p>
+            <textarea rows={2} value={rejectReason} onChange={e => setRejectReason(e.target.value)}
+              placeholder="Optional — a short reason the customer will see (e.g. fully booked that week)"
+              className="mt-2 w-full resize-none rounded-lg border border-red-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-200" />
+            <div className="mt-2 flex gap-2">
+              <button onClick={() => { setRejecting(false); updateStatus('rejected') }} disabled={acting}
+                className="rounded-lg bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50">Yes — decline</button>
+              <button onClick={() => setRejecting(false)} className="rounded-lg border border-red-300 px-3.5 py-1.5 text-xs font-medium text-red-800 hover:bg-red-100">Keep it</button>
+            </div>
           </div>
         )}
 
@@ -432,7 +489,7 @@ export default function ProviderBookingDetailPage() {
               }}
               disabled={acting}
               className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50">{acting ? 'Saving…' : 'Accept'}</button>
-            <button onClick={() => updateStatus('rejected')} disabled={acting} className="flex-1 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">Reject</button>
+            <button onClick={() => setRejecting(true)} disabled={acting || rejecting} className="flex-1 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">Decline</button>
           </>}
           {booking.status === 'accepted' && (
             <button

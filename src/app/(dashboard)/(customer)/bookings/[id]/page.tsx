@@ -10,6 +10,7 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Lock, CheckCircle, Shield, AlertTriangle, MessageCircle } from 'lucide-react'
 import { StripePaymentForm } from '@/components/payments/StripePaymentForm'
 import { DisputePanel } from '@/components/shared/DisputePanel'
+import { BookingStepper } from '@/components/shared/BookingStepper'
 
 
 function ReviewModal({ bookingId, revieweeId, serviceTitle, onClose }: { bookingId: string; revieweeId?: string | null; serviceTitle?: string | null; onClose: () => void }) {
@@ -294,7 +295,8 @@ export default function CustomerBookingDetailPage() {
 
   async function handleCancel() {
     setCancelling(true)
-    await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id)
+    const { data: { user: me } } = await supabase.auth.getUser()
+    await supabase.from('bookings').update({ status: 'cancelled', cancelled_at: new Date().toISOString(), cancelled_by: me?.id ?? null }).eq('id', id)
     router.refresh()
     setBooking((b: any) => ({ ...b, status: 'cancelled' }))
     setCancelling(false)
@@ -318,6 +320,7 @@ export default function CustomerBookingDetailPage() {
     && !['authorized', 'succeeded', 'refunded', 'partially_refunded'].includes(payment?.payment_status)
   const canCancel = ['pending', 'accepted'].includes(booking.status)
   const canReview = booking.status === 'completed' && !!booking.customer_confirmed_at && !disputeState.hasOpenDispute
+    && payment?.payment_status !== 'refunded'
   const addressText = (() => {
     const sa = booking.service_address
     if (!sa) return null
@@ -361,6 +364,8 @@ export default function CustomerBookingDetailPage() {
           </p>
         </div>
       </div>
+
+      <BookingStepper status={booking.status} paymentStatus={payment?.payment_status ?? booking.payment_status} confirmed={!!booking.customer_confirmed_at} hasAmount={Number(booking.total_amount) > 0} />
 
       <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100 space-y-4">
         <div className="flex items-center justify-between">
@@ -430,8 +435,8 @@ export default function CustomerBookingDetailPage() {
                     <div>
                       <p className="text-[13px] font-semibold text-amber-900">Payment on hold — problem under review</p>
                       <p className="text-[12px] text-amber-700 mt-0.5">
-                        {ps === 'succeeded' || ps === 'authorized'
-                          ? `${formatCurrency(booking.total_amount / 100)} stays with Servios until support has reviewed both sides. Any refund comes from this.`
+                        {['succeeded', 'authorized', 'partially_refunded'].includes(ps)
+                          ? `Servios is holding the amount in question until support has reviewed both sides. Any refund comes from your ${formatCurrency((Number(payment?.amount ?? booking.total_amount) - Number(payment?.refund_amount ?? 0)) / 100)} payment.`
                           : 'No payment has been taken for this job. Support will review both sides and be in touch.'}
                       </p>
                     </div>
@@ -607,7 +612,10 @@ export default function CustomerBookingDetailPage() {
       {pendingAction === 'cancel' && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
           <p className="text-sm font-medium text-red-900">Cancel this booking?</p>
-          <p className="mt-0.5 text-xs text-red-700">The provider will be notified. This can&apos;t be undone.</p>
+          <p className="mt-0.5 text-xs text-red-700">
+            The provider will be notified. This can&apos;t be undone.
+            {payment?.payment_status === 'authorized' && <> The {formatCurrency(booking.total_amount / 100)} hold on your card is released straight away — nothing is charged.</>}
+          </p>
           <div className="mt-2.5 flex gap-2">
             <button
               onClick={handleCancel}

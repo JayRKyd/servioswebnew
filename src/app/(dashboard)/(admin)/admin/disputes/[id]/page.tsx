@@ -143,22 +143,25 @@ function ResolvePanel({ view, onDone }: { view: AdminView; onDone: (msg: string)
 
   const amountPence = outcome === 'partial_refund' ? Math.round(parseFloat(amount || '0') * 100) : null
 
+  // Computed here, in step with the selected option — the server-fetched
+  // preview could arrive late and show the previous choice (Round 6 retest).
+  // Same rule as the server: commission on what the customer ends up paying.
   useEffect(() => {
     setConfirming(false)
     if (!p) { setPreview(null); return }
-    const t = setTimeout(async () => {
-      try {
-        const json = await api(`/api/admin/disputes/${view.dispute.id}`, 'PATCH', { preview: { outcome, amountPence } })
-        setPreview(json.preview)
-      } catch { setPreview(null) }
-    }, 250)
-    return () => clearTimeout(t)
-  }, [outcome, amountPence, p, view.dispute.id])
+    const refund = outcome === 'full_refund' ? remaining
+      : outcome === 'partial_refund' ? Math.min(Math.max(0, amountPence ?? 0), remaining)
+      : 0
+    const kept = Math.max(0, p.amount - p.refunded - refund)
+    const commission = Math.round(kept * view.rate)
+    setPreview({ original: p.amount, alreadyRefunded: p.refunded, refund, customerPays: kept, providerGets: kept - commission, serviosKeeps: commission })
+  }, [outcome, amountPence, p, remaining, view.rate])
 
   async function submit() {
     setBusy(true); setError(null)
     try {
       await api(`/api/admin/disputes/${view.dispute.id}/resolve`, 'POST', { outcome, amountPence, notes })
+      setConfirming(false)
       onDone(`Case ${view.dispute.number} resolved — ${RESOLUTION[outcome]}. Both sides have been emailed.`)
     } catch (e: any) {
       setError(e.message); setConfirming(false)
@@ -234,7 +237,14 @@ function ResolvePanel({ view, onDone }: { view: AdminView; onDone: (msg: string)
         ) : (
           <div className="space-y-2 rounded-xl border border-primary/30 bg-primary/[0.04] p-3">
             <p className="text-sm font-semibold text-gray-900">{RESOLUTION[outcome]}{outcome === 'partial_refund' && amountPence ? ` — ${pounds(amountPence)}` : outcome === 'full_refund' ? ` — ${pounds(remaining)}` : ''}?</p>
-            <p className="text-xs text-gray-600">This moves money immediately and can’t be undone from here. Both sides are emailed your note.</p>
+            <p className="text-xs text-gray-600">
+              {outcome === 'full_refund' || outcome === 'partial_refund'
+                ? 'This refunds the customer’s card immediately and can’t be undone from here.'
+                : outcome === 'release_to_provider'
+                  ? 'This lifts the hold and releases the provider’s share. It can’t be undone from here.'
+                  : 'No money moves. The case is closed and any hold is lifted.'}
+              {' '}Both sides are emailed your note.
+            </p>
             <div className="flex gap-2">
               <button onClick={submit} disabled={busy} className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50">{busy ? 'Working…' : 'Confirm decision'}</button>
               <button onClick={() => setConfirming(false)} disabled={busy} className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-white">Back</button>
@@ -452,7 +462,26 @@ export default function AdminDisputeDetailPage() {
             )}
           </Card>
 
-          {d.open && <ResolvePanel view={view} onDone={msg => { setToast(msg); load() }} />}
+          {d.open && d.source !== 'chargeback' && <ResolvePanel view={view} onDone={async msg => { setToast(msg); await load(); window.scrollTo({ top: 0, behavior: 'smooth' }) }} />}
+
+          {/* A chargeback is decided by the bank, which has already taken the
+              money — the normal refund/release buttons would pay twice */}
+          {d.open && d.source === 'chargeback' && (
+            <Card title="Bank chargeback">
+              <div className="space-y-3 text-sm text-gray-700">
+                <p>The customer’s bank has taken this payment back while it investigates. <strong>Don’t refund or release anything here</strong> — the bank decides, and this case closes by itself when Stripe reports the result.</p>
+                <ul className="list-disc space-y-1 pl-5 text-xs text-gray-600">
+                  <li><strong>To fight it:</strong> submit evidence in Stripe before the deadline in the report above — job photos, the booking chat and the customer’s confirmation are on this page.</li>
+                  <li><strong>To accept it:</strong> accept the dispute in Stripe. The customer keeps the money and the provider’s held share is reversed.</li>
+                  <li>If the bank rules for Servios, the hold lifts and the provider is paid as normal.</li>
+                  <li>Stripe charges a dispute fee on chargebacks; it shows in the Stripe dashboard, not here.</li>
+                </ul>
+                <a href={view.stripeDisputeId ? `https://dashboard.stripe.com/test/disputes/${view.stripeDisputeId}` : 'https://dashboard.stripe.com/test/disputes'} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark">Open this dispute in Stripe</a>
+                <p className="text-[11px] text-gray-400">You can still message the provider and add internal notes on the thread.</p>
+              </div>
+            </Card>
+          )}
 
           {view.audit.length > 0 && (
             <Card title="Activity">

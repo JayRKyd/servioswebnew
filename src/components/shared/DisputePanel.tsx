@@ -54,7 +54,7 @@ interface View {
   thread: { id: string; role: string; senderName: string; body: string; createdAt: string; attachments: FileRef[] }[]
 }
 interface Eligibility { allowed: boolean; reason: string | null; deadline: string | null; closed?: boolean }
-interface Payload { viewer: Viewer; view: View | null; eligibility: Eligibility | null; paymentState?: 'none' | 'authorized' | 'paid'; windowEndsAt?: string | null; windowDays?: number }
+interface Payload { viewer: Viewer; view: View | null; eligibility: Eligibility | null; paymentState?: 'none' | 'authorized' | 'paid'; windowEndsAt?: string | null; windowDays?: number; remainingPence?: number }
 
 async function uploadEvidence(bookingId: string, files: File[]): Promise<string[]> {
   const { data: { user } } = await supabase.auth.getUser()
@@ -172,8 +172,9 @@ export function DisputePanel({ bookingId, totalPence, openForm, onFormClosed, on
     if (!type) { setError('Choose what went wrong'); return }
     if (description.trim().length < 20) { setError('Please describe the problem in a little more detail (20 characters or more)'); return }
     const amountPence = outcome === 'partial_refund' ? Math.round(parseFloat(amount) * 100) : null
-    if (outcome === 'partial_refund' && !(amountPence && amountPence > 0 && amountPence <= totalPence)) {
-      setError(`Enter an amount up to ${pounds(totalPence)}`); return
+    const claimable = data?.remainingPence ?? totalPence
+    if (outcome === 'partial_refund' && !(amountPence && amountPence > 0 && amountPence <= claimable)) {
+      setError(`Enter an amount up to ${pounds(claimable)}`); return
     }
     setSubmitting(true)
     try {
@@ -297,7 +298,7 @@ export function DisputePanel({ bookingId, totalPence, openForm, onFormClosed, on
                 <span className="text-sm text-gray-500">£</span>
                 <input inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value.replace(/[^\d.]/g, ''))} placeholder="0.00"
                   className="w-32 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
-                <span className="text-xs text-gray-400">of {pounds(totalPence)}</span>
+                <span className="text-xs text-gray-400">of {pounds(data?.remainingPence ?? totalPence)}</span>
               </div>
             )}
           </div>
@@ -335,7 +336,9 @@ export function DisputePanel({ bookingId, totalPence, openForm, onFormClosed, on
                 <span>
                   {paymentState === 'none'
                     ? 'No payment has been taken for this job. '
-                    : `The ${pounds(totalPence)} payment for this job is on hold. `}
+                    : d.desiredAmount && d.desiredAmount < (data.remainingPence ?? totalPence)
+                      ? `${pounds(d.desiredAmount)} of your payment is under review and held by Servios. `
+                      : `Your ${pounds(data.remainingPence ?? totalPence)} payment for this job is on hold. `}
                   Servios support will review both sides and decide — usually within 2 working days.
                 </span>
               ) : (

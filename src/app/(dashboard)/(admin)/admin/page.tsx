@@ -5,23 +5,26 @@ import { supabase } from '@/lib/auth'
 import { formatDate, formatCurrency } from '@/lib/utils'
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState({ users: 0, providers_pending: 0, bookings: 0, disputes: 0, revenue: 0 })
+  const [stats, setStats] = useState({ users: 0, providers_pending: 0, bookings: 0, disputes: 0, revenue: 0, taken: 0 })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     Promise.all([
       supabase.from('users').select('id', { count: 'exact' }),
-      supabase.from('provider_profiles').select('id', { count: 'exact' }).eq('is_verified', false).eq('is_active', true),
+      supabase.from('provider_profiles').select('id', { count: 'exact' }).eq('verification_status', 'pending'),
       supabase.from('bookings').select('id, total_amount').eq('status', 'completed'),
-      supabase.from('disputes').select('id', { count: 'exact' }).eq('status', 'open'),
-    ]).then(([u, p, b, d]) => {
+      supabase.from('disputes').select('id', { count: 'exact' }).in('status', ['open', 'under_review', 'awaiting_customer', 'awaiting_provider']),
+      // Revenue = commission on money actually captured, after refunds
+      supabase.from('payments').select('amount, refund_amount, platform_fee_amount').in('payment_status', ['succeeded', 'partially_refunded', 'refunded']),
+    ]).then(([u, p, b, d, pay]) => {
       const bData = b.data ?? []
       setStats({
         users: u.count ?? 0,
         providers_pending: p.count ?? 0,
         bookings: bData.length,
         disputes: d.count ?? 0,
-        revenue: bData.reduce((s, x) => s + (x.total_amount ?? 0), 0),
+        revenue: (pay.data ?? []).reduce((s, x) => s + Number(x.platform_fee_amount ?? 0), 0),
+        taken: (pay.data ?? []).reduce((s, x) => s + Number(x.amount ?? 0) - Number(x.refund_amount ?? 0), 0),
       })
       setLoading(false)
     })
@@ -34,7 +37,7 @@ export default function AdminDashboard() {
       {stats.providers_pending > 0 && (
         <div className="rounded-lg bg-yellow-50 p-4 border border-yellow-200">
           <p className="text-sm font-medium text-yellow-800">{stats.providers_pending} provider{stats.providers_pending !== 1 ? 's' : ''} awaiting verification</p>
-          <Link href="/admin/providers/verification" className="mt-1 text-sm text-yellow-700 underline">Review now →</Link>
+          <Link href="/admin/verification" className="mt-1 text-sm text-yellow-700 underline">Review now →</Link>
         </div>
       )}
 
@@ -51,7 +54,8 @@ export default function AdminDashboard() {
           ['Pending Verification', stats.providers_pending.toString()],
           ['Completed Bookings', stats.bookings.toString()],
           ['Open Disputes', stats.disputes.toString()],
-          ['Platform Revenue', formatCurrency(stats.revenue / 100)],
+          ['Payments taken (after refunds)', formatCurrency(stats.taken / 100)],
+          ['Servios commission earned', formatCurrency(stats.revenue / 100)],
         ] as const).map(([label, val]) => (
           <div key={label} className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
             <p className="text-sm text-gray-500">{label}</p>

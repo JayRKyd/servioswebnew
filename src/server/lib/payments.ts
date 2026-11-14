@@ -132,13 +132,35 @@ async function notifyProviderAuthorised(payment: PaymentRow) {
   if (!b?.provider_id) return
   const [{ data: pp }, { data: cp }] = await Promise.all([
     supabase.from('provider_profiles').select('user_id').eq('id', b.provider_id).maybeSingle(),
-    supabase.from('customer_profiles').select('first_name, last_name').eq('id', b.customer_id).maybeSingle(),
+    supabase.from('customer_profiles').select('user_id, first_name, last_name').eq('id', b.customer_id).maybeSingle(),
   ])
   if (!pp?.user_id) return
   const service = (b.service as any)?.title ?? 'the job'
   const amount = poundsFromCents(Number(b.total_amount))
   const customer = `${cp?.first_name ?? ''} ${cp?.last_name ?? ''}`.trim() || 'The customer'
   const when = b.scheduled_date ? `${ukDate(b.scheduled_date)}, ${ukTime(b.scheduled_time_start)}` : ''
+
+  // The customer has just put a hold on their card — confirm it, and say
+  // plainly that nothing has been charged
+  if (cp?.user_id) {
+    const { data: cu } = await supabase.auth.admin.getUserById(cp.user_id)
+    if (cu?.user?.email) {
+      await sendEmail(cu.user.email, `Card hold placed — ${amount} · ${b.booking_number ?? ''}`.trim(), renderNotificationEmail({
+        heading: `${amount} held on your card`,
+        body: `That's your booking secured. This is a hold, not a charge: nothing leaves your account until you confirm the job is done. If the booking is cancelled, the hold is released.`,
+        details: [
+          { label: 'Service', value: escapeHtml(service) },
+          ...(when ? [{ label: 'When', value: escapeHtml(when) }] : []),
+          { label: 'Amount held', value: amount },
+          ...(b.booking_number ? [{ label: 'Reference', value: escapeHtml(String(b.booking_number)) }] : []),
+        ],
+        ctaLabel: 'View booking',
+        ctaPath: `/bookings/${b.id}`,
+        secondaryCtas: [{ label: 'Message provider', path: `/messages/for-booking/${b.id}` }],
+        preheader: `${amount} held, not charged — ${service}`,
+      }))
+    }
+  }
 
   await supabase.from('notifications').insert({
     user_id: pp.user_id,
@@ -210,12 +232,15 @@ async function descriptorSuffix(bookingNumber: string | null): Promise<string | 
   return /[A-Za-z]/.test(suffix) && suffix.length >= 3 ? suffix : undefined
 }
 
-/** Card brand + last 4 for receipts. */
-async function cardSummary(chargeOrId: Stripe.Charge | string | null | undefined): Promise<{ brand: string; last4: string } | null> {
+interface CardSummary { brand: string; last4: string; statement: string | null }
+
+/** Card brand + last 4 (and the statement text) for receipts. */
+async function cardSummary(chargeOrId: Stripe.Charge | string | null | undefined): Promise<CardSummary | null> {
   if (!chargeOrId) return null
   const charge = typeof chargeOrId === 'string' ? await stripe.charges.retrieve(chargeOrId) : chargeOrId
   const card = charge.payment_method_details?.card
-  return card?.last4 ? { brand: card.brand ?? 'card', last4: card.last4 } : null
+  // calculated_statement_descriptor is what the cardholder's bank will print
+  return card?.last4 ? { brand: card.brand ?? 'card', last4: card.last4, statement: charge.calculated_statement_descriptor ?? null } : null
 }
 
 export interface IntentResult {
@@ -366,7 +391,7 @@ export async function capturePayment(bookingId: string): Promise<PaymentRow | nu
 
   const now = new Date().toISOString()
   let chargeId: string | null = payment.stripe_charge_id
-  let card: { brand: string; last4: string } | null = null
+  let card: CardSummary | null = null
   if (!isSimulatedIntent(payment.payment_intent_id) && payment.payment_intent_id) {
     const pi = await stripe.paymentIntents.capture(payment.payment_intent_id, { expand: ['latest_charge'] })
     chargeId = typeof pi.latest_charge === 'string' ? pi.latest_charge : pi.latest_charge?.id ?? null

@@ -58,7 +58,7 @@ export default function AdminAnalyticsPage() {
   useEffect(() => {
     Promise.all([
       supabase.from('users').select('id, roles', { count: 'exact' }),
-      supabase.from('provider_profiles').select('id, is_verified', { count: 'exact' }),
+      supabase.from('provider_profiles').select('id, verification_status', { count: 'exact' }),
       supabase.from('bookings').select('id, status, total_amount, created_at'),
       supabase.from('disputes').select('id, status', { count: 'exact' }),
     ]).then(([u, p, b, d]) => {
@@ -95,7 +95,7 @@ export default function AdminAnalyticsPage() {
 
       setStats({
         users: u.count ?? 0,
-        providers: provData.filter((p: any) => p.is_verified).length,
+        providers: provData.filter((p: any) => p.verification_status === 'verified').length,
         customers: users.filter((u: any) => u.roles?.includes('customer')).length,
         bookings: bData.length,
         completed: completed.length,
@@ -103,7 +103,7 @@ export default function AdminAnalyticsPage() {
         gmv,
         avgJobValue: avgJob,
         disputes: dData.filter((d: any) => d.status === 'open').length,
-        pendingVerification: provData.filter((p: any) => !p.is_verified).length,
+        pendingVerification: provData.filter((p: any) => p.verification_status === 'pending').length,
       })
       setBookingsByStatus(statusChart)
       setBookingsByMonth(months)

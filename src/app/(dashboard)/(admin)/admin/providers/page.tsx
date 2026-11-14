@@ -11,9 +11,9 @@ export default function AdminProvidersPage() {
   useEffect(() => {
     setLoading(true)
     let q = supabase.from('provider_profiles').select('*').order('created_at', { ascending: false })
-    if (filter === 'pending') q = q.eq('is_verified', false).eq('is_active', true)
-    else if (filter === 'verified') q = q.eq('is_verified', true)
-    else if (filter === 'inactive') q = q.eq('is_active', false)
+    if (filter === 'pending') q = q.eq('verification_status', 'pending')
+    else if (filter === 'verified') q = q.eq('verification_status', 'verified')
+    else if (filter === 'inactive') q = q.in('verification_status', ['unverified', 'rejected'])
     q.then(({ data }) => { setProviders(data ?? []); setLoading(false) })
   }, [filter])
 
@@ -21,7 +21,7 @@ export default function AdminProvidersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Providers</h1>
-        <Link href="/admin/providers/verification" className="rounded-lg bg-yellow-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-yellow-600">Verification Queue</Link>
+        <Link href="/admin/verification" className="rounded-lg bg-yellow-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-yellow-600">Verification Queue</Link>
       </div>
       <div className="flex gap-2">
         {['all', 'pending', 'verified', 'inactive'].map(f => (
@@ -43,10 +43,10 @@ export default function AdminProvidersPage() {
             <tbody className="divide-y divide-gray-100">
               {providers.map(p => (
                 <tr key={p.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-900">{p.business_name}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900">{p.business_name || '—'}</td>
                   <td className="px-4 py-3 text-gray-500">{p.first_name} {p.last_name}</td>
-                  <td className="px-4 py-3 text-gray-500">{p.rating_average > 0 ? p.rating_average.toFixed(1) + ' (' + p.rating_count + ')' : '—'}</td>
-                  <td className="px-4 py-3"><span className={'rounded-full px-2 py-0.5 text-xs font-medium ' + (p.is_verified ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700')}>{p.is_verified ? 'Verified' : 'Pending'}</span></td>
+                  <td className="px-4 py-3 text-gray-500">{Number(p.rating_average) > 0 ? Number(p.rating_average).toFixed(1) + ' (' + (p.total_reviews ?? 0) + ')' : '—'}</td>
+                  <td className="px-4 py-3"><span className={'rounded-full px-2 py-0.5 text-xs font-medium ' + (p.verification_status === 'verified' ? 'bg-green-100 text-green-700' : p.verification_status === 'rejected' ? 'bg-red-100 text-red-700' : p.verification_status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600')}>{p.verification_status === 'verified' ? 'Verified' : p.verification_status === 'rejected' ? 'Rejected' : p.verification_status === 'pending' ? 'Awaiting review' : 'Not submitted'}</span></td>
                   <td className="px-4 py-3"><Link href={'/admin/providers/' + p.user_id} className="text-primary hover:underline">View</Link></td>
                 </tr>
               ))}

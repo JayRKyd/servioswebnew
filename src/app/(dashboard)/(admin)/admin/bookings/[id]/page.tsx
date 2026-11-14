@@ -147,7 +147,7 @@ export default function AdminBookingDetailPage() {
             {!p ? <p className="text-sm text-gray-500">No payment created — the customer hasn’t authorised a card.</p> : (
               <dl className="space-y-1.5 text-sm">
                 <div className="flex justify-between"><dt className="text-gray-500">Status</dt><dd className="capitalize text-gray-900">{p.payment_status.replace('_', ' ')}{p.payment_intent_id?.startsWith('sim_') ? ' (simulated)' : ''}</dd></div>
-                <div className="flex justify-between"><dt className="text-gray-500">Charged</dt><dd className="text-gray-900">{pounds(p.amount)}</dd></div>
+                <div className="flex justify-between"><dt className="text-gray-500">{['succeeded', 'partially_refunded', 'refunded'].includes(p.payment_status) ? 'Charged' : p.payment_status === 'authorized' ? 'Authorised (not charged)' : p.payment_status === 'cancelled' ? 'Hold released (never charged)' : 'Amount'}</dt><dd className="text-gray-900">{pounds(p.amount)}</dd></div>
                 {Number(p.refund_amount) > 0 && <div className="flex justify-between"><dt className="text-gray-500">Refunded</dt><dd className="text-gray-900">{pounds(p.refund_amount)}</dd></div>}
                 <div className="flex justify-between"><dt className="text-gray-500">Commission</dt><dd className="text-gray-900">{pounds(p.platform_fee_amount)}</dd></div>
                 <div className="flex justify-between"><dt className="text-gray-500">Provider share</dt><dd className="text-gray-900">{pounds(p.provider_payout_amount)}</dd></div>
