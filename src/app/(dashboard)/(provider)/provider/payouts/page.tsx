@@ -1,4 +1,5 @@
 'use client'
+import { describePayoutTerms, type PayoutTermsView } from '@/lib/payout-terms'
 import { Suspense, useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { apiClient } from '@/lib/api-client'
@@ -30,12 +31,14 @@ function ProviderPayoutsInner() {
   const [onboarding, setOnboarding] = useState(false)
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [terms, setTerms] = useState<PayoutTermsView | null>(null)
 
   const successParam = searchParams.get('success')
   const refreshParam = searchParams.get('refresh')
 
   useEffect(() => {
     fetchStatus()
+    fetch('/api/provider/payout-terms', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(t => { if (t?.days) setTerms(t) }).catch(() => {})
   }, [])
 
   async function fetchStatus() {
@@ -171,7 +174,7 @@ function ProviderPayoutsInner() {
               <Capability label="Verified" enabled={status.detailsSubmitted ?? false} />
             </div>
             <p className="text-sm text-gray-500">
-              Your Stripe account is fully active. You're paid as soon as the customer confirms a job, and each payment clears to your bank {status.payoutDelayDays ?? 7} days later.
+              Your Stripe account is fully active. You're paid as soon as the customer confirms a job. {terms ? describePayoutTerms(terms) : `Each payment clears to your bank ${status.payoutDelayDays ?? 7} days later.`}
             </p>
             <div className="flex gap-3">
               <button
@@ -200,7 +203,7 @@ function ProviderPayoutsInner() {
             ['Customer pays', 'The customer’s card is authorised when you accept — the money is held, not charged, until the job is done.'],
             ['Customer confirms', 'When the customer confirms the job is complete, the card is charged and you’re paid straight away.'],
             ['In your Stripe balance', 'Your earnings (the job price minus Servios commission) land in your Stripe balance immediately.'],
-            ['Bank payout', 'Each payment clears to your bank 7 days later (14 for your first few jobs) — a short window so customer problems can be put right fairly. After that it arrives daily.'],
+            ['Bank payout', terms ? `${describePayoutTerms(terms)} The delay is a short window so customer problems can be put right fairly.` : 'Each payment clears to your bank 7 days later (14 for your first few jobs) — a short window so customer problems can be put right fairly. After that it arrives daily.'],
           ].map(([step, desc], i) => (
             <li key={step} className="flex gap-3">
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">

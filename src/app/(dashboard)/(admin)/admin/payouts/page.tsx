@@ -8,14 +8,16 @@ interface Row {
   paymentId: string; bookingId: string; bookingNumber: string | null; service: string | null; customerName: string
   scheduledDate: string | null; capturedAt: string | null; gross: number; refunded: number; commission: number; net: number
   held: number; transferred: number; releasedAt: string | null; payoutMethod: string | null; payoutReference: string | null
-  clearsOn: string | null; state: PayoutState; disputeNumber: string | null
+  clearsOn: string | null; state: PayoutState; disputeNumber: string | null; chargeback: boolean
 }
 interface Provider {
   profileId: string; userId: string; name: string; email: string | null; avatarUrl: string | null
   connect: 'active' | 'pending' | 'restricted' | 'not_connected'; payoutDelayDays: number
+  delayReason: 'custom' | 'new_provider' | 'upheld_dispute' | 'standard'; delayOverride: number | null; delayOverrideReason: string | null
+  jobsDone: number; jobThreshold: number
   owed: number; held: number; clearing: number; paidOut: number; payments: Row[]
 }
-interface Data { providers: Provider[]; totals: { owed: number; held: number; clearing: number; paidOut: number; commission: number } }
+interface Data { providers: Provider[]; totals: { owed: number; held: number; clearing: number; paidOut: number; commission: number; commissionAtRisk: number } }
 
 const pounds = (p: number) => `£${(p / 100).toFixed(2)}`
 const day = (iso: string | null) => iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
@@ -95,10 +97,10 @@ export default function AdminPayoutsPage() {
       {data && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
           <Stat label="Owed to providers" value={data.totals.owed} icon={Banknote} tone="blue" hint="captured, not yet paid" />
-          <Stat label="On hold" value={data.totals.held} icon={Lock} tone="red" hint="open disputes" />
+          <Stat label="On hold" value={data.totals.held} icon={Lock} tone="red" hint="open disputes and chargebacks" />
           <Stat label="Clearing" value={data.totals.clearing} icon={Clock} tone="amber" hint="in Stripe, bank date ahead" />
           <Stat label="Paid out" value={data.totals.paidOut} icon={Landmark} tone="green" hint="reached providers" />
-          <Stat label="Servios commission" value={data.totals.commission} icon={Wallet} tone="gray" hint="on all captured payments" />
+          <Stat label="Servios commission" value={data.totals.commission} icon={Wallet} tone="gray" hint={data.totals.commissionAtRisk > 0 ? `excludes ${pounds(data.totals.commissionAtRisk)} on open chargebacks` : 'on all captured payments'} />
         </div>
       )}
 
@@ -144,7 +146,7 @@ export default function AdminPayoutsPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="truncate text-sm font-semibold text-gray-900">{p.name}</p>
                       <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${c.cls}`}>{c.label}</span>
-                      {p.connect === 'active' && <span className="text-[11px] text-gray-400">{p.payoutDelayDays}-day clearing</span>}
+                      <span className="text-[11px] text-gray-400">{p.payoutDelayDays}-day clearing{p.delayReason === 'custom' ? ' · set by admin' : ''}</span>
                     </div>
                     <p className="truncate text-xs text-gray-500">{p.email ?? ''} · {p.payments.length} payment{p.payments.length === 1 ? '' : 's'}</p>
                   </div>
@@ -159,6 +161,7 @@ export default function AdminPayoutsPage() {
 
                 {expanded && (
                   <div className="border-t border-gray-100">
+                    <DelayControl provider={p} onSaved={async msg => { setToast(msg); await load() }} onError={setError} />
                     {owedIds.length > 0 && (
                       <div className="flex flex-wrap items-center justify-between gap-2 bg-blue-50/60 px-5 py-2.5 text-xs text-blue-900">
                         <span>{owedIds.length} payment{owedIds.length === 1 ? '' : 's'} owed · {pounds(p.owed)}</span>
@@ -192,11 +195,11 @@ export default function AdminPayoutsPage() {
                               </td>
                               <td className="hidden px-3 py-3 text-gray-500 md:table-cell">{day(r.capturedAt)}</td>
                               <td className="px-3 py-3 text-right font-semibold text-gray-900">{pounds(r.net)}</td>
-                              <td className="hidden px-3 py-3 text-right text-xs text-gray-500 lg:table-cell">{pounds(r.gross)}{r.refunded ? ` − ${pounds(r.refunded)}` : ''} − {pounds(r.commission)}</td>
+                              <td className="hidden px-3 py-3 text-right text-xs text-gray-500 lg:table-cell">{pounds(r.gross)}{r.refunded ? ` − ${pounds(r.refunded)}` : ''} − {pounds(r.commission)}{r.chargeback && <span className="block text-[11px] text-red-600">fee not counted while charged back</span>}</td>
                               <td className="px-5 py-3 text-right">
                                 <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${s.cls}`}><Icon size={11} /> {s.label}</span>
                                 <p className="mt-0.5 text-[11px] text-gray-400">
-                                  {r.state === 'held' && r.disputeNumber ? <Link href="/admin/disputes" className="hover:underline">{pounds(r.held)} · {r.disputeNumber}</Link>
+                                  {r.state === 'held' && r.disputeNumber ? <Link href="/admin/disputes" className="hover:underline">{pounds(r.held)} · {r.chargeback ? 'chargeback ' : ''}{r.disputeNumber}</Link>
                                     : r.state === 'clearing' ? `bank ${day(r.clearsOn)}`
                                     : r.state === 'paid_out' ? (r.payoutMethod === 'manual' ? `ref ${r.payoutReference ?? '—'} · ${day(r.releasedAt)}` : `Stripe · ${day(r.releasedAt)}`)
                                     : ''}
@@ -234,6 +237,55 @@ function Amount({ label, value, strong, tone }: { label: string; value: number; 
     <div>
       <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{label}</p>
       <p className={`text-sm ${strong ? 'font-bold text-gray-900' : `font-medium ${tone ?? 'text-gray-700'}`}`}>{pounds(value)}</p>
+    </div>
+  )
+}
+
+const DELAY_WHY: Record<Provider['delayReason'], (p: Provider) => string> = {
+  custom: p => `Set by admin${p.delayOverrideReason ? ` — ${p.delayOverrideReason}` : ''}`,
+  new_provider: p => `New provider: ${p.jobsDone} of ${p.jobThreshold} confirmed jobs done`,
+  upheld_dispute: () => 'A dispute was upheld against this provider',
+  standard: () => 'Standard delay',
+}
+
+/** Per-provider clearing delay: shows which rule applies and lets an admin
+ *  override it (reason required) or go back to the automatic rule. */
+function DelayControl({ provider: p, onSaved, onError }: { provider: Provider; onSaved: (msg: string) => void | Promise<void>; onError: (msg: string | null) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [days, setDays] = useState(String(p.delayOverride ?? p.payoutDelayDays))
+  const [reason, setReason] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  async function save(value: number | null) {
+    setSaving(true); onError(null)
+    const res = await fetch(`/api/admin/providers/${p.profileId}/payout-delay`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ days: value, reason }) })
+    const json: any = await res.json().catch(() => ({}))
+    setSaving(false)
+    if (!res.ok) { onError(json?.error ?? 'Could not save the clearing delay'); return }
+    setEditing(false); setReason('')
+    await onSaved(json.warning ?? (value === null ? `${p.name} is back on the automatic clearing delay.` : `${p.name} now clears in ${value} days.`))
+  }
+
+  const n = Number(days)
+  const valid = Number.isInteger(n) && n >= 7 && n <= 31 && reason.trim().length > 0
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-gray-50/70 px-5 py-2.5 text-xs text-gray-600">
+      <Clock size={13} className="shrink-0 text-gray-400" />
+      <span><span className="font-semibold text-gray-900">{p.payoutDelayDays}-day clearing delay</span> · {DELAY_WHY[p.delayReason](p)}{p.connect !== 'active' ? ' · applies once their bank is connected' : ''}</span>
+      {!editing ? (
+        <span className="ml-auto flex gap-2">
+          <button onClick={() => setEditing(true)} className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 font-semibold text-gray-700 hover:bg-gray-50">Change</button>
+          {p.delayOverride != null && <button disabled={saving} onClick={() => save(null)} className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">{saving ? 'Saving…' : 'Back to automatic'}</button>}
+        </span>
+      ) : (
+        <span className="flex w-full flex-wrap items-center gap-2">
+          <label className="flex items-center gap-1.5">Days <input type="number" min={7} max={31} value={days} onChange={e => setDays(e.target.value)} className="w-16 rounded-lg border border-gray-200 bg-white px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary" /></label>
+          <input value={reason} onChange={e => setReason(e.target.value)} placeholder="Reason (required, kept in the audit log)" className="min-w-[200px] flex-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+          <button disabled={saving || !valid} onClick={() => save(n)} className="rounded-lg bg-primary px-3 py-1 font-semibold text-white hover:bg-primary-dark disabled:opacity-50">{saving ? 'Saving…' : 'Save'}</button>
+          <button disabled={saving} onClick={() => setEditing(false)} className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-gray-600 hover:bg-gray-50">Cancel</button>
+          <span className="w-full text-[11px] text-gray-400">7 to 31 days. Stripe’s UK minimum is 7. Applies to payments from now on.</span>
+        </span>
+      )}
     </div>
   )
 }

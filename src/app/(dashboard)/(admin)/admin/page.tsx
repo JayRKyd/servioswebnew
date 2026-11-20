@@ -13,17 +13,19 @@ export default function AdminDashboard() {
       supabase.from('users').select('id', { count: 'exact' }),
       supabase.from('provider_profiles').select('id', { count: 'exact' }).eq('verification_status', 'pending'),
       supabase.from('bookings').select('id, total_amount').eq('status', 'completed'),
-      supabase.from('disputes').select('id', { count: 'exact' }).in('status', ['open', 'under_review', 'awaiting_customer', 'awaiting_provider']),
+      supabase.from('disputes').select('id, payment_id, source', { count: 'exact' }).in('status', ['open', 'under_review', 'awaiting_customer', 'awaiting_provider']),
       // Revenue = commission on money actually captured, after refunds
-      supabase.from('payments').select('amount, refund_amount, platform_fee_amount').in('payment_status', ['succeeded', 'partially_refunded', 'refunded']),
+      supabase.from('payments').select('id, amount, refund_amount, platform_fee_amount').in('payment_status', ['succeeded', 'partially_refunded', 'refunded']),
     ]).then(([u, p, b, d, pay]) => {
       const bData = b.data ?? []
+      // Commission on a payment the bank has charged back isn't earned unless the chargeback is won
+      const chargedBack = new Set((d.data ?? []).filter((x: any) => x.source === 'chargeback').map((x: any) => x.payment_id))
       setStats({
         users: u.count ?? 0,
         providers_pending: p.count ?? 0,
         bookings: bData.length,
         disputes: d.count ?? 0,
-        revenue: (pay.data ?? []).reduce((s, x) => s + Number(x.platform_fee_amount ?? 0), 0),
+        revenue: (pay.data ?? []).filter(x => !chargedBack.has(x.id)).reduce((s, x) => s + Number(x.platform_fee_amount ?? 0), 0),
         taken: (pay.data ?? []).reduce((s, x) => s + Number(x.amount ?? 0) - Number(x.refund_amount ?? 0), 0),
       })
       setLoading(false)

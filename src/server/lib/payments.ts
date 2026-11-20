@@ -650,22 +650,58 @@ export async function refundPayment(paymentId: string, opts: { amountPence?: num
 /** New providers clear in 14 days; after N confirmed jobs with no upheld
  *  disputes they move to the standard 7 (both admin settings). Applied to
  *  the Stripe account's payout schedule; recorded on the profile. */
-export async function refreshProviderPayoutDelay(providerProfileId: string): Promise<number | null> {
+export type PayoutDelayReason = 'custom' | 'new_provider' | 'upheld_dispute' | 'standard'
+export interface PayoutTerms {
+  days: number
+  reason: PayoutDelayReason
+  jobsDone: number
+  jobThreshold: number
+  standardDays: number
+  newProviderDays: number
+  override: number | null
+  overrideReason: string | null
+}
+
+/** Which clearing delay applies to this provider, and why. An admin override
+ *  on the profile wins over the automatic new-provider / standard rule. */
+export async function payoutTermsFor(providerProfileId: string): Promise<PayoutTerms | null> {
   const { getSettings } = await import('./settings')
   const settings = await getSettings()
+  const { data: pp } = await supabase.from('provider_profiles').select('id, user_id').eq('id', providerProfileId).maybeSingle()
+  if (!pp) return null
+
+  const [{ count: jobs }, { count: upheld }, { data: ov }] = await Promise.all([
+    supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('provider_id', pp.id).not('customer_confirmed_at', 'is', null),
+    supabase.from('disputes').select('id', { count: 'exact', head: true }).eq('filed_against', pp.user_id).in('resolution_type', ['full_refund', 'partial_refund']),
+    // Read on its own so a database without the override columns still works
+    supabase.from('provider_profiles').select('payout_delay_override, payout_delay_override_reason').eq('id', pp.id).maybeSingle(),
+  ])
+  const jobsDone = jobs ?? 0
+  const override = ov?.payout_delay_override != null ? Number(ov.payout_delay_override) : null
+  const reason: PayoutDelayReason = override != null ? 'custom'
+    : (upheld ?? 0) > 0 ? 'upheld_dispute'
+    : jobsDone < settings.new_provider_job_threshold ? 'new_provider'
+    : 'standard'
+  const days = override ?? (reason === 'standard' ? settings.payout_delay_days : settings.new_provider_payout_delay_days)
+  return {
+    days, reason, jobsDone,
+    jobThreshold: settings.new_provider_job_threshold,
+    standardDays: settings.payout_delay_days,
+    newProviderDays: settings.new_provider_payout_delay_days,
+    override, overrideReason: ov?.payout_delay_override_reason ?? null,
+  }
+}
+
+export async function refreshProviderPayoutDelay(providerProfileId: string): Promise<number | null> {
+  const terms = await payoutTermsFor(providerProfileId)
+  if (!terms) return null
   const { data: pp } = await supabase
     .from('provider_profiles')
-    .select('id, user_id, stripe_account_id, payout_delay_days')
+    .select('id, stripe_account_id, payout_delay_days')
     .eq('id', providerProfileId)
     .maybeSingle()
   if (!pp) return null
-
-  const [{ count: jobs }, { count: upheld }] = await Promise.all([
-    supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('provider_id', pp.id).not('customer_confirmed_at', 'is', null),
-    supabase.from('disputes').select('id', { count: 'exact', head: true }).eq('filed_against', pp.user_id).in('resolution_type', ['full_refund', 'partial_refund']),
-  ])
-  const established = (jobs ?? 0) >= settings.new_provider_job_threshold && (upheld ?? 0) === 0
-  const delay = established ? settings.payout_delay_days : settings.new_provider_payout_delay_days
+  const delay = terms.days
 
   if (pp.payout_delay_days !== delay) {
     if (pp.stripe_account_id && stripeConfigured()) {

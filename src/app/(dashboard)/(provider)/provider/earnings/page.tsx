@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/auth'
 import { useProfileIds } from '@/hooks/useProfileIds'
 import { formatDate, formatCurrency, titleCase } from '@/lib/utils'
+import { describePayoutTerms, type PayoutTermsView } from '@/lib/payout-terms'
 import { TrendingUp, Briefcase, PoundSterling, Lock, Clock, ArrowUpRight, Banknote, Landmark } from 'lucide-react'
 
 /**
@@ -35,6 +36,8 @@ interface Row {
   commission: number
   net: number
   held: number
+  /** What is holding it: a bank chargeback or a customer problem report */
+  holdKind: 'chargeback' | 'report' | null
   transferred: number
   paidOutManually: boolean
   state: PayoutState
@@ -59,6 +62,7 @@ export default function ProviderEarningsPage() {
   const [rows, setRows] = useState<Row[]>([])
   const [awaiting, setAwaiting] = useState<{ id: string; service: string; customerName: string; date: string | null; amount: number; status: string }[]>([])
   const [profile, setProfile] = useState<{ stripe_account_status: string | null; payout_delay_days: number | null } | null>(null)
+  const [terms, setTerms] = useState<PayoutTermsView | null>(null)
   const [loading, setLoading] = useState(true)
   const [period, setPeriod] = useState('month')
 
@@ -82,13 +86,18 @@ export default function ProviderEarningsPage() {
         supabase.auth.getUser(),
       ])
       setProfile(pp ?? null)
+      fetch('/api/provider/payout-terms', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(t => { if (t?.days) setTerms(t) }).catch(() => {})
 
       // Open-dispute holds are against this provider's user id
       const { data: holds } = user
-        ? await supabase.from('disputes').select('booking_id, held_amount').eq('filed_against', user.id).in('status', ['open', 'under_review', 'awaiting_customer', 'awaiting_provider'])
+        ? await supabase.from('disputes').select('booking_id, held_amount, source').eq('filed_against', user.id).in('status', ['open', 'under_review', 'awaiting_customer', 'awaiting_provider'])
         : { data: [] as any[] }
       const heldByBooking: Record<string, number> = {}
-      for (const h of holds ?? []) heldByBooking[h.booking_id] = (heldByBooking[h.booking_id] ?? 0) + Number(h.held_amount ?? 0)
+      const kindByBooking: Record<string, 'chargeback' | 'report'> = {}
+      for (const h of holds ?? []) {
+        heldByBooking[h.booking_id] = (heldByBooking[h.booking_id] ?? 0) + Number(h.held_amount ?? 0)
+        if (h.source === 'chargeback' || !kindByBooking[h.booking_id]) kindByBooking[h.booking_id] = h.source === 'chargeback' ? 'chargeback' : 'report'
+      }
 
       const connected = pp?.stripe_account_status === 'active'
       const delayDays = Number(pp?.payout_delay_days ?? 7)
@@ -116,7 +125,7 @@ export default function ProviderEarningsPage() {
           customerName: cp ? `${titleCase(cp.first_name ?? '')} ${titleCase(cp.last_name ?? '')}`.trim() : 'Customer',
           customerAvatar: cp?.profile_image_url ?? null,
           date: b?.scheduled_date ?? null, capturedAt: p.captured_at ?? null,
-          gross, refunded, commission, net, held, transferred, paidOutManually, state, clearsOn,
+          gross, refunded, commission, net, held, holdKind: held > 0 ? kindByBooking[p.booking_id] ?? 'report' : null, transferred, paidOutManually, state, clearsOn,
           isEmergency: !!b?.is_emergency,
         }
       }))
@@ -163,6 +172,12 @@ export default function ProviderEarningsPage() {
   }), [rows]) // eslint-disable-line react-hooks/exhaustive-deps
   const maxBar = Math.max(...bars.map(b => b.val), 1)
   const connected = profile?.stripe_account_status === 'active'
+  const delayDays = terms?.days ?? profile?.payout_delay_days ?? 7
+  const heldRows = rows.filter(r => r.state === 'held')
+  const heldChargeback = heldRows.filter(r => r.holdKind === 'chargeback').reduce((n, r) => n + r.held, 0)
+  const heldReports = totals.held - heldChargeback
+  const heldWhy = heldChargeback > 0 && heldReports > 0 ? 'open problem reports and a bank chargeback'
+    : heldChargeback > 0 ? 'a bank chargeback' : 'open problem reports'
 
   return (
     <div className="space-y-6">
@@ -194,17 +209,21 @@ export default function ProviderEarningsPage() {
         <Stat label={connected ? 'Owed to you' : 'Owed to you'} value={totals.owed} icon={Banknote} tone="blue"
           hint={connected ? 'captured, not yet transferred' : 'paid out by the Servios team'} />
         <Stat label={connected ? 'Clearing to bank' : 'On hold'} value={connected ? totals.clearing : totals.held} icon={connected ? Clock : Lock} tone={connected ? 'amber' : 'red'}
-          hint={connected ? `${profile?.payout_delay_days ?? 7}-day clearing period` : 'open problem reports'} />
+          hint={connected ? `${delayDays}-day clearing period` : heldWhy} />
         <Stat label="Paid out" value={totals.paidOut} icon={Landmark} tone="green" hint={connected ? 'in your bank' : 'by the Servios team'} />
       </div>
 
       {totals.held > 0 && connected && (
-        <p className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700"><Lock size={14} /> {formatCurrency(totals.held / 100)} is on hold for open problem reports.</p>
+        <p className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700"><Lock size={14} /> {formatCurrency(totals.held / 100)} is on hold for {heldWhy}.{heldChargeback > 0 ? ' A chargeback is decided by the customer’s bank, which can take several weeks.' : ''}</p>
+      )}
+
+      {connected && terms && (
+        <p className="flex items-start gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-600"><Clock size={14} className="mt-0.5 shrink-0 text-gray-400" /> {describePayoutTerms(terms)}</p>
       )}
 
       {!connected && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3">
-          <p className="text-sm text-gray-600">Your bank isn’t connected, so the Servios team pays you out. Connect it to receive payments automatically {profile?.payout_delay_days ?? 7} days after each job is confirmed.</p>
+          <p className="text-sm text-gray-600">Your bank isn’t connected, so the Servios team pays you out. Connect it to receive payments automatically.{terms ? ` ${describePayoutTerms(terms)}` : ` They clear ${delayDays} days after each job is confirmed.`}</p>
           <Link href="/provider/payouts" className="shrink-0 rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-white hover:bg-primary-dark">Connect bank account</Link>
         </div>
       )}
@@ -298,7 +317,7 @@ export default function ProviderEarningsPage() {
                       <td className="px-5 py-4 text-right">
                         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${meta.cls}`}><Icon size={11} /> {meta.label}</span>
                         <p className="mt-0.5 text-[11px] text-gray-400">
-                          {r.state === 'held' ? `${formatCurrency(r.held / 100)} held`
+                          {r.state === 'held' ? `${formatCurrency(r.held / 100)} held · ${r.holdKind === 'chargeback' ? 'bank chargeback' : 'problem report'}`
                             : r.state === 'clearing' && r.clearsOn ? `bank ${r.clearsOn.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
                             : r.state === 'owed' && !connected ? 'via Servios team'
                             : r.state === 'paid_out' && r.paidOutManually ? 'by Servios team' : ''}

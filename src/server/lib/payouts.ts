@@ -1,6 +1,6 @@
 import { supabase } from '../db/client'
 import { getSettings } from './settings'
-import { syncProviderShare, PAYMENT_COLUMNS } from './payments'
+import { syncProviderShare, payoutTermsFor, PAYMENT_COLUMNS, type PayoutDelayReason } from './payments'
 import { OPEN_STATUSES } from './disputes'
 
 /**
@@ -33,6 +33,8 @@ export interface PayoutRow {
   clearsOn: string | null
   state: PayoutState
   disputeNumber: string | null
+  /** The open hold is a bank chargeback, not a customer problem report */
+  chargeback: boolean
 }
 
 export interface ProviderPayouts {
@@ -43,6 +45,11 @@ export interface ProviderPayouts {
   avatarUrl: string | null
   connect: 'active' | 'pending' | 'restricted' | 'not_connected'
   payoutDelayDays: number
+  delayReason: PayoutDelayReason
+  delayOverride: number | null
+  delayOverrideReason: string | null
+  jobsDone: number
+  jobThreshold: number
   owed: number
   held: number
   clearing: number
@@ -50,7 +57,7 @@ export interface ProviderPayouts {
   payments: PayoutRow[]
 }
 
-export async function loadPayouts(): Promise<{ providers: ProviderPayouts[]; totals: { owed: number; held: number; clearing: number; paidOut: number; commission: number } }> {
+export async function loadPayouts(): Promise<{ providers: ProviderPayouts[]; totals: { owed: number; held: number; clearing: number; paidOut: number; commission: number; commissionAtRisk: number } }> {
   const settings = await getSettings()
   const [{ data: payments, error }, { data: disputes }] = await Promise.all([
     supabase.from('payments')
@@ -58,14 +65,15 @@ export async function loadPayouts(): Promise<{ providers: ProviderPayouts[]; tot
       .in('payment_status', ['succeeded', 'partially_refunded', 'refunded'])
       .order('captured_at', { ascending: false })
       .limit(1000),
-    supabase.from('disputes').select('booking_id, dispute_number, held_amount').in('status', OPEN_STATUSES as unknown as string[]),
+    supabase.from('disputes').select('booking_id, dispute_number, held_amount, source').in('status', OPEN_STATUSES as unknown as string[]),
   ])
   if (error) throw error
 
-  const holdByBooking: Record<string, { amount: number; number: string }> = {}
+  const holdByBooking: Record<string, { amount: number; number: string; chargeback: boolean }> = {}
   for (const d of disputes ?? []) {
-    const cur = holdByBooking[d.booking_id] ?? { amount: 0, number: d.dispute_number }
-    holdByBooking[d.booking_id] = { amount: cur.amount + Number(d.held_amount ?? 0), number: d.dispute_number }
+    const cur = holdByBooking[d.booking_id] ?? { amount: 0, number: d.dispute_number, chargeback: false }
+    const cb = d.source === 'chargeback'
+    holdByBooking[d.booking_id] = { amount: cur.amount + Number(d.held_amount ?? 0), number: cb || !cur.chargeback ? d.dispute_number : cur.number, chargeback: cur.chargeback || cb }
   }
 
   const providerIds = Array.from(new Set((payments ?? []).map((p: any) => p.booking?.provider_id).filter(Boolean))) as string[]
@@ -79,20 +87,29 @@ export async function loadPayouts(): Promise<{ providers: ProviderPayouts[]; tot
   const emailByUser = Object.fromEntries((users ?? []).map(u => [u.id, u.email]))
   const customerById = Object.fromEntries((customers ?? []).map(c => [c.id, `${c.first_name ?? ''} ${c.last_name ?? ''}`.trim() || 'Customer']))
 
+  const termsList = await Promise.all((profiles ?? []).map(p => payoutTermsFor(p.id).catch(() => null)))
+  const termsById = Object.fromEntries((profiles ?? []).map((p, i) => [p.id, termsList[i]]))
+
   const byProvider: Record<string, ProviderPayouts> = {}
   for (const p of profiles ?? []) {
+    const terms = termsById[p.id]
     byProvider[p.id] = {
       profileId: p.id, userId: p.user_id,
       name: p.business_name?.trim() || `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || 'Provider',
       email: emailByUser[p.user_id] ?? null,
       avatarUrl: p.profile_image_url ?? null,
       connect: (p.stripe_account_status as ProviderPayouts['connect']) ?? 'not_connected',
-      payoutDelayDays: Number(p.payout_delay_days ?? settings.payout_delay_days),
+      payoutDelayDays: Number(terms?.days ?? p.payout_delay_days ?? settings.payout_delay_days),
+      delayReason: terms?.reason ?? 'standard',
+      delayOverride: terms?.override ?? null,
+      delayOverrideReason: terms?.overrideReason ?? null,
+      jobsDone: terms?.jobsDone ?? 0,
+      jobThreshold: terms?.jobThreshold ?? settings.new_provider_job_threshold,
       owed: 0, held: 0, clearing: 0, paidOut: 0, payments: [],
     }
   }
 
-  const totals = { owed: 0, held: 0, clearing: 0, paidOut: 0, commission: 0 }
+  const totals = { owed: 0, held: 0, clearing: 0, paidOut: 0, commission: 0, commissionAtRisk: 0 }
   for (const p of (payments ?? []) as any[]) {
     const prov = byProvider[p.booking?.provider_id]
     if (!prov) continue
@@ -120,10 +137,13 @@ export async function loadPayouts(): Promise<{ providers: ProviderPayouts[]; tot
       scheduledDate: p.booking?.scheduled_date ?? null, capturedAt: p.captured_at ?? null,
       gross, refunded, commission, net, held, transferred,
       releasedAt: p.released_at ?? null, payoutMethod: p.payout_method ?? null, payoutReference: p.payout_reference ?? null,
-      clearsOn: clearsOn?.toISOString() ?? null, state, disputeNumber: hold?.number ?? null,
+      clearsOn: clearsOn?.toISOString() ?? null, state, disputeNumber: hold?.number ?? null, chargeback: !!hold?.chargeback,
     }
     prov.payments.push(row)
-    totals.commission += commission
+    // The bank has taken a charged-back payment away, so its commission is not
+    // earned unless the chargeback is won. Count it apart until the bank rules.
+    if (hold?.chargeback) totals.commissionAtRisk += commission
+    else totals.commission += commission
     const free = Math.max(0, net - held)
     if (state === 'held') { prov.held += held; totals.held += held; prov.owed += free; totals.owed += free }
     else if (state === 'owed') { prov.owed += net; totals.owed += net }
