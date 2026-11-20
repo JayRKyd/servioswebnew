@@ -28,25 +28,24 @@ export function BookingStepper({ status, paymentStatus, confirmed, hasAmount }: 
   const allDone = current === -1
   return (
     <div className="rounded-xl bg-white px-4 py-3 shadow-sm ring-1 ring-gray-100">
-      <ol className="flex items-center" aria-label="Booking progress">
+      {/* Labels sit under their dots so six of them fit a narrow column */}
+      <ol className="flex" aria-label="Booking progress">
         {steps.map((s, i) => (
-          <li key={s.label} className="flex min-w-0 flex-1 items-center last:flex-none" aria-current={i === current ? 'step' : undefined}>
-            <div className="flex items-center gap-1.5">
-              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
-                s.done ? 'bg-green-600 text-white' : i === current ? 'bg-primary text-white ring-4 ring-primary/15' : 'bg-gray-100 text-gray-400'
-              }`}>
-                {s.done ? <Check size={11} strokeWidth={3} /> : i + 1}
-              </span>
-              <span className={`hidden whitespace-nowrap text-[11px] font-semibold lg:inline ${s.done ? 'text-gray-700' : i === current ? 'text-primary' : 'text-gray-400'}`}>{s.label}</span>
-            </div>
-            {i < steps.length - 1 && <span className={`mx-1.5 h-px min-w-[8px] flex-1 lg:mx-2 ${s.done ? 'bg-green-300' : 'bg-gray-200'}`} />}
+          <li key={s.label} className="relative flex flex-1 flex-col items-center" aria-current={i === current ? 'step' : undefined}>
+            {i < steps.length - 1 && <span className={`absolute left-1/2 top-2.5 h-px w-full ${s.done ? 'bg-green-300' : 'bg-gray-200'}`} />}
+            <span className={`relative z-10 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ring-4 ${
+              s.done ? 'bg-green-600 text-white ring-white' : i === current ? 'bg-primary text-white ring-[#dbe9e7]' : 'bg-gray-100 text-gray-400 ring-white'
+            }`}>
+              {s.done ? <Check size={11} strokeWidth={3} /> : i + 1}
+            </span>
+            <span className={`mt-1.5 hidden px-1 text-center text-[11px] font-semibold leading-tight sm:block ${s.done ? 'text-gray-700' : i === current ? 'text-primary' : 'text-gray-400'}`}>{s.label}</span>
           </li>
         ))}
       </ol>
-      <p className="mt-2 text-xs text-gray-500 lg:hidden">
+      <p className="mt-2 text-xs text-gray-500 sm:hidden">
         {allDone
           ? <span className="font-semibold text-green-700">All {steps.length} steps done · Confirmed</span>
-          : <>Step {current + 1} of {steps.length} · <span className="font-semibold text-primary">{steps[current].label}</span>{current > 0 ? <span className="text-gray-400"> · after {steps[current - 1].label.toLowerCase()}</span> : null}</>}
+          : <>Step {current + 1} of {steps.length} · <span className="font-semibold text-primary">{steps[current]?.label}</span>{current > 0 ? <span className="text-gray-400"> · after {steps[current - 1]?.label.toLowerCase()}</span> : null}</>}
       </p>
     </div>
   )
