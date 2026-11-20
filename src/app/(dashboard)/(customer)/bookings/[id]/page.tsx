@@ -631,36 +631,42 @@ export default function CustomerBookingDetailPage() {
         </div>
       )}
 
-      <div className="flex gap-3">
+      {/* One primary action per state; message and cancel sit underneath,
+          quieter (client Round 6 design note 11) */}
+      <div className="space-y-2.5">
         {canPay && (
           <button onClick={handlePay} disabled={paying}
-            className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50">
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50">
             {paying ? 'Starting secure checkout…' : <><Lock size={14} /> {payment?.payment_status === 'failed' ? 'Try payment again' : `Pay £${(booking.total_amount / 100).toFixed(2)} securely`}</>}
           </button>
         )}
         {canConfirm && pendingAction !== 'confirm_complete' && (
           <button onClick={() => setPendingAction('confirm_complete')} disabled={confirming}
-            className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50">
-            {confirming ? 'Confirming…' : <><CheckCircle size={14} /> Confirm Job Complete</>}
-          </button>
-        )}
-        {canCancel && pendingAction !== 'cancel' && (
-          <button onClick={() => setPendingAction('cancel')} disabled={cancelling}
-            className="flex-1 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">
-            {cancelling ? 'Cancelling…' : 'Cancel Booking'}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50">
+            {confirming ? 'Confirming…' : <><CheckCircle size={14} /> Confirm job complete</>}
           </button>
         )}
         {canReview && (
           <button onClick={() => setShowReview(true)}
-            className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark">
-            Leave a Review
+            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark">
+            Leave a review
           </button>
         )}
-        {['pending','accepted','in_progress'].includes(booking.status) && (
-          <button onClick={handleOpenMessage} disabled={openingMessage}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60">
-            <MessageCircle size={14} /> {openingMessage ? 'Opening…' : 'Message'}
-          </button>
+        {(['pending','accepted','in_progress'].includes(booking.status) || (canCancel && pendingAction !== 'cancel')) && (
+          <div className="flex items-center gap-2">
+            {['pending','accepted','in_progress'].includes(booking.status) && (
+              <button onClick={handleOpenMessage} disabled={openingMessage}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60">
+                <MessageCircle size={14} /> {openingMessage ? 'Opening…' : 'Message provider'}
+              </button>
+            )}
+            {canCancel && pendingAction !== 'cancel' && (
+              <button onClick={() => setPendingAction('cancel')} disabled={cancelling}
+                className="rounded-xl px-4 py-2.5 text-sm font-medium text-gray-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-50">
+                {cancelling ? 'Cancelling…' : 'Cancel booking'}
+              </button>
+            )}
+          </div>
         )}
       </div>
       <DisputePanel

@@ -31,6 +31,29 @@ export interface NotificationEmail {
   secondaryCtas?: EmailCta[]
   /** Inbox preview line — without it clients repeat the heading */
   preheader?: string
+  /** What kind of email this is, so it reads at a glance: money in / good
+   *  news, something to do, a problem, or a plain update */
+  tone?: EmailTone
+  /** Overrides the tone's default badge text ("Action needed" …) */
+  badge?: string
+  /** "Hi Priya," — the caller passes the reader's first name */
+  greeting?: string
+  /** Whose words the quoted note is: "Priya wrote", "Reason given" */
+  noteLabel?: string
+}
+
+export type EmailTone = 'success' | 'action' | 'problem' | 'info'
+const TONES: Record<EmailTone, { bar: string; bg: string; ink: string; badge: string | null; mark: string }> = {
+  success: { bar: '#16a34a', bg: '#dcfce7', ink: '#166534', badge: 'Good news', mark: '&#10003;' },
+  action:  { bar: '#d97706', bg: '#fef3c7', ink: '#92400e', badge: 'Action needed', mark: '&#9679;' },
+  problem: { bar: '#dc2626', bg: '#fee2e2', ink: '#991b1b', badge: 'Please read', mark: '!' },
+  info:    { bar: '#115e56', bg: '#e6f0ee', ink: '#115e56', badge: null, mark: '' },
+}
+
+/** "Hi Priya," from a first name; nothing when we don't have one. */
+export function greetingFor(firstName: string | null | undefined): string | undefined {
+  const n = String(firstName ?? '').trim().split(/\s+/)[0]
+  return n ? `Hi ${escapeHtml(n.charAt(0).toUpperCase() + n.slice(1))},` : undefined
 }
 
 /** Escape user-provided strings before interpolating into email HTML. */
@@ -52,10 +75,15 @@ export function poundsFromCents(cents: number | null | undefined): string {
   return typeof cents === 'number' ? `£${(cents / 100).toFixed(2)}` : ''
 }
 
+function initialsOf(name: string): string {
+  const parts = name.replace(/&amp;|&/g, ' ').trim().split(/\s+/).filter(Boolean)
+  return ((parts[0]?.charAt(0) ?? '') + (parts.length > 1 ? (parts[parts.length - 1]?.charAt(0) ?? '') : '')).toUpperCase() || 'S'
+}
+
 function personCard(p: EmailPerson): string {
   const avatar = p.avatarUrl
     ? `<img src="${p.avatarUrl}" width="48" height="48" alt="${p.name}" style="display:block;border:0;border-radius:24px;object-fit:cover;" />`
-    : `<div style="width:48px;height:48px;border-radius:24px;background-color:#115e56;color:#ffffff;font-size:20px;font-weight:700;text-align:center;line-height:48px;">${p.name.charAt(0).toUpperCase()}</div>`
+    : `<div style="width:48px;height:48px;border-radius:24px;background-color:#115e56;color:#ffffff;font-size:17px;font-weight:700;text-align:center;line-height:48px;letter-spacing:0.02em;">${initialsOf(p.name)}</div>`
   const rating = p.rating && p.rating > 0
     ? `<span style="color:#b45309;font-weight:600;">★ ${Number(p.rating).toFixed(1)}</span>${p.ratingCount ? ` <span class="mut" style="color:#6b7280;">(${p.ratingCount} review${p.ratingCount !== 1 ? 's' : ''})</span>` : ''}`
     : ''
@@ -68,7 +96,7 @@ function personCard(p: EmailPerson): string {
                 <td style="padding:14px 16px;width:48px;vertical-align:middle;">${avatar}</td>
                 <td style="padding:14px 16px 14px 0;vertical-align:middle;">
                   <p style="margin:0;font-size:15px;font-weight:700;" class="ink"><span style="color:#111827;">${p.name}</span></p>
-                  ${secondLine ? `<p style="margin:3px 0 0;font-size:12.5px;">${secondLine}</p>` : ''}
+                  ${secondLine ? `<p style="margin:3px 0 0;font-size:13.5px;">${secondLine}</p>` : ''}
                 </td>
               </tr>
             </table>
@@ -79,8 +107,8 @@ function personCard(p: EmailPerson): string {
 function detailsCard(details: EmailDetail[]): string {
   const rows = details.map(d => `
                 <tr>
-                  <td style="padding:6px 16px;font-size:13px;color:#6b7280;white-space:nowrap;" class="mut">${d.label}</td>
-                  <td style="padding:6px 16px;font-size:13px;font-weight:600;text-align:right;" class="ink"><span style="color:#111827;">${d.value}</span></td>
+                  <td style="padding:7px 16px;font-size:14px;color:#4b5563;vertical-align:top;white-space:nowrap;" class="mut">${d.label}</td>
+                  <td style="padding:7px 16px;font-size:14px;font-weight:600;text-align:right;vertical-align:top;" class="ink"><span style="color:#111827;">${d.value}</span></td>
                 </tr>`).join('')
   return `
         <tr>
@@ -96,7 +124,12 @@ function detailsCard(details: EmailDetail[]): string {
  *  dark-scheme-aware, Servios Group Ltd footer. No unsubscribe link on
  *  transactional mail. */
 export function renderNotificationEmail(email: NotificationEmail): string {
-  const { heading, body, person, details, note, ctaLabel, ctaPath, secondaryCtas, preheader } = email
+  const { heading, body, person, details, note, ctaLabel, ctaPath, secondaryCtas, preheader, greeting, noteLabel } = email
+  const tone = TONES[email.tone ?? 'info']
+  const badgeText = email.badge ?? tone.badge
+  const badge = badgeText
+    ? `<tr><td style="padding-bottom:12px;"><span style="display:inline-block;background-color:${tone.bg};color:${tone.ink};font-size:12px;font-weight:700;letter-spacing:0.02em;padding:5px 11px;border-radius:999px;">${tone.mark ? `${tone.mark}&nbsp; ` : ''}${badgeText}</span></td></tr>`
+    : ''
   const ctaUrl = `${SITE_URL}${ctaPath}`
   const preheaderHtml = preheader
     ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${preheader}${'&nbsp;&zwnj;'.repeat(40)}</div>`
@@ -119,7 +152,7 @@ ${preheaderHtml}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="body-bg" style="background-color:#f4f5f4;padding:40px 16px;">
   <tr>
     <td align="center">
-      <table role="presentation" width="520" cellpadding="0" cellspacing="0" class="card-bg" style="max-width:520px;width:100%;background-color:#ffffff;border-radius:16px;padding:36px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+      <table role="presentation" width="520" cellpadding="0" cellspacing="0" class="card-bg" style="max-width:520px;width:100%;background-color:#ffffff;border-radius:16px;border-top:5px solid ${tone.bar};padding:32px 36px 36px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
         <tr>
           <td style="padding-bottom:28px;">
             <table role="presentation" cellpadding="0" cellspacing="0">
@@ -130,17 +163,20 @@ ${preheaderHtml}
             </table>
           </td>
         </tr>
+        ${badge}
         <tr>
-          <td class="ink" style="font-size:21px;font-weight:700;letter-spacing:-0.02em;padding-bottom:${body ? '10' : '20'}px;"><span style="color:#111827;">${heading}</span></td>
+          <td class="ink" style="font-size:22px;font-weight:700;letter-spacing:-0.02em;line-height:1.3;padding-bottom:${body || greeting ? '12' : '20'}px;"><span style="color:#111827;">${heading}</span></td>
         </tr>
-        ${body ? `<tr><td class="mut" style="font-size:14.5px;line-height:1.6;color:#6b7280;padding-bottom:20px;">${body}</td></tr>` : ''}
+        ${greeting ? `<tr><td class="ink" style="font-size:15px;line-height:1.6;padding-bottom:${body ? '4' : '18'}px;"><span style="color:#374151;">${greeting}</span></td></tr>` : ''}
+        ${body ? `<tr><td class="mut" style="font-size:15px;line-height:1.6;color:#4b5563;padding-bottom:20px;">${body}</td></tr>` : ''}
         ${person ? personCard(person) : ''}
         ${details && details.length > 0 ? detailsCard(details) : ''}
         ${note ? `
         <tr>
           <td style="padding-bottom:20px;">
-            <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-left:3px solid #115e56;">
-              <tr><td class="mut" style="padding:4px 0 4px 14px;font-size:13px;line-height:1.6;color:#4b5563;font-style:italic;">${note}</td></tr>
+            <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-left:3px solid ${tone.bar};">
+              ${noteLabel ? `<tr><td class="mut" style="padding:2px 0 2px 14px;font-size:12px;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#6b7280;">${noteLabel}</td></tr>` : ''}
+              <tr><td class="ink" style="padding:4px 0 4px 14px;font-size:14.5px;line-height:1.6;"><span style="color:#374151;">${noteLabel ? '' : '&ldquo;'}${note}${noteLabel ? '' : '&rdquo;'}</span></td></tr>
             </table>
           </td>
         </tr>` : ''}
@@ -150,8 +186,9 @@ ${preheaderHtml}
           </td>
         </tr>
         ${secondary ? `<tr><td style="padding-bottom:6px;">${secondary}</td></tr>` : ''}
+        <tr><td class="ink" style="font-size:15px;line-height:1.6;padding:14px 0 22px;"><span style="color:#374151;">&mdash; The Servios team</span></td></tr>
         <tr>
-          <td class="mut" style="font-size:12.5px;line-height:1.6;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:20px;margin-top:8px;">
+          <td class="mut" style="font-size:13px;line-height:1.6;color:#6b7280;border-top:1px solid #e5e7eb;padding-top:20px;">
             Manage bookings, messages and quotes any time from your
             <a href="${SITE_URL}" class="lnk" style="color:#115e56;">Servios dashboard</a>.
             Need help? Visit the <a href="${SITE_URL}/help" class="lnk" style="color:#115e56;">Help Centre</a>
@@ -161,7 +198,7 @@ ${preheaderHtml}
       </table>
       <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;">
         <tr>
-          <td class="mut" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:11.5px;line-height:1.7;color:#9ca3af;text-align:center;padding-top:22px;">
+          <td class="mut" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:1.7;color:#8b9198;text-align:center;padding-top:22px;">
             ${COMPANY_FOOTER}<br>
             <span style="color:#9ca3af;text-decoration:none;">${COMPANY_ADDRESS.replace(/(\d)/g, '$1&#8288;')}</span><br>
             You received this email because you have a Servios account with activity on it.

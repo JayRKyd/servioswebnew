@@ -191,7 +191,8 @@ export default function AdminPayoutsPage() {
                               <td className="px-5 py-3">{selectable && <input type="checkbox" checked={!!selected[r.paymentId]} onChange={e => setSelected(sl => ({ ...sl, [r.paymentId]: e.target.checked }))} className="accent-[#115e56]" />}</td>
                               <td className="px-3 py-3">
                                 <Link href={`/admin/bookings/${r.bookingId}`} className="font-medium text-gray-900 hover:text-primary">{r.service ?? 'Booking'}</Link>
-                                <p className="text-xs text-gray-500">{r.customerName} · <span className="font-mono">{r.bookingNumber}</span></p>
+                                <p className="text-xs text-gray-500">{r.customerName}</p>
+                                <p className="whitespace-nowrap font-mono text-[11px] text-gray-400">{r.bookingNumber}</p>
                               </td>
                               <td className="hidden px-3 py-3 text-gray-500 md:table-cell">{day(r.capturedAt)}</td>
                               <td className="px-3 py-3 text-right font-semibold text-gray-900">{pounds(r.net)}</td>

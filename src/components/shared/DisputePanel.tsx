@@ -120,7 +120,7 @@ export function DisputePanel({ bookingId, totalPence, openForm, onFormClosed, on
   openForm?: boolean
   onFormClosed?: () => void
   /** Lets the page hide Confirm/Pay while a case is open. */
-  onState?: (s: { hasOpenDispute: boolean; canReport: boolean }) => void
+  onState?: (s: { hasOpenDispute: boolean; canReport: boolean; chargeback?: boolean; heldPence?: number }) => void
   /** Changes when the booking does (status / confirmation / payment) so eligibility is re-fetched. */
   refreshKey?: string
 }) {
@@ -147,7 +147,7 @@ export function DisputePanel({ bookingId, totalPence, openForm, onFormClosed, on
     const json: any = await res.json().catch(() => null)
     if (res.ok && json) {
       setData(json)
-      onState?.({ hasOpenDispute: !!json.view?.dispute?.open, canReport: !!json.eligibility?.allowed })
+      onState?.({ hasOpenDispute: !!json.view?.dispute?.open, canReport: !!json.eligibility?.allowed, chargeback: json.view?.dispute?.source === 'chargeback', heldPence: Number(json.view?.dispute?.heldAmount ?? 0) })
     }
     setLoading(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -224,6 +224,20 @@ export function DisputePanel({ bookingId, totalPence, openForm, onFormClosed, on
   // the window hasn't simply closed — that case gets an explanation)
   if (!d && (viewer === 'provider' || (!eligibility?.allowed && !eligibility?.closed && !showForm))) return null
 
+  const isChargeback = d?.source === 'chargeback'
+  // The money at stake, in the reader's terms
+  const stake = !d ? 0
+    : !d.open ? Number(d.refundAmount ?? 0)
+    : viewer === 'provider' ? d.heldAmount
+    : paymentState === 'none' ? 0
+    : d.desiredAmount && d.desiredAmount < (data.remainingPence ?? totalPence) ? d.desiredAmount : (data.remainingPence ?? totalPence)
+  const stakeLabel = !d?.open ? 'Refunded' : viewer === 'provider' ? 'On hold' : 'Under review'
+  const replied = !!d?.providerResponse || !!view?.thread.some(m => m.role === 'provider')
+  const caseSteps = isChargeback
+    ? [{ label: 'Bank opened', done: true }, { label: 'Evidence', done: replied || !d?.open }, { label: 'Bank decision', done: !d?.open }]
+    : [{ label: 'Reported', done: true }, { label: viewer === 'provider' ? 'Your reply' : 'Provider reply', done: replied || !d?.open }, { label: 'Decision', done: !d?.open }]
+  const caseCurrent = caseSteps.findIndex(st => !st.done)
+
   return (
     <section id="problem" className="scroll-mt-6 space-y-4">
       {/* ── Entry point ── */}
@@ -238,8 +252,8 @@ export function DisputePanel({ bookingId, totalPence, openForm, onFormClosed, on
               {eligibility.deadline && <> You can report a problem until {new Date(eligibility.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}.</>}
             </p>
           </div>
-          <button onClick={() => setShowForm(true)} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50">
-            <ShieldAlert size={15} /> Report a problem
+          <button onClick={() => setShowForm(true)} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:border-red-200 hover:bg-red-50 hover:text-red-700">
+            <ShieldAlert size={15} className="text-red-500" /> Report a problem
           </button>
         </div>
       )}
@@ -326,8 +340,29 @@ export function DisputePanel({ bookingId, totalPence, openForm, onFormClosed, on
               <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">{d.source === 'chargeback' ? 'Bank chargeback' : 'Problem report'} · {d.number}</p>
               <p className="mt-0.5 text-sm font-semibold text-gray-900">{TYPE_LABEL[d.type] ?? 'Problem reported'}</p>
             </div>
-            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${(STATUS[d.status] ?? OPEN_STATUS).cls}`}>{(STATUS[d.status] ?? OPEN_STATUS).label}</span>
+            <div className="flex items-center gap-3">
+              {stake > 0 && (
+                <div className="text-right">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{stakeLabel}</p>
+                  <p className="text-base font-bold leading-tight text-gray-900">{pounds(stake)}</p>
+                </div>
+              )}
+              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${(STATUS[d.status] ?? OPEN_STATUS).cls}`}>{isChargeback && d.open ? 'Waiting on the bank' : (STATUS[d.status] ?? OPEN_STATUS).label}</span>
+            </div>
           </div>
+
+          {/* Three steps: where the case is (client Round 6 design note 15) */}
+          <ol className="flex items-center gap-2 border-b border-gray-100 px-5 py-3" aria-label="Case progress">
+            {caseSteps.map((st, i) => (
+              <li key={st.label} className="flex min-w-0 flex-1 items-center gap-2 last:flex-none">
+                <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${st.done ? 'bg-green-600 text-white' : i === caseCurrent ? 'bg-primary text-white ring-4 ring-primary/15' : 'bg-gray-100 text-gray-400'}`}>
+                  {st.done ? <CheckCircle2 size={12} /> : i + 1}
+                </span>
+                <span className={`truncate text-[11px] font-semibold ${st.done ? 'text-gray-700' : i === caseCurrent ? 'text-primary' : 'text-gray-400'}`}>{st.label}</span>
+                {i < caseSteps.length - 1 && <span className={`h-px min-w-[8px] flex-1 ${st.done ? 'bg-green-300' : 'bg-gray-200'}`} />}
+              </li>
+            ))}
+          </ol>
 
           {d.open && (
             <div className="flex items-start gap-2.5 bg-amber-50/60 px-5 py-3 text-xs text-amber-800">
@@ -343,12 +378,16 @@ export function DisputePanel({ bookingId, totalPence, openForm, onFormClosed, on
                 </span>
               ) : (
                 <span>
-                  {d.heldAmount > 0
+                  {isChargeback
+                    ? <><strong>{pounds(d.heldAmount)} of your payout is on hold</strong> while Servios responds to the customer’s bank. The bank decides, which can take several weeks. </>
+                    : d.heldAmount > 0
                     ? <><strong>{pounds(d.heldAmount)} of your payout is on hold</strong> until this is resolved. </>
                     : paymentState === 'none'
                       ? 'No payment has been taken for this job yet. '
                       : 'The amount in question is on hold until this is resolved. '}
-                  {d.providerResponse ? 'Thanks for responding — support will be in touch.' : <strong>Please give your side below — support reads both before deciding.</strong>}
+                  {isChargeback
+                    ? (replied ? 'Thanks — we’ll include what you sent in our response.' : <strong>Add anything below that shows the work was done: photos, messages, what was agreed.</strong>)
+                    : d.providerResponse ? 'Thanks for responding — support will be in touch.' : <strong>Please give your side below — support reads both before deciding.</strong>}
                 </span>
               )}
             </div>
@@ -396,7 +435,7 @@ export function DisputePanel({ bookingId, totalPence, openForm, onFormClosed, on
             {d.open && (
               <div className="space-y-2 border-t border-gray-100 pt-4">
                 <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  <MessageSquare size={13} /> {viewer === 'provider' && !d.providerResponse ? 'Your side of what happened' : 'Add to this case'}
+                  <MessageSquare size={13} /> {isChargeback ? 'Evidence for the bank' : viewer === 'provider' && !d.providerResponse ? 'Your side of what happened' : 'Add to this case'}
                 </label>
                 <textarea rows={3} value={reply} onChange={e => setReply(e.target.value)}
                   placeholder={viewer === 'provider' ? 'Explain what was agreed and what you did. Before/after photos help.' : 'Anything new — more detail, photos, or an update.'}
@@ -407,7 +446,7 @@ export function DisputePanel({ bookingId, totalPence, openForm, onFormClosed, on
                     {sending ? 'Sending…' : 'Send'}
                   </button>
                 </div>
-                <p className="text-[11px] text-gray-400">Both sides and Servios support can see messages here.</p>
+                <p className="text-[11px] text-gray-400">{isChargeback ? 'Only Servios support sees what you add here. The customer does not.' : 'Both sides and Servios support can see messages here.'}</p>
               </div>
             )}
             {error && !showForm && <p className="flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"><AlertTriangle size={14} /> {error}</p>}

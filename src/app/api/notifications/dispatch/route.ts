@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendEmail } from '@/server/lib/notifications'
-import { renderNotificationEmail, escapeHtml, ukDate, ukTime, poundsFromCents } from '@/server/lib/email-templates'
+import { renderNotificationEmail, greetingFor, escapeHtml, ukDate, ukTime, poundsFromCents, type EmailTone } from '@/server/lib/email-templates'
+import { getVatNumber } from '@/server/lib/settings'
 import { cancelHeldPayment } from '@/server/lib/payments'
 
 /** Called by Postgres triggers (pg_net http_post) on bookings insert,
@@ -23,6 +24,16 @@ interface WebhookPayload {
 async function emailForUser(userId: string): Promise<string | null> {
   const { data } = await supabase.auth.admin.getUserById(userId)
   return data?.user?.email ?? null
+}
+
+/** "Hi Priya," for whoever the email is going to. */
+async function hi(userId: string | null | undefined): Promise<string | undefined> {
+  if (!userId) return undefined
+  const [{ data: pp }, { data: cp }] = await Promise.all([
+    supabase.from('provider_profiles').select('first_name').eq('user_id', userId).maybeSingle(),
+    supabase.from('customer_profiles').select('first_name').eq('user_id', userId).maybeSingle(),
+  ])
+  return greetingFor(pp?.first_name ?? cp?.first_name)
 }
 
 async function personFor(userId: string): Promise<{ name: string; avatarUrl: string | null; rating: number | null; ratingCount: number | null; meta?: string }> {
@@ -106,12 +117,15 @@ async function handlePaymentCaptured(record: Record<string, any>, oldRecord: Rec
   const ratePct = Math.round((rawRate >= 1 ? rawRate : rawRate * 100))
   const card = record.payment_metadata?.card as { brand?: string; last4?: string; statement?: string | null } | undefined
   const paidOn = ukDate((record.captured_at ?? new Date().toISOString()).slice(0, 10))
+  // Only set once the client is VAT registered (admin → Settings)
+  const vatNumber = await getVatNumber().catch(() => null)
 
   // Customer: a receipt that reads like a receipt
   if (cp?.user_id) {
     const email = await emailForUser(cp.user_id)
     if (email) {
       await sendEmail(email, `Receipt — ${svc?.title ?? 'your booking'}, ${total} · ${ref}`, renderNotificationEmail({
+        tone: 'success', badge: 'Payment receipt', greeting: await hi(cp.user_id),
         heading: 'Your receipt',
         body: `Thanks for confirming the job. ${total} has been charged to your card and paid to ${providerName}. Keep this email for your records.`,
         person: pp ? { name: providerName, avatarUrl: pp.profile_image_url ?? null, rating: Number(pp.rating_average) || null, ratingCount: pp.total_reviews ?? null } : undefined,
@@ -125,6 +139,7 @@ async function handlePaymentCaptured(record: Record<string, any>, oldRecord: Rec
           ...(card?.statement && !/^stripe$/i.test(card.statement.trim()) ? [{ label: 'Statement shows', value: escapeHtml(String(card.statement)) }] : []),
           ...(ref ? [{ label: 'Reference', value: escapeHtml(ref) }] : []),
           { label: 'Billed by', value: 'Servios Group Ltd' },
+          ...(vatNumber ? [{ label: 'VAT number', value: escapeHtml(vatNumber) }] : []),
         ],
         ctaLabel: 'Leave a review',
         ctaPath: `/bookings/${b.id}`,
@@ -145,6 +160,7 @@ async function handlePaymentCaptured(record: Record<string, any>, oldRecord: Rec
         ? `It's in your Stripe balance now and clears to your bank on ${escapeHtml(ukDate(clears.toISOString().slice(0, 10)))} — the ${delay}-day clearing period that lets us put any customer problem right fairly.`
         : `Your bank isn't connected yet, so the Servios team will pay this out to you. Connect your bank on the Payouts page to receive future payments automatically.`
       await sendEmail(email, `You've been paid — ${payout} · ${customerShort} · ${ref}`, renderNotificationEmail({
+        tone: 'success', badge: 'Payment', greeting: await hi(pp.user_id),
         heading: `You've been paid ${payout}`,
         body: `${escapeHtml(customerName)} confirmed the job is complete. ${bankLine}`,
         details: [
@@ -156,6 +172,7 @@ async function handlePaymentCaptured(record: Record<string, any>, oldRecord: Rec
           { label: 'Your payout', value: payout },
           ...(connected ? [{ label: 'Clears to bank', value: escapeHtml(ukDate(clears.toISOString().slice(0, 10))) }] : []),
           ...(ref ? [{ label: 'Reference', value: escapeHtml(ref) }] : []),
+          ...(vatNumber ? [{ label: 'Servios VAT number', value: escapeHtml(vatNumber) }] : []),
         ],
         ctaLabel: 'View earnings',
         ctaPath: '/provider/earnings',
@@ -175,6 +192,8 @@ async function handleReviewInsert(record: Record<string, any>) {
   if (!email) return
 
   await sendEmail(email, `New ${stars}-star review from ${reviewer.name}`, renderNotificationEmail({
+    tone: stars >= 4 ? 'success' : 'info', badge: stars >= 4 ? 'New review' : undefined, greeting: await hi(record.reviewee_id),
+    noteLabel: `${escapeHtml(reviewer.name)} wrote`,
     heading: `New review — ${stars} out of 5`,
     person: { ...reviewer, name: escapeHtml(reviewer.name) },
     note: record.review_text ? escapeHtml(String(record.review_text)) : undefined,
@@ -236,6 +255,8 @@ async function handleBookingInsert(record: Record<string, any>) {
     email,
     `New ${emergency}booking request — ${svc?.title ?? 'Servios'}${price ? `, ${price}` : ''} · ${customerShort} · ${record.booking_number ?? ''}`,
     renderNotificationEmail({
+      tone: 'action', badge: 'Reply needed', greeting: await hi(pp.user_id),
+      noteLabel: `Note from ${customerName}`,
       heading: `New ${emergency}booking request`,
       person: { name: customerName, avatarUrl: cp?.profile_image_url ?? null, meta: 'Customer' },
       details,
@@ -387,11 +408,23 @@ async function handleBookingStatusChange(record: Record<string, any>, oldRecord:
       : `${who} You don't need to attend, and the slot is free in your calendar again. Any hold on the customer's card has been released, so no payout is due.`
   }
 
+  const statusTone: EmailTone = record.status === 'accepted' ? (paid ? 'success' : 'action')
+    : record.status === 'completed' ? 'action'
+    : record.status === 'in_progress' ? 'info'
+    : 'problem'
+  const statusBadge = record.status === 'accepted' ? (paid ? 'Booking confirmed' : 'One step left')
+    : record.status === 'completed' ? 'Your confirmation needed'
+    : record.status === 'rejected' ? 'Booking declined'
+    : record.status === 'cancelled' ? 'Booking cancelled'
+    : undefined
+
   await Promise.all(targets.map(async ({ userId, path }) => {
     const email = await emailForUser(userId)
     if (email) {
       const isCustomer = userId === cp?.user_id
       await sendEmail(email, copy.subject, renderNotificationEmail({
+        tone: statusTone, badge: statusBadge, greeting: await hi(userId),
+        noteLabel: 'Reason given',
         heading: copy.heading,
         body: record.status === 'cancelled' ? cancelBody(isCustomer) : copy.body,
         // Customers see the provider's card; the provider (cancellations)
@@ -444,6 +477,8 @@ async function handleMessageInsert(record: Record<string, any>): Promise<string>
   const email = await emailForUser(recipient)
   if (!email) return 'no-email-address'
   return await sendEmail(email, `New message from ${sender.name}`, renderNotificationEmail({
+    tone: 'info', greeting: await hi(recipient),
+    noteLabel: `${escapeHtml(sender.name)} wrote`,
     heading: 'New message',
     person: { ...sender, name: escapeHtml(sender.name) },
     note: `${escapeHtml(preview)}${record.message_text?.length > 120 ? '…' : ''}`,
@@ -468,6 +503,8 @@ async function handleQuoteInvite(record: Record<string, any>) {
   // append it when it isn't there — "…North London in North London" read badly
   const areaSuffix = qr.area && !String(qr.title).includes(qr.area) ? ` in ${escapeHtml(qr.area)}` : ''
   await sendEmail(email, `New quote request — ${qr.title}`, renderNotificationEmail({
+    tone: 'action', badge: 'Quote requested', greeting: await hi(record.provider_id),
+    noteLabel: 'The customer wrote',
     heading: 'New quote request',
     body: `A customer is looking for <strong>${escapeHtml(qr.title)}</strong>${areaSuffix}. Send your price before other pros do.`,
     details: [
@@ -500,6 +537,8 @@ async function handleQuoteResponse(record: Record<string, any>) {
   const email = await emailForUser(qr.customer_id)
   if (email) {
     await sendEmail(email, `You received a quote — £${amount}`, renderNotificationEmail({
+      tone: 'info', greeting: await hi(qr.customer_id),
+      noteLabel: `Note from ${escapeHtml(provider.name)}`,
       heading: 'You received a quote',
       body: `Compare your quotes and accept the one that suits you.`,
       person: { ...provider, name: escapeHtml(provider.name) },
@@ -549,6 +588,7 @@ async function handleDocumentStatusChange(record: Record<string, any>, oldRecord
     const email = await emailForUser(pp.user_id)
     if (!email) return
     await sendEmail(email, `Approved: ${title}`, renderNotificationEmail({
+      tone: 'success', badge: 'Approved', greeting: await hi(pp.user_id),
       heading: 'Document approved',
       body: `We've checked your ${typeLabel} and it's all in order.${['license', 'certification'].includes(record.document_type) ? ' It now shows as a verified credential on your public profile.' : ''}`,
       details,
@@ -565,6 +605,8 @@ async function handleDocumentStatusChange(record: Record<string, any>, oldRecord
     const email = await emailForUser(pp.user_id)
     if (!email) return
     await sendEmail(email, `Action needed: ${title} wasn't approved`, renderNotificationEmail({
+      tone: 'action', greeting: await hi(pp.user_id),
+      noteLabel: 'Why it wasn’t approved',
       heading: 'We couldn’t approve this document',
       body: `Our team reviewed your ${typeLabel} and couldn't accept it. Upload a replacement and we'll take another look — usually within one working day.`,
       details: [{ label: 'Document', value: escapeHtml(title) }],
@@ -581,6 +623,7 @@ async function handleDocumentStatusChange(record: Record<string, any>, oldRecord
   const email = await emailForUser(pp.user_id)
   if (!email) return
   await sendEmail(email, `Your ${typeLabel} has expired`, renderNotificationEmail({
+    tone: 'action', greeting: await hi(pp.user_id),
     heading: 'Document expired',
     body: `The expiry date on your ${typeLabel} has passed. Upload the renewed copy to keep your verified status and stay visible to customers.`,
     details,
@@ -604,6 +647,7 @@ async function handleVerificationChange(record: Record<string, any>, oldRecord: 
     const email = await emailForUser(userId)
     if (!email) return
     await sendEmail(email, 'You’re verified — you’re live on Servios', renderNotificationEmail({
+      tone: 'success', badge: 'You’re live',
       heading: `You’re verified${firstName ? `, ${firstName}` : ''}`,
       body: 'Your identity and insurance have been checked and your profile is now live. Customers can find you in search and send booking requests. Keep your availability up to date so the right jobs reach you.',
       ctaLabel: 'Go to your dashboard',
@@ -619,6 +663,8 @@ async function handleVerificationChange(record: Record<string, any>, oldRecord: 
     const email = await emailForUser(userId)
     if (!email) return
     await sendEmail(email, 'Your Servios application', renderNotificationEmail({
+      tone: 'problem', badge: 'Application update', greeting: await hi(userId),
+      noteLabel: 'Note from the Servios team',
       heading: 'We couldn’t approve your application',
       body: 'After reviewing your profile and documents we’re not able to verify your account at this time. If you believe this is a mistake, or you can provide further documents, reply to this email or contact support and we’ll take another look.',
       note: record.verification_notes ? escapeHtml(String(record.verification_notes)) : undefined,
@@ -634,6 +680,8 @@ async function handleVerificationChange(record: Record<string, any>, oldRecord: 
     const email = await emailForUser(userId)
     if (!email) return
     await sendEmail(email, 'Your verification is on hold', renderNotificationEmail({
+      tone: 'action', greeting: await hi(userId),
+      noteLabel: 'Note from the Servios team',
       heading: 'Your verification is on hold',
       body: 'Your profile has been temporarily removed from search. This usually means a required document has expired or been withdrawn. Upload an up-to-date copy and you’ll be live again as soon as it’s approved.',
       note: record.verification_notes ? escapeHtml(String(record.verification_notes)) : undefined,
@@ -690,6 +738,7 @@ async function handleDisputeInsert(record: Record<string, any>) {
     const providerEmail = await emailForUser(record.filed_against)
     if (providerEmail) {
       await sendEmail(providerEmail, `A payment is being disputed — ${ctx.service}`, renderNotificationEmail({
+        tone: 'problem', badge: 'Payment disputed', greeting: await hi(record.filed_against),
         heading: 'The customer’s bank has disputed a payment',
         body: 'Your share of this payment is on hold while Servios responds to the bank. If you have photos, messages or anything that shows the work was done, reply on the case so we can include it.',
         details: ctx.details,
@@ -703,6 +752,8 @@ async function handleDisputeInsert(record: Record<string, any>) {
     const providerEmail = await emailForUser(record.filed_against)
     if (providerEmail) {
       await sendEmail(providerEmail, `Action needed: a problem was reported — ${ctx.service}`, renderNotificationEmail({
+        tone: 'action', badge: 'Your reply needed', greeting: await hi(record.filed_against),
+        noteLabel: `${escapeHtml(customer.name)} wrote`,
         heading: 'A customer reported a problem',
         body: Number(record.held_amount) > 0
           ? `Please give your side as soon as you can — Servios support reads both before deciding anything. <strong>${poundsFromCents(Number(record.held_amount))} of your payout for this job is on hold</strong> until the case is resolved; the rest of your earnings aren’t affected.`
@@ -718,6 +769,7 @@ async function handleDisputeInsert(record: Record<string, any>) {
     const customerEmail = await emailForUser(record.filed_by)
     if (customerEmail) {
       await sendEmail(customerEmail, `We’ve received your report — ${ctx.ref}`, renderNotificationEmail({
+        tone: 'info', badge: 'Report received', greeting: await hi(record.filed_by),
         heading: 'We’ve got your report',
         body: `We’ve asked ${escapeHtml(provider.name)} for their side${ctx.payment ? (Number(record.desired_amount) > 0 && Number(record.desired_amount) < Number(ctx.payment.amount) - Number(ctx.payment.refund_amount ?? 0) ? `, and the ${poundsFromCents(Number(record.desired_amount))} you asked for is held by Servios until it’s sorted` : ', and your payment for this job is on hold until it’s sorted') : ''}. Servios support will review both and reply — usually within 2 working days. You can add photos or more detail any time.`,
         details: ctx.details,
@@ -730,6 +782,7 @@ async function handleDisputeInsert(record: Record<string, any>) {
 
   const admins = await adminEmails()
   await Promise.all(admins.map(email => sendEmail(email, `New ${record.source === 'chargeback' ? 'chargeback' : 'dispute'} ${ctx.ref} — ${ctx.service}`, renderNotificationEmail({
+    tone: 'action', noteLabel: record.source === 'chargeback' ? 'From the bank' : `${escapeHtml(customer.name)} wrote`,
     heading: record.source === 'chargeback' ? 'New bank chargeback' : 'New dispute to review',
     body: `${escapeHtml(customer.name)} vs ${escapeHtml(provider.name)}.`,
     details: ctx.details,
@@ -792,9 +845,15 @@ async function handleDisputeResolved(record: Record<string, any>, oldRecord: Rec
     await notifyInApp(record.filed_by, 'dispute_resolved', `${c.customer[0]} — ${record.dispute_number}`, c.customer[1], { dispute_id: record.id, booking_id: record.booking_id })
   }
 
+  const rt = String(record.resolution_type ?? '')
+  const providerTone: EmailTone = ['release_to_provider', 'chargeback_won'].includes(rt) ? 'success' : ['full_refund', 'partial_refund', 'chargeback_lost'].includes(rt) ? 'problem' : 'info'
+  const customerTone: EmailTone = ['full_refund', 'partial_refund'].includes(rt) ? 'success' : 'info'
+  const decisionLabel = rt.startsWith('chargeback') ? 'Outcome' : 'Servios support’s decision'
+
   const providerEmail = await emailForUser(record.filed_against)
   if (providerEmail) {
     await sendEmail(providerEmail, `${c.provider[0]} — ${ctx.ref}`, renderNotificationEmail({
+      tone: providerTone, badge: 'Case decided', greeting: await hi(record.filed_against), noteLabel: decisionLabel,
       heading: c.provider[0], body: c.provider[1], details: [...ctx.details, ...providerRows], note: notes,
       ctaLabel: 'View the case', ctaPath: `/provider/bookings/${record.booking_id}#problem`, preheader: c.provider[1],
     }))
@@ -803,6 +862,7 @@ async function handleDisputeResolved(record: Record<string, any>, oldRecord: Rec
     const customerEmail = await emailForUser(record.filed_by)
     if (customerEmail) {
       await sendEmail(customerEmail, `${c.customer[0]} — ${ctx.ref}`, renderNotificationEmail({
+        tone: customerTone, badge: customerTone === 'success' ? 'Refund on its way' : 'Case decided', greeting: await hi(record.filed_by), noteLabel: decisionLabel,
         heading: c.customer[0], body: c.customer[1], details: [...ctx.details, ...moneyRows], note: notes,
         ctaLabel: 'View the case', ctaPath: `/bookings/${record.booking_id}#problem`, preheader: c.customer[1],
       }))
@@ -840,6 +900,7 @@ async function handleDisputeMessage(record: Record<string, any>) {
     if (record.sender_role === 'system') {
       const by = ukDate(new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10))
       await sendEmail(email, `Action needed: we need your side on case ${ctx.ref}`, renderNotificationEmail({
+        tone: 'action', badge: 'Your reply needed', greeting: await hi(r.userId),
         heading: 'We need to hear from you',
         body: `Servios support can't decide this case without your side. Please reply on the case by <strong>${escapeHtml(by)}</strong> — add anything that helps: what was agreed, what happened, photos. If we don't hear back, we'll decide on what we have.`,
         details: ctx.details,
@@ -850,6 +911,7 @@ async function handleDisputeMessage(record: Record<string, any>) {
       return
     }
     await sendEmail(email, `${fromLabel} replied — case ${ctx.ref}`, renderNotificationEmail({
+      tone: 'info', greeting: await hi(r.userId), noteLabel: `${escapeHtml(fromLabel)} wrote`,
       heading: `New reply from ${escapeHtml(fromLabel)}`,
       details: ctx.details,
       note: escapeHtml(String(record.body ?? '')).replace(/\n/g, '<br>'),
@@ -863,6 +925,7 @@ async function handleDisputeMessage(record: Record<string, any>) {
   if (record.sender_role === 'customer' || record.sender_role === 'provider') {
     const admins = await adminEmails()
     await Promise.all(admins.map(email => sendEmail(email, `Reply on ${ctx.ref} from the ${record.sender_role}`, renderNotificationEmail({
+      tone: 'info', noteLabel: `The ${record.sender_role} wrote`,
       heading: `${record.sender_role === 'customer' ? 'Customer' : 'Provider'} replied`,
       details: ctx.details,
       note: escapeHtml(String(record.body ?? '')).replace(/\n/g, '<br>'),
@@ -879,6 +942,7 @@ async function handleReviewFlagged(record: Record<string, any>, oldRecord: Recor
   const [provider, reviewer] = await Promise.all([personFor(record.reviewee_id), personFor(record.reviewer_id)])
   const admins = await adminEmails()
   await Promise.all(admins.map(email => sendEmail(email, `Review reported by ${provider.name}`, renderNotificationEmail({
+    tone: 'action', noteLabel: 'The review',
     heading: 'A review was reported',
     body: `${escapeHtml(provider.name)} reported a ${record.rating}-star review from ${escapeHtml(reviewer.name)}.`,
     details: [{ label: 'Rating', value: `${record.rating} out of 5` }, { label: 'Reason given', value: escapeHtml(String(record.flag_reason ?? '')) }],

@@ -33,3 +33,23 @@ export async function getSettings(): Promise<PlatformSettings> {
   }
   return out
 }
+
+/* ── Company details ──────────────────────────────────────────────────────── */
+
+/** "GB123456789" from whatever was typed; null clears it. Throws on a value
+ *  that isn't a UK VAT number (9 digits, or 12 for a branch trader). */
+export function normaliseVatNumber(raw: unknown): string | null {
+  const v = String(raw ?? '').toUpperCase().replace(/[\s.-]/g, '')
+  if (!v) return null
+  const digits = v.replace(/^GB/, '')
+  if (!/^(\d{9}|\d{12})$/.test(digits)) throw new Error('A UK VAT number is GB followed by 9 digits, for example GB123456789')
+  return `GB${digits}`
+}
+
+/** Servios's VAT registration number, or null when not registered / not set.
+ *  Receipts and provider statements only mention VAT when this is set. */
+export async function getVatNumber(): Promise<string | null> {
+  const { data } = await supabase.from('platform_settings').select('value').eq('key', 'vat_number').maybeSingle()
+  const v = typeof data?.value === 'string' ? data.value.trim() : ''
+  return v || null
+}

@@ -130,6 +130,8 @@ export default function ProviderDashboard() {
 
   const name = profile?.first_name ?? 'there'
   const nextJob = upcoming[0]
+  // Verified, reviewed or already paid: not someone to tell to "complete your profile"
+  const established = profile?.verification_status === 'verified' || Number(profile?.total_reviews ?? 0) > 0 || monthNet > 0
 
   if (loading) {
     return (
@@ -202,17 +204,62 @@ export default function ProviderDashboard() {
         </div>
       </div>
 
+      {/* established = verified, or has been paid / reviewed before */}
+      {/* ── Requests waiting on the provider: the first thing on the page ── */}
+    {/* Pending Requests */}
+    {pending.length > 0 && (
+      <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-amber-200">
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-bold text-gray-900">Waiting for your reply</h2>
+            <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-500">
+              {pending.length}
+            </span>
+          </div>
+          <Link href="/provider/bookings" className="text-xs font-medium text-primary hover:underline">
+            View all →
+          </Link>
+        </div>
+        <div className="divide-y divide-gray-50">
+          {pending.slice(0, 4).map(b => {
+            const cp = b.customer_profile
+            const customerName = cp ? `${titleCase(cp.first_name ?? '')} ${titleCase(cp.last_name ?? '')}`.trim() : 'Customer'
+            return (
+              <Link key={b.id} href={`/provider/bookings/${b.id}`}
+                className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-gray-50/60">
+                <Avatar cp={cp} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold text-gray-900">{b.service?.title ?? 'Job'}</p>
+                  <p className="mt-0.5 text-xs text-gray-400">
+                    {customerName} · {relativeDate(b.scheduled_date)}
+                    {b.scheduled_time_start ? ' at ' + formatTime(b.scheduled_time_start) : ''}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2.5">
+                  <span className="text-sm font-semibold text-gray-700">
+                    {formatCurrency((b.base_amount ?? b.total_amount ?? 0) / 100)}
+                  </span>
+                  <span className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white group-hover:bg-primary-dark">Respond</span>
+                  <ChevronRight size={14} className="text-gray-200 transition-colors group-hover:text-primary" />
+                </div>
+              </Link>
+            )
+          })}
+        </div>
+      </div>
+    )}
+
       {/* ── Stat cards ── */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Link href="/provider/bookings"
-          className="group rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-primary/20">
-          <div className="mb-4 flex items-center justify-between">
+          className="group rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-primary/20 sm:p-5">
+          <div className="mb-2 flex items-center justify-between sm:mb-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Pending</p>
             <div className={`rounded-xl p-1.5 ${pending.length > 0 ? 'bg-red-50' : 'bg-gray-50'}`}>
               <AlertCircle size={14} className={pending.length > 0 ? 'text-red-500' : 'text-gray-300'} />
             </div>
           </div>
-          <p className={`text-3xl font-bold tracking-tight ${pending.length > 0 ? 'text-red-500' : 'text-gray-900'}`}>
+          <p className={`text-2xl font-bold tracking-tight sm:text-3xl ${pending.length > 0 ? 'text-red-500' : 'text-gray-900'}`}>
             {pending.length}
           </p>
           <p className="mt-1.5 text-xs text-gray-400">
@@ -221,40 +268,40 @@ export default function ProviderDashboard() {
         </Link>
 
         <Link href="/provider/calendar"
-          className="group rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-primary/20">
-          <div className="mb-4 flex items-center justify-between">
+          className="group rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-primary/20 sm:p-5">
+          <div className="mb-2 flex items-center justify-between sm:mb-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Upcoming</p>
             <div className="rounded-xl bg-primary/[0.08] p-1.5">
               <Calendar size={14} className="text-primary" />
             </div>
           </div>
-          <p className="text-3xl font-bold tracking-tight text-gray-900">{upcoming.length}</p>
+          <p className="text-2xl font-bold tracking-tight sm:text-3xl text-gray-900">{upcoming.length}</p>
           <p className="mt-1.5 text-xs text-gray-400">
             {nextJob ? `Next: ${relativeDate(nextJob.scheduled_date)}` : 'No upcoming jobs'}
           </p>
         </Link>
 
         <Link href="/provider/earnings"
-          className="group rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-primary/20">
-          <div className="mb-4 flex items-center justify-between">
+          className="group rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-primary/20 sm:p-5">
+          <div className="mb-2 flex items-center justify-between sm:mb-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">This Month</p>
             <div className="rounded-xl bg-green-50 p-1.5">
               <PoundSterling size={14} className="text-green-600" />
             </div>
           </div>
-          <p className="text-3xl font-bold tracking-tight text-gray-900">{formatCurrency(thisMonthNet / 100)}</p>
+          <p className="text-2xl font-bold tracking-tight sm:text-3xl text-gray-900">{formatCurrency(thisMonthNet / 100)}</p>
           <p className="mt-1.5 text-xs text-gray-400">net after commission</p>
         </Link>
 
         <Link href="/provider/analytics"
-          className="group rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-primary/20">
-          <div className="mb-4 flex items-center justify-between">
+          className="group rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-primary/20 sm:p-5">
+          <div className="mb-2 flex items-center justify-between sm:mb-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Rating</p>
             <div className="rounded-xl bg-amber-50 p-1.5">
               <Star size={14} className="text-amber-500" />
             </div>
           </div>
-          <p className="text-3xl font-bold tracking-tight text-gray-900">
+          <p className="text-2xl font-bold tracking-tight sm:text-3xl text-gray-900">
             {profile?.rating_average ? profile.rating_average.toFixed(1) : '—'}
           </p>
           <p className="mt-1.5 text-xs text-gray-400">
@@ -264,29 +311,6 @@ export default function ProviderDashboard() {
           </p>
         </Link>
       </div>
-
-      {/* ── Pending attention banner ── */}
-      {pending.length > 0 && (
-        <div className="flex items-center justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-amber-100 p-2 shrink-0">
-              <Zap size={15} className="text-amber-600" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-amber-900">
-                {pending.length} booking request{pending.length !== 1 ? 's' : ''} waiting for your response
-              </p>
-              <p className="mt-0.5 text-xs text-amber-600">
-                Quick responses improve your acceptance rate and visibility
-              </p>
-            </div>
-          </div>
-          <Link href="/provider/bookings"
-            className="shrink-0 rounded-xl bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700 transition-colors">
-            Review now
-          </Link>
-        </div>
-      )}
 
       {/* ── Two-column body ── */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_288px]">
@@ -315,17 +339,29 @@ export default function ProviderDashboard() {
                 <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gray-50">
                   <Calendar size={20} className="text-gray-400" />
                 </div>
-                <p className="text-sm font-medium text-gray-700">No upcoming jobs yet</p>
-                <p className="max-w-xs text-xs leading-relaxed text-gray-500">
-                  Jobs appear here when customers book you. Complete your profile and
-                  verification to rank higher in search and win your first booking.
-                </p>
-                <Link
-                  href="/provider/profile"
-                  className="mt-1 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark transition-colors"
-                >
-                  Complete your profile
-                </Link>
+                {established ? (
+                  <>
+                    <p className="text-sm font-medium text-gray-700">Nothing booked in right now</p>
+                    <p className="max-w-xs text-xs leading-relaxed text-gray-500">
+                      Accepted jobs show here with the date, customer and price. Keeping your availability up to date helps customers book you.
+                    </p>
+                    <Link href="/provider/availability" className="mt-1 text-sm font-semibold text-primary hover:underline">Update availability →</Link>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium text-gray-700">No upcoming jobs yet</p>
+                    <p className="max-w-xs text-xs leading-relaxed text-gray-500">
+                      Jobs appear here when customers book you. Complete your profile and
+                      verification to rank higher in search and win your first booking.
+                    </p>
+                    <Link
+                      href="/provider/profile"
+                      className="mt-1 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark transition-colors"
+                    >
+                      Complete your profile
+                    </Link>
+                  </>
+                )}
               </div>
             ) : (
               <div className="divide-y divide-gray-50">
@@ -371,51 +407,6 @@ export default function ProviderDashboard() {
               </div>
             )}
           </div>
-
-          {/* Pending Requests */}
-          {pending.length > 0 && (
-            <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100">
-              <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-bold text-gray-900">Pending Requests</h2>
-                  <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-500">
-                    {pending.length}
-                  </span>
-                </div>
-                <Link href="/provider/bookings" className="text-xs font-medium text-primary hover:underline">
-                  View all →
-                </Link>
-              </div>
-              <div className="divide-y divide-gray-50">
-                {pending.slice(0, 4).map(b => {
-                  const cp = b.customer_profile
-                  const customerName = cp ? `${titleCase(cp.first_name ?? '')} ${titleCase(cp.last_name ?? '')}`.trim() : 'Customer'
-                  return (
-                    <Link key={b.id} href={`/provider/bookings/${b.id}`}
-                      className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-gray-50/60">
-                      <Avatar cp={cp} />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-semibold text-gray-900">{b.service?.title ?? 'Job'}</p>
-                        <p className="mt-0.5 text-xs text-gray-400">
-                          {customerName} · {relativeDate(b.scheduled_date)}
-                          {b.scheduled_time_start ? ' at ' + formatTime(b.scheduled_time_start) : ''}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2.5">
-                        <span className="text-sm font-semibold text-gray-700">
-                          {formatCurrency((b.base_amount ?? b.total_amount ?? 0) / 100)}
-                        </span>
-                        <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
-                          Pending
-                        </span>
-                        <ChevronRight size={14} className="text-gray-200 transition-colors group-hover:text-primary" />
-                      </div>
-                    </Link>
-                  )
-                })}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Right sidebar */}

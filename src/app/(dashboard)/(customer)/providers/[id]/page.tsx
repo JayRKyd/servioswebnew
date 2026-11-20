@@ -356,25 +356,21 @@ function CustomerProviderProfileInner() {
       {/* ── Photo gallery ── */}
       <div ref={galleryRef} id="photos" className="px-6 lg:px-8 pb-6">
         {portfolioPhotos.length === 0 ? (
-          /* No portfolio photos — compact hero with a single empty-state panel */
-          <div className="h-[280px] overflow-hidden rounded-2xl gap-2 grid" style={{ gridTemplateColumns: '2fr 1fr' }}>
-            <div className="overflow-hidden">
+          /* A brand banner, never the square profile photo blown up to fill it
+             (client Round 6 design note 12) */
+          <div className="relative flex h-[150px] items-center gap-4 overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-primary/75 px-6 sm:h-[180px] sm:gap-5 sm:px-8">
+            <div className="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full bg-white/[0.07]" />
+            <div className="pointer-events-none absolute -bottom-20 right-24 h-48 w-48 rounded-full bg-white/[0.05]" />
+            <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full bg-white/15 ring-4 ring-white/25 sm:h-24 sm:w-24">
               {provider.profile_image_url ? (
                 <img src={provider.profile_image_url} alt={displayName} className="h-full w-full object-cover" />
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-gray-100">
-                  <div className="flex h-24 w-24 items-center justify-center rounded-full bg-white ring-1 ring-gray-200 text-3xl font-bold text-gray-400 shadow-sm select-none">{initials}</div>
-                </div>
+                <div className="flex h-full w-full select-none items-center justify-center text-3xl font-bold text-white">{initials}</div>
               )}
             </div>
-            <div className="flex flex-col items-center justify-center gap-2 bg-gray-50 text-center px-6">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white ring-1 ring-gray-200">
-                <Grid2X2 size={18} className="text-gray-400" />
-              </div>
-              <p className="text-sm font-semibold text-dark">No photos yet</p>
-              <p className="text-xs text-muted leading-relaxed">
-                This provider hasn't added work photos yet — check their reviews and verifications below.
-              </p>
+            <div className="relative min-w-0 text-white">
+              <p className="truncate text-xl font-bold sm:text-2xl">{displayName}</p>
+              <p className="mt-1 text-sm text-white/75">No work photos yet — see reviews and verified documents below.</p>
             </div>
           </div>
         ) : (() => {

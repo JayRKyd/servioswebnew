@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { withUser } from '@/server/lib/route-user'
 import { supabase } from '@/server/db/client'
-import { loadBookingParties, disputeEligibility } from '@/server/lib/disputes'
+import { loadBookingParties, disputeEligibility, OPEN_STATUSES } from '@/server/lib/disputes'
 import { loadDisputeView } from '@/server/lib/dispute-views'
 import { latestPaymentForBooking } from '@/server/lib/payments'
 import { getSettings } from '@/server/lib/settings'
@@ -19,12 +19,17 @@ export const GET = withUser<{ params: Promise<{ bookingId: string }> }>(async ({
   const viewer = parties.customerUserId === user.id ? 'customer' : parties.providerUserId === user.id ? 'provider' : null
   if (!viewer) return NextResponse.json({ error: 'Not your booking' }, { status: 403 })
 
-  const [{ data: latest }, payment, settings] = await Promise.all([
-    supabase.from('disputes').select('id').eq('booking_id', bookingId).neq('source', 'chargeback')
-      .order('filed_at', { ascending: false }).limit(1).maybeSingle(),
+  const [{ data: cases }, payment, settings] = await Promise.all([
+    supabase.from('disputes').select('id, status, source').eq('booking_id', bookingId)
+      .order('filed_at', { ascending: false }).limit(20),
     latestPaymentForBooking(bookingId),
     getSettings(),
   ])
+  // A chargeback is between Servios, the provider and the bank: the provider
+  // sees it (their payout is held and they can add evidence), the customer
+  // doesn't. An open case wins over a newer closed one.
+  const mine = (cases ?? []).filter(c => viewer === 'provider' || c.source !== 'chargeback')
+  const latest = mine.find(c => (OPEN_STATUSES as readonly string[]).includes(c.status)) ?? mine[0] ?? null
   const view = latest ? await loadDisputeView(latest.id, viewer) : null
   const eligibility = viewer === 'customer' ? await disputeEligibility(bookingId, user.id) : null
 

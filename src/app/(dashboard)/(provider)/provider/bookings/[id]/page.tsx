@@ -28,6 +28,7 @@ export default function ProviderBookingDetailPage() {
   const [offer, setOffer]               = useState<any>(null)
   const [milestones, setMilestones]     = useState<any[]>([])
   const [disputeOpen, setDisputeOpen]   = useState(false)
+  const [disputeInfo, setDisputeInfo]   = useState<{ chargeback: boolean; heldPence: number }>({ chargeback: false, heldPence: 0 })
   const [nudge, setNudge]               = useState<'idle' | 'sending' | 'sent' | string>('idle')
   const [payment, setPayment]           = useState<any>(null)
   const [rejecting, setRejecting]       = useState(false)
@@ -220,7 +221,7 @@ export default function ProviderBookingDetailPage() {
                 : ''}
             </h1>
             <p className="text-xs text-gray-400 mt-0.5">
-              {booking.booking_number ? `#${String(booking.booking_number).slice(-3)}` : ''}
+              {booking.booking_number ? `Booking reference: ${String(booking.booking_number)}` : ''}
               {booking.booking_number && booking.scheduled_date ? ' · ' : ''}
               {booking.scheduled_date ? formatDate(booking.scheduled_date) : ''}
             </p>
@@ -237,7 +238,7 @@ export default function ProviderBookingDetailPage() {
               <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">Booking</p>
               <h2 className="text-lg font-bold text-gray-900">{booking.service?.title ?? 'Service'}</h2>
               {booking.booking_number && (
-                <p className="text-xs text-gray-400 mt-0.5">#{String(booking.booking_number).slice(-3)}</p>
+                <p className="text-xs text-gray-400 mt-0.5">Ref {String(booking.booking_number)}</p>
               )}
             </div>
             <StatusBadge status={booking.status} />
@@ -339,8 +340,14 @@ export default function ProviderBookingDetailPage() {
             <div className="mx-6 mb-5 rounded-xl bg-amber-50 border border-amber-200 px-5 py-4 flex items-start gap-3">
               <Lock size={16} className="mt-0.5 text-amber-600 shrink-0" />
               <div>
-                <p className="text-sm font-semibold text-amber-900">Payout on hold — problem under review</p>
-                <p className="text-xs text-amber-700 mt-0.5">The amount in question is held until Servios support has reviewed both sides. See the case below.</p>
+                <p className="text-sm font-semibold text-amber-900">
+                  {disputeInfo.heldPence > 0 ? `${formatCurrency(disputeInfo.heldPence / 100)} of your payout is on hold` : 'Payout on hold'} — {disputeInfo.chargeback ? 'bank chargeback' : 'problem under review'}
+                </p>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  {disputeInfo.chargeback
+                    ? 'The customer’s bank has disputed this payment. It stays on hold until the bank decides. Add your evidence on the case below.'
+                    : 'The amount in question is held until Servios support has reviewed both sides. See the case below.'}
+                </p>
               </div>
             </div>
           )}
@@ -475,7 +482,7 @@ export default function ProviderBookingDetailPage() {
           </div>
         )}
 
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
           {booking.status === 'pending' && <>
             <button
               onClick={() => {
@@ -488,8 +495,8 @@ export default function ProviderBookingDetailPage() {
                 updateStatus('accepted')
               }}
               disabled={acting}
-              className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50">{acting ? 'Saving…' : 'Accept'}</button>
-            <button onClick={() => setRejecting(true)} disabled={acting || rejecting} className="flex-1 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">Decline</button>
+              className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50 sm:w-auto sm:flex-1">{acting ? 'Saving…' : 'Accept booking'}</button>
+            <button onClick={() => setRejecting(true)} disabled={acting || rejecting} className="rounded-xl px-4 py-2.5 text-sm font-medium text-gray-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-50">Decline</button>
           </>}
           {booking.status === 'accepted' && (
             <button
@@ -504,7 +511,7 @@ export default function ProviderBookingDetailPage() {
                 updateStatus('in_progress')
               }}
               disabled={acting}
-              className="rounded-lg bg-primary px-5 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50">{acting ? 'Saving…' : 'Mark In Progress'}</button>
+              className="w-full rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50 sm:w-auto sm:flex-1">{acting ? 'Saving…' : 'Start job'}</button>
           )}
           {booking.status === 'in_progress' && !confirmingComplete && (
             <button
@@ -513,21 +520,21 @@ export default function ProviderBookingDetailPage() {
                 updateStatus('completed')
               }}
               disabled={acting}
-              className="flex-1 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+              className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50 sm:w-auto sm:flex-1"
             >
-              {acting ? 'Saving…' : 'Mark Completed'}
+              {acting ? 'Saving…' : 'Mark job complete'}
             </button>
           )}
           {['pending', 'accepted', 'in_progress'].includes(booking.status) && (
-            <button onClick={handleOpenMessage} className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-              <MessageCircle size={14} /> Message
+            <button onClick={handleOpenMessage} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 sm:flex-none">
+              <MessageCircle size={14} /> Message customer
             </button>
           )}
         </div>
 
         <DisputePanel bookingId={id as string} totalPence={Number(booking.total_amount) || 0}
           refreshKey={`${booking.status}|${booking.customer_confirmed_at ?? ''}`}
-          onState={s => setDisputeOpen(s.hasOpenDispute)} />
+          onState={s => { setDisputeOpen(s.hasOpenDispute); setDisputeInfo({ chargeback: !!s.chargeback, heldPence: s.heldPence ?? 0 }) }} />
 
         <BookingPhotos
           bookingId={id as string}

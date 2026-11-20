@@ -41,6 +41,7 @@ export const POST = withUser<{ params: Promise<{ id: string }> }>(async ({ user,
   const { data: u } = await db.auth.admin.getUserById(parties.customerUserId)
   if (u?.user?.email) {
     await sendEmail(u.user.email, `Action needed: authorise ${amount} for ${service}`, renderNotificationEmail({
+      tone: 'action', badge: 'One step left',
       heading: 'Your provider is ready — payment needed',
       body: `${escapeHtml(providerName)} can't start work on this job until ${amount} is authorised on your card. It's only a hold: nothing is charged until you confirm the work is done.`,
       details: [

@@ -14,11 +14,16 @@ export default function PaymentSettingsPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
+  const [vat, setVat] = useState('')
+  const [vatSaved, setVatSaved] = useState<string | null>(null)
+  const [vatBusy, setVatBusy] = useState(false)
+  const [vatMsg, setVatMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
   useEffect(() => {
     fetch('/api/admin/settings', { cache: 'no-store' }).then(r => r.json()).then((json: any) => {
       if (json?.error) { setError(json.error); return }
       setSaved(json.settings); setLimits(json.limits)
+      setVat(json.vatNumber ?? ''); setVatSaved(json.vatNumber ?? null)
       setValues(Object.fromEntries(ORDER.map(k => [k, String(json.settings[k])])) as Record<Key, string>)
     }).catch(() => setError('Could not load settings'))
   }, [])
@@ -34,6 +39,18 @@ export default function PaymentSettingsPage() {
     if (!res.ok) setError(json?.error ?? 'Could not save')
     else { setSaved(json.settings); setDone(true) }
     setBusy(false)
+  }
+
+  async function saveVat() {
+    setVatBusy(true); setVatMsg(null)
+    const res = await fetch('/api/admin/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ vat_number: vat }) })
+    const json: any = await res.json().catch(() => ({}))
+    if (!res.ok) setVatMsg({ ok: false, text: json?.error ?? 'Could not save' })
+    else {
+      setVatSaved(json.vatNumber ?? null); setVat(json.vatNumber ?? '')
+      setVatMsg({ ok: true, text: json.vatNumber ? `Saved. ${json.vatNumber} now appears on receipts and provider payment emails.` : 'Saved. Receipts no longer mention VAT.' })
+    }
+    setVatBusy(false)
   }
 
   return (
@@ -70,6 +87,28 @@ export default function PaymentSettingsPage() {
           <button onClick={save} disabled={!dirty || busy} className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50">
             {busy ? 'Saving…' : 'Save changes'}
           </button>
+        </div>
+      )}
+
+      {values && limits && (
+        <div className="space-y-3 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
+          <div>
+            <p className="text-sm font-semibold text-gray-900">VAT registration number</p>
+            <p className="text-xs text-gray-500">
+              Leave blank if Servios Group Ltd is not VAT registered. When set, the number is shown on customer receipts and on the
+              provider&apos;s payment email next to the commission.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input value={vat} onChange={e => { setVat(e.target.value); setVatMsg(null) }} placeholder="GB123456789"
+              className="w-full max-w-[220px] rounded-xl border border-gray-200 px-3 py-2 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-primary" />
+            <button onClick={saveVat} disabled={vatBusy || vat.trim().toUpperCase().replace(/[\s.-]/g, '') === (vatSaved ?? '')}
+              className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50">
+              {vatBusy ? 'Saving…' : vat.trim() ? 'Save' : 'Clear'}
+            </button>
+            <span className="text-xs text-gray-400">{vatSaved ? `Currently ${vatSaved}` : 'Not set'}</span>
+          </div>
+          {vatMsg && <p className={`text-sm ${vatMsg.ok ? 'text-green-700' : 'text-red-700'}`}>{vatMsg.text}</p>}
         </div>
       )}
     </div>

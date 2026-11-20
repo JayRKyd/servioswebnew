@@ -146,6 +146,7 @@ async function notifyProviderAuthorised(payment: PaymentRow) {
     const { data: cu } = await supabase.auth.admin.getUserById(cp.user_id)
     if (cu?.user?.email) {
       await sendEmail(cu.user.email, `Card hold placed — ${amount} · ${b.booking_number ?? ''}`.trim(), renderNotificationEmail({
+        tone: 'success', badge: 'Card hold placed',
         heading: `${amount} held on your card`,
         body: `That's your booking secured. This is a hold, not a charge: nothing leaves your account until you confirm the job is done. If the booking is cancelled, the hold is released.`,
         details: [
@@ -173,6 +174,7 @@ async function notifyProviderAuthorised(payment: PaymentRow) {
   const email = u?.user?.email
   if (!email) return
   await sendEmail(email, `Payment secured — ${amount} · ${customer} · ${b.booking_number ?? ''}`.trim(), renderNotificationEmail({
+    tone: 'success', badge: 'Payment secured',
     heading: 'Payment secured',
     body: `${escapeHtml(customer)} has authorised ${amount} on their card for this job. It's held by Servios and paid to you when they confirm the work is done — you're good to go.`,
     details: [
