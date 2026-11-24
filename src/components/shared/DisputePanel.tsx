@@ -155,6 +155,17 @@ export function DisputePanel({ bookingId, totalPence, openForm, onFormClosed, on
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load() }, [load, refreshKey])
+  // "View the case" links end in #problem, but this panel only exists once it
+  // has loaded, so the browser's own jump lands at the top. Go there once.
+  const jumped = useRef(false)
+  useEffect(() => {
+    if (loading || jumped.current || typeof window === 'undefined' || window.location.hash !== '#problem') return
+    jumped.current = true
+    const go = () => document.getElementById('problem')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    // twice: the page above is still settling (photos, payment form) on first paint
+    const t1 = setTimeout(go, 150); const t2 = setTimeout(go, 900)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [loading])
   useEffect(() => {
     if (openForm) {
       setShowForm(true)
@@ -229,7 +240,7 @@ export function DisputePanel({ bookingId, totalPence, openForm, onFormClosed, on
   const stake = !d ? 0
     : !d.open ? Number(d.refundAmount ?? 0)
     : viewer === 'provider' ? d.heldAmount
-    : paymentState === 'none' ? 0
+    : paymentState === 'none' || d.desiredOutcome === 'redo' ? 0
     : d.desiredAmount && d.desiredAmount < (data.remainingPence ?? totalPence) ? d.desiredAmount : (data.remainingPence ?? totalPence)
   const stakeLabel = !d?.open ? 'Refunded' : viewer === 'provider' ? 'On hold' : 'Under review'
   const replied = !!d?.providerResponse || !!view?.thread.some(m => m.role === 'provider')
@@ -272,7 +283,7 @@ export function DisputePanel({ bookingId, totalPence, openForm, onFormClosed, on
           <div className="flex items-start justify-between gap-3">
             <div>
               <h3 className="text-base font-bold text-gray-900">Report a problem</h3>
-              <p className="mt-0.5 text-xs text-gray-500">The provider is asked for their side, the payment is held, and Servios support decides. Nothing is released while it’s open.</p>
+              <p className="mt-0.5 text-xs text-gray-500">The provider is asked for their side and Servios support decides. If you ask for money back, that amount is held while the case is open.</p>
             </div>
             <button type="button" onClick={closeForm} className="text-gray-400 hover:text-gray-600" aria-label="Close"><X size={18} /></button>
           </div>
@@ -371,6 +382,8 @@ export function DisputePanel({ bookingId, totalPence, openForm, onFormClosed, on
                 <span>
                   {paymentState === 'none'
                     ? 'No payment has been taken for this job. '
+                    : d.desiredOutcome === 'redo'
+                      ? 'You asked for the provider to put it right, so no money is on hold. If it isn’t sorted, say so below and you can ask for a refund. '
                     : d.desiredAmount && d.desiredAmount < (data.remainingPence ?? totalPence)
                       ? `${pounds(d.desiredAmount)} of your payment is under review and held by Servios. `
                       : `Your ${pounds(data.remainingPence ?? totalPence)} payment for this job is on hold. `}
@@ -380,6 +393,8 @@ export function DisputePanel({ bookingId, totalPence, openForm, onFormClosed, on
                 <span>
                   {isChargeback
                     ? <><strong>{pounds(d.heldAmount)} of your payout is on hold</strong> while Servios responds to the customer’s bank. The bank decides, which can take several weeks. </>
+                    : d.desiredOutcome === 'redo' && d.heldAmount === 0
+                    ? 'The customer has asked you to put this right. No money is on hold. '
                     : d.heldAmount > 0
                     ? <><strong>{pounds(d.heldAmount)} of your payout is on hold</strong> until this is resolved. </>
                     : paymentState === 'none'

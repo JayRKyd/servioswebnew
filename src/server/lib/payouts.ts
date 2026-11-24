@@ -50,6 +50,7 @@ export interface ProviderPayouts {
   delayOverrideReason: string | null
   jobsDone: number
   jobThreshold: number
+  upheld: { at: string; jobsSince: number; jobsNeeded: number; daysSince: number; daysNeeded: number; cleared: boolean } | null
   owed: number
   held: number
   clearing: number
@@ -105,6 +106,7 @@ export async function loadPayouts(): Promise<{ providers: ProviderPayouts[]; tot
       delayOverrideReason: terms?.overrideReason ?? null,
       jobsDone: terms?.jobsDone ?? 0,
       jobThreshold: terms?.jobThreshold ?? settings.new_provider_job_threshold,
+      upheld: terms?.upheld ?? null,
       owed: 0, held: 0, clearing: 0, paidOut: 0, payments: [],
     }
   }

@@ -108,11 +108,17 @@ export default function ProviderDashboard() {
         // page — not from bookings, which include unpaid and refunded jobs
         const monthStartIso = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
         const { data: pays } = await supabase.from('payments')
-          .select('provider_payout_amount, booking:bookings!inner(provider_id)')
+          .select('booking_id, provider_payout_amount, booking:bookings!inner(provider_id)')
           .eq('booking.provider_id', p.id)
           .in('payment_status', ['succeeded', 'partially_refunded', 'refunded'])
           .gte('captured_at', monthStartIso)
-        setMonthNet((pays ?? []).reduce((s: number, x: any) => s + Number(x.provider_payout_amount ?? 0), 0))
+        // Money held by an open bank chargeback isn't earned until the bank
+        // rules, so it doesn't count towards the month
+        const { data: cbs } = await supabase.from('disputes').select('booking_id, held_amount')
+          .eq('filed_against', user!.id).eq('source', 'chargeback').in('status', ['open', 'under_review', 'awaiting_customer', 'awaiting_provider'])
+        const heldBy: Record<string, number> = {}
+        for (const c of cbs ?? []) heldBy[c.booking_id] = (heldBy[c.booking_id] ?? 0) + Number(c.held_amount ?? 0)
+        setMonthNet((pays ?? []).reduce((s: number, x: any) => s + Math.max(0, Number(x.provider_payout_amount ?? 0) - (heldBy[x.booking_id] ?? 0)), 0))
 
         setBookings(allB ?? [])
         setUpcoming(upB ?? [])

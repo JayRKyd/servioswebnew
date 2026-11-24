@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, CheckCircle2 } from 'lucide-react'
 
-type Key = 'dispute_window_days' | 'payout_delay_days' | 'new_provider_payout_delay_days' | 'new_provider_job_threshold'
+type Key = 'dispute_window_days' | 'payout_delay_days' | 'new_provider_payout_delay_days' | 'new_provider_job_threshold' | 'upheld_reset_jobs' | 'upheld_reset_days'
 type Limits = Record<Key, { min: number; max: number; label: string; help: string }>
-const ORDER: Key[] = ['dispute_window_days', 'payout_delay_days', 'new_provider_payout_delay_days', 'new_provider_job_threshold']
+const ORDER: Key[] = ['dispute_window_days', 'payout_delay_days', 'new_provider_payout_delay_days', 'new_provider_job_threshold', 'upheld_reset_jobs', 'upheld_reset_days']
 
 export default function PaymentSettingsPage() {
   const [values, setValues] = useState<Record<Key, string> | null>(null)

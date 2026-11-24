@@ -62,6 +62,23 @@ export async function loadBookingParties(bookingId: string): Promise<BookingPart
   return { booking, customerUserId: cp?.user_id ?? null, providerUserId: pp?.user_id ?? null }
 }
 
+/** When the window to report a problem on a confirmed job ends. The deadline
+ *  is stamped on the booking at confirmation, so changing the window setting
+ *  later doesn't re-date existing jobs. Falls back to confirmation + the
+ *  current setting for a booking that has no stamp. */
+export async function disputeDeadlineFor(bookingId: string, confirmedAt: string | null): Promise<{ deadline: Date; windowDays: number } | null> {
+  if (!confirmedAt) return null
+  const { data } = await supabase.from('bookings').select('dispute_deadline').eq('id', bookingId).maybeSingle()
+  const stamped = (data as { dispute_deadline?: string | null } | null)?.dispute_deadline
+  const confirmed = new Date(confirmedAt).getTime()
+  if (stamped) {
+    const deadline = new Date(stamped)
+    return { deadline, windowDays: Math.max(1, Math.round((deadline.getTime() - confirmed) / 86_400_000)) }
+  }
+  const { dispute_window_days } = await getSettings()
+  return { deadline: new Date(confirmed + dispute_window_days * 86_400_000), windowDays: dispute_window_days }
+}
+
 export interface Eligibility {
   allowed: boolean
   reason: string | null
@@ -97,8 +114,9 @@ export async function disputeEligibility(bookingId: string, userId: string): Pro
   }
 
   if (booking.customer_confirmed_at) {
-    const { dispute_window_days } = await getSettings()
-    const deadline = new Date(new Date(booking.customer_confirmed_at).getTime() + dispute_window_days * 86_400_000)
+    const w = (await disputeDeadlineFor(bookingId, booking.customer_confirmed_at))!
+    const deadline = w.deadline
+    const dispute_window_days = w.windowDays
     if (Date.now() > deadline.getTime()) {
       return { allowed: false, reason: `Problems can be reported up to ${dispute_window_days} days after you confirm a job. Please contact support.`, deadline: deadline.toISOString(), closed: true, openDisputeId: null }
     }

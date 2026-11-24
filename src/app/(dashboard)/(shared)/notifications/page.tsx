@@ -35,12 +35,15 @@ export default function NotificationsPage() {
   // Send each notification to the page where it can be acted on, for the
   // role that's looking at it
   function notificationHref(n: any): string | null {
+    // Admin notifications carry their own destination
+    if (typeof n.data?.href === 'string' && n.data.href.startsWith('/')) return n.data.href
     if (n.data?.conversation_id) return `/messages/${n.data.conversation_id}`
     if (n.data?.quote_request_id) {
       return activeRole === 'provider' ? `/provider/quotes/${n.data.quote_request_id}` : `/quotes/${n.data.quote_request_id}`
     }
     if (n.data?.booking_id) {
-      return activeRole === 'provider' ? `/provider/bookings/${n.data.booking_id}` : `/bookings/${n.data.booking_id}`
+      const anchor = n.data?.dispute_id ? '#problem' : ''
+      return (activeRole === 'provider' ? `/provider/bookings/${n.data.booking_id}` : `/bookings/${n.data.booking_id}`) + anchor
     }
     return null
   }

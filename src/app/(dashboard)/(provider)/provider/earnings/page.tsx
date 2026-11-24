@@ -163,11 +163,14 @@ export default function ProviderEarningsPage() {
     return t
   }, [rows, filtered])
 
-  const monthNet = rows.filter(r => r.capturedAt && new Date(r.capturedAt).getMonth() === now.getMonth() && new Date(r.capturedAt).getFullYear() === now.getFullYear()).reduce((s, r) => s + r.net, 0)
+  // Earned = net, less anything an open bank chargeback is holding
+  const earned = (r: Row) => Math.max(0, r.net - (r.holdKind === 'chargeback' ? r.held : 0))
+  const monthNet = rows.filter(r => r.capturedAt && new Date(r.capturedAt).getMonth() === now.getMonth() && new Date(r.capturedAt).getFullYear() === now.getFullYear()).reduce((s, r) => s + earned(r), 0)
+  const monthCharged = rows.filter(r => r.holdKind === 'chargeback' && r.capturedAt && new Date(r.capturedAt).getMonth() === now.getMonth() && new Date(r.capturedAt).getFullYear() === now.getFullYear()).reduce((s, r) => s + r.held, 0)
   const bars = useMemo(() => Array.from({ length: 6 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
     const key = monthKey(d)
-    const val = rows.filter(r => r.capturedAt && monthKey(new Date(r.capturedAt)) === key).reduce((s, r) => s + r.net, 0)
+    const val = rows.filter(r => r.capturedAt && monthKey(new Date(r.capturedAt)) === key).reduce((s, r) => s + Math.max(0, r.net - (r.holdKind === 'chargeback' ? r.held : 0)), 0)
     return { key, label: d.toLocaleDateString('en-GB', { month: 'short' }), val }
   }), [rows]) // eslint-disable-line react-hooks/exhaustive-deps
   const maxBar = Math.max(...bars.map(b => b.val), 1)
@@ -204,7 +207,7 @@ export default function ProviderEarningsPage() {
             <div className="rounded-lg bg-white/15 p-1.5"><TrendingUp size={14} /></div>
           </div>
           <p className="text-3xl font-bold tracking-tight">{formatCurrency(monthNet / 100)}</p>
-          <p className="mt-1.5 text-xs text-white/60">from jobs customers paid for this month</p>
+          <p className="mt-1.5 text-xs text-white/60">{monthCharged > 0 ? `excludes ${formatCurrency(monthCharged / 100)} held by a bank chargeback` : 'from jobs customers paid for this month'}</p>
         </div>
         <Stat label={connected ? 'Owed to you' : 'Owed to you'} value={totals.owed} icon={Banknote} tone="blue"
           hint={connected ? 'captured, not yet transferred' : 'paid out by the Servios team'} />

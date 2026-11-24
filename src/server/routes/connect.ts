@@ -97,7 +97,10 @@ connect.post('/onboard', async (c) => {
   }
 
   // Always regenerate the onboarding link (links expire after a few minutes)
-  const baseUrl = process.env.WEB_URL ?? 'http://localhost:3000'
+  // Send the provider back to the site they started from. WEB_URL isn't set
+  // on every deployment, and the old localhost fallback stranded providers
+  // whose link expired (client retest, Nov 2026).
+  const baseUrl = (process.env.WEB_URL?.trim() || c.req.header('origin') || new URL(c.req.url).origin).replace(/\/$/, '')
   const accountLink = await stripe.accountLinks.create({
     account: accountId,
     refresh_url: `${baseUrl}/provider/payouts?refresh=1`,

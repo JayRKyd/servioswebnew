@@ -77,9 +77,11 @@ function ProviderPayoutsInner() {
 
       {successParam && (
         <div className="rounded-lg bg-green-50 p-4 text-sm text-green-800 ring-1 ring-green-200">
-          <p className="font-medium">Stripe setup complete!</p>
+          <p className="font-medium">{status?.status === 'active' ? 'Bank account connected' : 'Thanks — details received'}</p>
           <p className="mt-0.5 text-green-700">
-            Your account is now being verified. You'll be notified once you can receive payouts.
+            {status?.status === 'active'
+              ? 'Stripe has verified your account. Future payments are paid to your bank automatically.'
+              : 'Stripe is checking your details. If anything else is needed it will be listed below.'}
           </p>
         </div>
       )}
@@ -88,7 +90,7 @@ function ProviderPayoutsInner() {
         <div className="rounded-lg bg-amber-50 p-4 text-sm text-amber-800 ring-1 ring-amber-200">
           <p className="font-medium">Onboarding not completed</p>
           <p className="mt-0.5 text-amber-700">
-            Your Stripe onboarding link expired. Click Continue Onboarding below to try again.
+            Your Stripe setup link expired before you finished. Click Continue Onboarding below to pick up where you left off.
           </p>
         </div>
       )}
@@ -141,10 +143,12 @@ function ProviderPayoutsInner() {
           </div>
         )}
 
-        {status?.status === 'pending' && (
+        {(status?.status === 'pending' || status?.status === 'restricted') && (
           <div className="space-y-3">
             <p className="text-sm text-gray-600">
-              Your Stripe account setup is incomplete. Finish onboarding to receive payouts.
+              {status.status === 'restricted'
+                ? 'Stripe needs a few more details before it can pay you. Continue where you left off — it only takes a few minutes, and what you already entered is saved.'
+                : 'Your Stripe account setup is incomplete. Finish onboarding to receive payouts.'}
             </p>
             {status.requirements?.currently_due && status.requirements.currently_due.length > 0 && (
               <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800 ring-1 ring-amber-200">
@@ -226,13 +230,13 @@ function StatusBadge({ status }: { status: string }) {
     not_connected: 'bg-gray-100 text-gray-600',
     pending: 'bg-amber-100 text-amber-700',
     active: 'bg-green-100 text-green-700',
-    restricted: 'bg-red-100 text-red-600',
+    restricted: 'bg-amber-100 text-amber-700',
   }
   const labels: Record<string, string> = {
     not_connected: 'Not connected',
     pending: 'Setup incomplete',
     active: 'Active',
-    restricted: 'Restricted',
+    restricted: 'Details needed',
   }
   return (
     <span className={'rounded-full px-3 py-1 text-xs font-semibold ' + (styles[status] ?? styles.not_connected)}>

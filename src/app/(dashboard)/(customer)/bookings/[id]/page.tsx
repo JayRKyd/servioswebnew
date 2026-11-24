@@ -614,7 +614,9 @@ export default function CustomerBookingDetailPage() {
           <p className="text-sm font-medium text-red-900">Cancel this booking?</p>
           <p className="mt-0.5 text-xs text-red-700">
             The provider will be notified. This can&apos;t be undone.
-            {payment?.payment_status === 'authorized' && <> The {formatCurrency(booking.total_amount / 100)} hold on your card is released straight away — nothing is charged.</>}
+            {(payment?.payment_status === 'authorized' || booking.payment_status === 'authorized')
+              ? <> The {formatCurrency(booking.total_amount / 100)} hold on your card is released straight away — nothing is charged. The pending amount can take a few days to disappear from your statement.</>
+              : <> No payment has been taken, so there is nothing to refund.</>}
           </p>
           <div className="mt-2.5 flex gap-2">
             <button

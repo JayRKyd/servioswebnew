@@ -2,7 +2,7 @@ import type Stripe from 'stripe'
 import { supabase } from '../db/client'
 import { stripe } from './stripe'
 import { sendEmail } from './notifications'
-import { renderNotificationEmail, escapeHtml, ukDate, ukTime, poundsFromCents } from './email-templates'
+import { renderNotificationEmail, escapeHtml, ukDate, ukTime, poundsFromCents, greetingFor } from './email-templates'
 
 /**
  * Payment lifecycle (separate charges & transfers — the Connect model the
@@ -131,10 +131,12 @@ async function notifyProviderAuthorised(payment: PaymentRow) {
     .eq('id', payment.booking_id).maybeSingle()
   if (!b?.provider_id) return
   const [{ data: pp }, { data: cp }] = await Promise.all([
-    supabase.from('provider_profiles').select('user_id').eq('id', b.provider_id).maybeSingle(),
+    supabase.from('provider_profiles').select('user_id, first_name').eq('id', b.provider_id).maybeSingle(),
     supabase.from('customer_profiles').select('user_id, first_name, last_name').eq('id', b.customer_id).maybeSingle(),
   ])
   if (!pp?.user_id) return
+  // Subjects use "Priya S." everywhere, so emails about one job thread and scan the same
+  const customerShort = `${cp?.first_name ?? 'Customer'} ${(cp?.last_name ?? '').charAt(0)}${cp?.last_name ? '.' : ''}`.trim()
   const service = (b.service as any)?.title ?? 'the job'
   const amount = poundsFromCents(Number(b.total_amount))
   const customer = `${cp?.first_name ?? ''} ${cp?.last_name ?? ''}`.trim() || 'The customer'
@@ -146,7 +148,7 @@ async function notifyProviderAuthorised(payment: PaymentRow) {
     const { data: cu } = await supabase.auth.admin.getUserById(cp.user_id)
     if (cu?.user?.email) {
       await sendEmail(cu.user.email, `Card hold placed — ${amount} · ${b.booking_number ?? ''}`.trim(), renderNotificationEmail({
-        tone: 'success', badge: 'Card hold placed',
+        tone: 'success', badge: 'Card hold placed', greeting: greetingFor(cp.first_name),
         heading: `${amount} held on your card`,
         body: `That's your booking secured. This is a hold, not a charge: nothing leaves your account until you confirm the job is done. If the booking is cancelled, the hold is released.`,
         details: [
@@ -173,8 +175,8 @@ async function notifyProviderAuthorised(payment: PaymentRow) {
   const { data: u } = await supabase.auth.admin.getUserById(pp.user_id)
   const email = u?.user?.email
   if (!email) return
-  await sendEmail(email, `Payment secured — ${amount} · ${customer} · ${b.booking_number ?? ''}`.trim(), renderNotificationEmail({
-    tone: 'success', badge: 'Payment secured',
+  await sendEmail(email, `Payment secured — ${amount} · ${customerShort} · ${b.booking_number ?? ''}`.trim(), renderNotificationEmail({
+    tone: 'success', badge: 'Payment secured', greeting: greetingFor(pp.first_name),
     heading: 'Payment secured',
     body: `${escapeHtml(customer)} has authorised ${amount} on their card for this job. It's held by Servios and paid to you when they confirm the work is done — you're good to go.`,
     details: [
@@ -662,6 +664,8 @@ export interface PayoutTerms {
   newProviderDays: number
   override: number | null
   overrideReason: string | null
+  /** Set while (or after) an upheld dispute affects the delay: progress back to the standard delay */
+  upheld: { at: string; jobsSince: number; jobsNeeded: number; daysSince: number; daysNeeded: number; cleared: boolean } | null
 }
 
 /** Which clearing delay applies to this provider, and why. An admin override
@@ -672,16 +676,33 @@ export async function payoutTermsFor(providerProfileId: string): Promise<PayoutT
   const { data: pp } = await supabase.from('provider_profiles').select('id, user_id').eq('id', providerProfileId).maybeSingle()
   if (!pp) return null
 
-  const [{ count: jobs }, { count: upheld }, { data: ov }] = await Promise.all([
+  // "Upheld" = support refunded the customer. A lost bank chargeback is the
+  // bank's call, often fraud, and doesn't count against the provider.
+  const [{ count: jobs }, { data: lastUpheld }, { data: ov }] = await Promise.all([
     supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('provider_id', pp.id).not('customer_confirmed_at', 'is', null),
-    supabase.from('disputes').select('id', { count: 'exact', head: true }).eq('filed_against', pp.user_id).in('resolution_type', ['full_refund', 'partial_refund']),
+    supabase.from('disputes').select('resolved_at').eq('filed_against', pp.user_id).in('resolution_type', ['full_refund', 'partial_refund'])
+      .not('resolved_at', 'is', null).order('resolved_at', { ascending: false }).limit(1).maybeSingle(),
     // Read on its own so a database without the override columns still works
     supabase.from('provider_profiles').select('payout_delay_override, payout_delay_override_reason').eq('id', pp.id).maybeSingle(),
   ])
   const jobsDone = jobs ?? 0
   const override = ov?.payout_delay_override != null ? Number(ov.payout_delay_override) : null
+  // After an upheld dispute: the longer delay until N more confirmed jobs AND
+  // M days have passed. A job counts when the customer confirms it; a later
+  // upheld dispute becomes the new starting point, so both counts restart.
+  let upheld: PayoutTerms['upheld'] = null
+  if (lastUpheld?.resolved_at) {
+    const { count: since } = await supabase.from('bookings').select('id', { count: 'exact', head: true })
+      .eq('provider_id', pp.id).gt('customer_confirmed_at', lastUpheld.resolved_at)
+    const jobsSince = since ?? 0
+    const daysSince = Math.floor((Date.now() - new Date(lastUpheld.resolved_at).getTime()) / 86_400_000)
+    upheld = {
+      at: lastUpheld.resolved_at, jobsSince, jobsNeeded: settings.upheld_reset_jobs, daysSince, daysNeeded: settings.upheld_reset_days,
+      cleared: jobsSince >= settings.upheld_reset_jobs && daysSince >= settings.upheld_reset_days,
+    }
+  }
   const reason: PayoutDelayReason = override != null ? 'custom'
-    : (upheld ?? 0) > 0 ? 'upheld_dispute'
+    : upheld && !upheld.cleared ? 'upheld_dispute'
     : jobsDone < settings.new_provider_job_threshold ? 'new_provider'
     : 'standard'
   const days = override ?? (reason === 'standard' ? settings.payout_delay_days : settings.new_provider_payout_delay_days)
@@ -691,6 +712,7 @@ export async function payoutTermsFor(providerProfileId: string): Promise<PayoutT
     standardDays: settings.payout_delay_days,
     newProviderDays: settings.new_provider_payout_delay_days,
     override, overrideReason: ov?.payout_delay_override_reason ?? null,
+    upheld,
   }
 }
 

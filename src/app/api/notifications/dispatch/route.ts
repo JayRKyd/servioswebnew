@@ -416,7 +416,25 @@ async function handleBookingStatusChange(record: Record<string, any>, oldRecord:
     : record.status === 'completed' ? 'Your confirmation needed'
     : record.status === 'rejected' ? 'Booking declined'
     : record.status === 'cancelled' ? 'Booking cancelled'
+    : record.status === 'in_progress' ? 'Work started'
     : undefined
+
+  // The pages add bell notifications for accept / decline / start / complete,
+  // but nothing did for a cancellation (client retest, 22 Nov). Tell everyone
+  // except whoever cancelled.
+  if (record.status === 'cancelled') {
+    const plainService = svc?.title ?? 'your booking'
+    await Promise.all(targets.filter(t => t.userId !== record.cancelled_by).map(t => {
+      const isCustomer = t.userId === cp?.user_id
+      const who = cancelledBy === 'servios' ? 'Servios support cancelled this booking'
+        : cancelledBy === 'customer' ? 'The customer cancelled this booking'
+        : cancelledBy === 'provider' ? 'Your provider cancelled this booking'
+        : 'This booking has been cancelled'
+      const tail = isCustomer ? 'Any hold on your card has been released.' : 'You don’t need to attend.'
+      return notifyInApp(t.userId, 'booking_cancelled', `Booking cancelled — ${plainService}${when ? `, ${when}` : ''}`,
+        `${who}${record.cancellation_reason ? `: “${String(record.cancellation_reason).slice(0, 140)}”` : '.'} ${tail}`, { booking_id: record.id })
+    }))
+  }
 
   await Promise.all(targets.map(async ({ userId, path }) => {
     const email = await emailForUser(userId)
@@ -705,9 +723,28 @@ const DISPUTE_TYPE_LABEL: Record<string, string> = {
   chargeback: 'Bank chargeback',
 }
 
+async function adminUsers(): Promise<{ id: string; email: string | null }[]> {
+  const { data } = await supabase.from('users').select('id, email').contains('roles', ['admin'])
+  return (data ?? []) as { id: string; email: string | null }[]
+}
 async function adminEmails(): Promise<string[]> {
-  const { data } = await supabase.from('users').select('email').contains('roles', ['admin'])
-  return (data ?? []).map(u => u.email).filter(Boolean)
+  return (await adminUsers()).map(u => u.email).filter((e): e is string => Boolean(e))
+}
+/** Bell notification for every admin, linking straight to the admin page. */
+async function notifyAdmins(type: string, title: string, body: string, href: string, data: Record<string, unknown> = {}) {
+  const admins = await adminUsers()
+  await Promise.all(admins.map(a => notifyInApp(a.id, type, title, body, { ...data, href })))
+}
+
+/** A chargeback's deadline for evidence. Stripe's date is written into the
+ *  case when it opens; the provider is asked two days earlier so support has
+ *  time to put the response together. */
+function chargebackDates(dispute: Record<string, any>): { stripeBy: string | null; providerBy: string | null } {
+  const m = String(dispute.dispute_reason ?? '').match(/by (\d{4}-\d{2}-\d{2})/)
+  if (!m) return { stripeBy: null, providerBy: null }
+  const due = new Date(`${m[1]}T00:00:00Z`)
+  const early = new Date(Math.max(due.getTime() - 2 * 86_400_000, Date.now()))
+  return { stripeBy: ukDate(m[1]), providerBy: ukDate(early.toISOString().slice(0, 10)) }
 }
 
 async function disputeContext(dispute: Record<string, any>) {
@@ -734,17 +771,28 @@ async function handleDisputeInsert(record: Record<string, any>) {
   const providerPath = `/provider/bookings/${record.booking_id}#problem`
   const customerPath = `/bookings/${record.booking_id}#problem`
 
+  const bookingRef = ctx.booking?.booking_number ? String(ctx.booking.booking_number) : ''
+  const cb = chargebackDates(record)
+  const heldPounds = poundsFromCents(Number(record.held_amount ?? 0))
   if (record.source === 'chargeback') {
+    await notifyInApp(record.filed_against, 'dispute_opened', `Payment disputed by the customer’s bank — ${heldPounds} on hold`,
+      `${ctx.service}${bookingRef ? ` (${bookingRef})` : ''}: your payout is on hold while Servios responds to the bank.${cb.providerBy ? ` Add your evidence by ${cb.providerBy}.` : ' Add your evidence on the case.'}`,
+      { booking_id: record.booking_id, dispute_id: record.id })
     const providerEmail = await emailForUser(record.filed_against)
     if (providerEmail) {
-      await sendEmail(providerEmail, `A payment is being disputed — ${ctx.service}`, renderNotificationEmail({
+      await sendEmail(providerEmail, `Payment disputed by the bank — ${heldPounds} on hold · ${ctx.service}${bookingRef ? ` · ${bookingRef}` : ''}`, renderNotificationEmail({
         tone: 'problem', badge: 'Payment disputed', greeting: await hi(record.filed_against),
         heading: 'The customer’s bank has disputed a payment',
-        body: 'Your share of this payment is on hold while Servios responds to the bank. If you have photos, messages or anything that shows the work was done, reply on the case so we can include it.',
-        details: ctx.details,
+        body: `<strong>${heldPounds} of your payout for this job is on hold</strong> while Servios responds to the bank. The bank decides the outcome, not Servios, and it can take several weeks. If you have photos, messages or anything that shows the work was done, add it on the case${cb.providerBy ? ` by <strong>${escapeHtml(cb.providerBy)}</strong>` : ''} so we can include it in our response.`,
+        details: [
+          ...ctx.details,
+          { label: 'On hold', value: heldPounds },
+          ...(cb.providerBy ? [{ label: 'Add evidence by', value: escapeHtml(cb.providerBy) }] : []),
+          ...(cb.stripeBy ? [{ label: 'Bank’s deadline', value: escapeHtml(cb.stripeBy) }] : []),
+        ],
         ctaLabel: 'Add evidence',
         ctaPath: providerPath,
-        preheader: `Payment for ${ctx.service} is on hold`,
+        preheader: `${heldPounds} on hold for ${ctx.service}${cb.providerBy ? ` — add evidence by ${cb.providerBy}` : ''}`,
       }))
     }
   } else {
@@ -771,21 +819,32 @@ async function handleDisputeInsert(record: Record<string, any>) {
       await sendEmail(customerEmail, `We’ve received your report — ${ctx.ref}`, renderNotificationEmail({
         tone: 'info', badge: 'Report received', greeting: await hi(record.filed_by),
         heading: 'We’ve got your report',
-        body: `We’ve asked ${escapeHtml(provider.name)} for their side${ctx.payment ? (Number(record.desired_amount) > 0 && Number(record.desired_amount) < Number(ctx.payment.amount) - Number(ctx.payment.refund_amount ?? 0) ? `, and the ${poundsFromCents(Number(record.desired_amount))} you asked for is held by Servios until it’s sorted` : ', and your payment for this job is on hold until it’s sorted') : ''}. Servios support will review both and reply — usually within 2 working days. You can add photos or more detail any time.`,
+        body: `We’ve asked ${escapeHtml(provider.name)} for their side${record.desired_outcome === 'redo' ? ' and to put it right. You haven’t asked for money back, so nothing is on hold; you can still ask for a refund on the case if it isn’t sorted' : ctx.payment ? (Number(record.desired_amount) > 0 && Number(record.desired_amount) < Number(ctx.payment.amount) - Number(ctx.payment.refund_amount ?? 0) ? `, and the ${poundsFromCents(Number(record.desired_amount))} you asked for is held by Servios until it’s sorted` : ', and your payment for this job is on hold until it’s sorted') : ''}. Servios support will review both and reply — usually within 2 working days. You can add photos or more detail any time.`,
         details: ctx.details,
         ctaLabel: 'View your case',
         ctaPath: customerPath,
-        preheader: `Case ${ctx.ref} — payment on hold while we review`,
+        preheader: record.desired_outcome === 'redo' ? `Case ${ctx.ref} — we’ve asked the provider to put it right` : `Case ${ctx.ref} — payment on hold while we review`,
       }))
     }
   }
 
+  const isCb = record.source === 'chargeback'
+  await notifyAdmins(isCb ? 'chargeback_opened' : 'dispute_opened',
+    isCb ? `New chargeback ${record.dispute_number}${cb.stripeBy ? ` — evidence due ${cb.stripeBy}` : ''}` : `New dispute ${record.dispute_number}`,
+    `${customer.name} vs ${provider.name} · ${ctx.service}${Number(record.held_amount) > 0 ? ` · ${heldPounds} held` : ''}`,
+    `/admin/disputes/${record.id}`, { dispute_id: record.id })
   const admins = await adminEmails()
-  await Promise.all(admins.map(email => sendEmail(email, `New ${record.source === 'chargeback' ? 'chargeback' : 'dispute'} ${ctx.ref} — ${ctx.service}`, renderNotificationEmail({
-    tone: 'action', noteLabel: record.source === 'chargeback' ? 'From the bank' : `${escapeHtml(customer.name)} wrote`,
-    heading: record.source === 'chargeback' ? 'New bank chargeback' : 'New dispute to review',
-    body: `${escapeHtml(customer.name)} vs ${escapeHtml(provider.name)}.`,
-    details: ctx.details,
+  await Promise.all(admins.map(email => sendEmail(email, `New ${isCb ? 'chargeback' : 'dispute'} ${ctx.ref} — ${ctx.service}${isCb && cb.stripeBy ? ` — evidence due ${cb.stripeBy}` : ''}`, renderNotificationEmail({
+    tone: 'action', badge: isCb && cb.stripeBy ? `Evidence due ${cb.stripeBy}` : undefined, noteLabel: isCb ? 'From the bank' : `${escapeHtml(customer.name)} wrote`,
+    heading: isCb ? 'New bank chargeback' : 'New dispute to review',
+    body: isCb
+      ? `${escapeHtml(customer.name)}’s bank has disputed a payment to ${escapeHtml(provider.name)}. Respond in Stripe${cb.stripeBy ? ` by <strong>${escapeHtml(cb.stripeBy)}</strong>` : ''}; the provider has been asked for evidence${cb.providerBy ? ` by ${escapeHtml(cb.providerBy)}` : ''}. Refund and release are disabled on this case because the bank decides.`
+      : `${escapeHtml(customer.name)} vs ${escapeHtml(provider.name)}.`,
+    details: [
+      ...ctx.details,
+      ...(Number(record.held_amount) > 0 ? [{ label: 'Held from provider', value: heldPounds }] : []),
+      ...(isCb && cb.stripeBy ? [{ label: 'Evidence due to Stripe', value: escapeHtml(cb.stripeBy) }] : []),
+    ],
     note: escapeHtml(String(record.dispute_reason ?? '')),
     ctaLabel: 'Open the case',
     ctaPath: `/admin/disputes/${record.id}`,
@@ -835,7 +894,7 @@ async function handleDisputeResolved(record: Record<string, any>, oldRecord: Rec
   ] : []
   const providerRows = moneyRows.length ? [
     ...moneyRows,
-    { label: 'Servios commission', value: `−${pounds(Math.max(0, kept - providerGets))}` },
+    ...(kept - providerGets > 0 ? [{ label: 'Servios commission', value: `−${pounds(kept - providerGets)}` }] : []),
     { label: 'You keep', value: pounds(providerGets) },
   ] : []
 
@@ -846,6 +905,11 @@ async function handleDisputeResolved(record: Record<string, any>, oldRecord: Rec
   }
 
   const rt = String(record.resolution_type ?? '')
+  if (rt.startsWith('chargeback')) {
+    await notifyAdmins('chargeback_closed', `Chargeback ${rt === 'chargeback_won' ? 'won' : 'lost'} — ${record.dispute_number}`,
+      rt === 'chargeback_won' ? `The bank ruled for Servios. ${provider.name}’s payout has been released.` : `The bank returned ${pounds(refunded)} to the customer. ${provider.name}’s share has been reversed.`,
+      `/admin/disputes/${record.id}`, { dispute_id: record.id })
+  }
   const providerTone: EmailTone = ['release_to_provider', 'chargeback_won'].includes(rt) ? 'success' : ['full_refund', 'partial_refund', 'chargeback_lost'].includes(rt) ? 'problem' : 'info'
   const customerTone: EmailTone = ['full_refund', 'partial_refund'].includes(rt) ? 'success' : 'info'
   const decisionLabel = rt.startsWith('chargeback') ? 'Outcome' : 'Servios support’s decision'
@@ -897,6 +961,24 @@ async function handleDisputeMessage(record: Record<string, any>) {
     if (!email) return
     // "Ask customer / Ask provider" is a request, not a reply — say what's
     // needed and by when
+    if (record.sender_role === 'system' && dispute.source === 'chargeback') {
+      const cb = chargebackDates(dispute)
+      const bookingRef = ctx.booking?.booking_number ? ` · ${ctx.booking.booking_number}` : ''
+      await sendEmail(email, `Action needed: evidence for the bank — case ${ctx.ref}${bookingRef}`, renderNotificationEmail({
+        tone: 'action', badge: 'Your evidence needed', greeting: await hi(r.userId),
+        heading: 'We need your evidence for the bank',
+        body: `The customer’s bank decides this one, not Servios. To give it the best chance, add anything that shows the work was done${cb.providerBy ? ` by <strong>${escapeHtml(cb.providerBy)}</strong>` : ' as soon as you can'}: photos, messages, what was agreed. We send it to the bank with our response. If we have nothing from you, we respond with what Servios holds on the booking.`,
+        details: [
+          ...ctx.details,
+          ...(Number(dispute.held_amount) > 0 ? [{ label: 'On hold', value: poundsFromCents(Number(dispute.held_amount)) }] : []),
+          ...(cb.stripeBy ? [{ label: 'Bank’s deadline', value: escapeHtml(cb.stripeBy) }] : []),
+        ],
+        ctaLabel: 'Add evidence',
+        ctaPath: r.path,
+        preheader: `Add your evidence on case ${ctx.ref}${cb.providerBy ? ` by ${cb.providerBy}` : ''}`,
+      }))
+      return
+    }
     if (record.sender_role === 'system') {
       const by = ukDate(new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10))
       await sendEmail(email, `Action needed: we need your side on case ${ctx.ref}`, renderNotificationEmail({

@@ -147,11 +147,16 @@ export default function ProviderBookingDetailPage() {
 
     const customerUserId = booking?.customer_profile?.user_id
     if (customerUserId) {
+      // Name the job and say what happens next — "Booking accepted!" told a
+      // customer with two bookings nothing (client retest, 22 Nov)
+      const svcName = booking?.service?.title ?? 'your booking'
+      const dateText = booking?.scheduled_date ? ` on ${formatDate(booking.scheduled_date)}` : ''
+      const price = Number(booking?.total_amount) > 0 ? formatCurrency(Number(booking.total_amount) / 100) : ''
       const notifMap: Record<string, { title: string; body: string }> = {
-        accepted:    { title: 'Booking accepted!',        body: 'Your booking has been accepted by the provider.' },
-        rejected:    { title: 'Booking declined',         body: 'Your booking was declined. You can search for another provider.' },
-        in_progress: { title: 'Job started',              body: 'Your provider has started work on your booking.' },
-        completed:   { title: 'Job marked complete',      body: 'Your provider marked the job complete. Please confirm to release payment.' },
+        accepted:    { title: `Booking accepted — ${svcName}${dateText}`, body: price && !paidUp ? `Next step: authorise ${price} on your card so work can start. It is a hold, not a charge.` : 'You’re all set. We’ll let you know when work starts.' },
+        rejected:    { title: `Booking declined — ${svcName}${dateText}`, body: `The provider can’t take this job${rejectReason.trim() ? `: “${rejectReason.trim().slice(0, 120)}”` : ''}. Nothing has been charged — you can book someone else.` },
+        in_progress: { title: `Work started — ${svcName}`,              body: 'Your provider has started the job.' },
+        completed:   { title: `Job marked complete — ${svcName}`,       body: price ? `Happy with the work? Confirm it to release ${price} to your provider.` : 'Please confirm the job is complete.' },
       }
       const notif = notifMap[status]
       if (notif) {
@@ -315,7 +320,7 @@ export default function ProviderBookingDetailPage() {
                   <span className="text-sm font-medium text-red-500">−{formatCurrency(refundedPence / 100)}</span>
                 </div>
               )}
-              {booking.commission_rate && (
+              {booking.commission_rate && !(feePence === 0 && refundedPence > 0) && (
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-500">
                     Platform fee ({Math.round(booking.commission_rate * 100)}%{refundedPence > 0 ? ' of what you keep' : ''})

@@ -1,6 +1,7 @@
 'use client'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { upheldProgress } from '@/lib/payout-terms'
 import { AlertTriangle, Banknote, CheckCircle2, ChevronDown, ChevronUp, Clock, Landmark, Lock, RefreshCw, Search, Wallet } from 'lucide-react'
 
 type PayoutState = 'held' | 'owed' | 'clearing' | 'paid_out' | 'refunded'
@@ -15,6 +16,7 @@ interface Provider {
   connect: 'active' | 'pending' | 'restricted' | 'not_connected'; payoutDelayDays: number
   delayReason: 'custom' | 'new_provider' | 'upheld_dispute' | 'standard'; delayOverride: number | null; delayOverrideReason: string | null
   jobsDone: number; jobThreshold: number
+  upheld: { at: string; jobsSince: number; jobsNeeded: number; daysSince: number; daysNeeded: number; cleared: boolean } | null
   owed: number; held: number; clearing: number; paidOut: number; payments: Row[]
 }
 interface Data { providers: Provider[]; totals: { owed: number; held: number; clearing: number; paidOut: number; commission: number; commissionAtRisk: number } }
@@ -146,7 +148,7 @@ export default function AdminPayoutsPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="truncate text-sm font-semibold text-gray-900">{p.name}</p>
                       <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${c.cls}`}>{c.label}</span>
-                      <span className="text-[11px] text-gray-400">{p.payoutDelayDays}-day clearing{p.delayReason === 'custom' ? ' · set by admin' : ''}</span>
+                      <span className="text-[11px] text-gray-400">{p.payoutDelayDays}-day clearing{p.delayReason === 'custom' ? ' · manual' : ''}</span>
                     </div>
                     <p className="truncate text-xs text-gray-500">{p.email ?? ''} · {p.payments.length} payment{p.payments.length === 1 ? '' : 's'}</p>
                   </div>
@@ -242,20 +244,30 @@ function Amount({ label, value, strong, tone }: { label: string; value: number; 
   )
 }
 
-const DELAY_WHY: Record<Provider['delayReason'], (p: Provider) => string> = {
+type DelayView = Pick<Provider, 'payoutDelayDays' | 'delayReason' | 'delayOverride' | 'delayOverrideReason' | 'jobsDone' | 'jobThreshold' | 'upheld'>
+
+const DELAY_WHY: Record<Provider['delayReason'], (p: DelayView) => string> = {
   custom: p => `Set by admin${p.delayOverrideReason ? ` — ${p.delayOverrideReason}` : ''}`,
   new_provider: p => `New provider: ${p.jobsDone} of ${p.jobThreshold} confirmed jobs done`,
-  upheld_dispute: () => 'A dispute was upheld against this provider',
+  upheld_dispute: p => p.upheld
+    ? `A dispute was upheld on ${day(p.upheld.at)}. Back to standard after ${p.upheld.jobsNeeded} clean jobs and ${p.upheld.daysNeeded} days: ${p.upheld.jobsSince} of ${p.upheld.jobsNeeded} jobs, ${upheldProgress(p.upheld)}`
+    : 'A dispute was upheld against this provider',
   standard: () => 'Standard delay',
 }
 
 /** Per-provider clearing delay: shows which rule applies and lets an admin
- *  override it (reason required) or go back to the automatic rule. */
+ *  override it (reason required) or reset it to the automatic rule. The row
+ *  shows the saved value straight from the save response, not only after the
+ *  list reloads. */
 function DelayControl({ provider: p, onSaved, onError }: { provider: Provider; onSaved: (msg: string) => void | Promise<void>; onError: (msg: string | null) => void }) {
+  const fromProps = (): DelayView => ({ payoutDelayDays: p.payoutDelayDays, delayReason: p.delayReason, delayOverride: p.delayOverride, delayOverrideReason: p.delayOverrideReason, jobsDone: p.jobsDone, jobThreshold: p.jobThreshold, upheld: p.upheld })
+  const [view, setView] = useState<DelayView>(fromProps)
   const [editing, setEditing] = useState(false)
   const [days, setDays] = useState(String(p.delayOverride ?? p.payoutDelayDays))
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { setView(fromProps()) }, [p.payoutDelayDays, p.delayReason, p.delayOverride, p.delayOverrideReason, p.upheld?.jobsSince])
 
   async function save(value: number | null) {
     setSaving(true); onError(null)
@@ -263,28 +275,39 @@ function DelayControl({ provider: p, onSaved, onError }: { provider: Provider; o
     const json: any = await res.json().catch(() => ({}))
     setSaving(false)
     if (!res.ok) { onError(json?.error ?? 'Could not save the clearing delay'); return }
+    const t = json.terms
+    if (t) {
+      setView({ payoutDelayDays: t.days, delayReason: t.reason, delayOverride: t.override ?? null, delayOverrideReason: t.overrideReason ?? null, jobsDone: t.jobsDone, jobThreshold: t.jobThreshold, upheld: t.upheld ?? null })
+      setDays(String(t.override ?? t.days))
+    }
     setEditing(false); setReason('')
-    await onSaved(json.warning ?? (value === null ? `${p.name} is back on the automatic clearing delay.` : `${p.name} now clears in ${value} days.`))
+    await onSaved(json.warning ?? (value === null ? `${p.name} is back on the automatic clearing delay (${t?.days ?? '—'} days).` : `${p.name} now clears in ${value} days.`))
   }
 
   const n = Number(days)
   const valid = Number.isInteger(n) && n >= 7 && n <= 31 && reason.trim().length > 0
+  const hasOverride = view.delayOverride != null
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-gray-50/70 px-5 py-2.5 text-xs text-gray-600">
       <Clock size={13} className="shrink-0 text-gray-400" />
-      <span><span className="font-semibold text-gray-900">{p.payoutDelayDays}-day clearing delay</span> · {DELAY_WHY[p.delayReason](p)}{p.connect !== 'active' ? ' · applies once their bank is connected' : ''}</span>
+      <span className="min-w-0 flex-1">
+        <span className="font-semibold text-gray-900">{view.payoutDelayDays}-day clearing delay</span>
+        {hasOverride && <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">Manual</span>}
+        {' '}· {DELAY_WHY[view.delayReason](view)}{p.connect !== 'active' ? ' · applies once their bank is connected' : ''}
+      </span>
       {!editing ? (
         <span className="ml-auto flex gap-2">
           <button onClick={() => setEditing(true)} className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 font-semibold text-gray-700 hover:bg-gray-50">Change</button>
-          {p.delayOverride != null && <button disabled={saving} onClick={() => save(null)} className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">{saving ? 'Saving…' : 'Back to automatic'}</button>}
+          {hasOverride && <button disabled={saving} onClick={() => save(null)} className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">{saving ? 'Saving…' : 'Reset to automatic'}</button>}
         </span>
       ) : (
         <span className="flex w-full flex-wrap items-center gap-2">
           <label className="flex items-center gap-1.5">Days <input type="number" min={7} max={31} value={days} onChange={e => setDays(e.target.value)} className="w-16 rounded-lg border border-gray-200 bg-white px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary" /></label>
           <input value={reason} onChange={e => setReason(e.target.value)} placeholder="Reason (required, kept in the audit log)" className="min-w-[200px] flex-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
           <button disabled={saving || !valid} onClick={() => save(n)} className="rounded-lg bg-primary px-3 py-1 font-semibold text-white hover:bg-primary-dark disabled:opacity-50">{saving ? 'Saving…' : 'Save'}</button>
+          {hasOverride && <button disabled={saving} onClick={() => save(null)} className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">Reset to automatic</button>}
           <button disabled={saving} onClick={() => setEditing(false)} className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-gray-600 hover:bg-gray-50">Cancel</button>
-          <span className="w-full text-[11px] text-gray-400">7 to 31 days. Stripe’s UK minimum is 7. Applies to payments from now on.</span>
+          <span className="w-full text-[11px] text-gray-400">7 to 31 days. Stripe’s UK minimum is 7. Applies to payments from now on. “Reset to automatic” removes the manual value and goes back to the rule in Settings.</span>
         </span>
       )}
     </div>
