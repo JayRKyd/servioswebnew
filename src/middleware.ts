@@ -151,6 +151,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(adminLogin)
   }
 
+  // An admin gets into the admin area whatever role they last used elsewhere
+  // (an account that is both a customer and an admin was being bounced to
+  // the customer dashboard)
+  if (pathname.startsWith('/admin')) return response
+
   // Shared routes are accessible to all authenticated users
   const isShared = SHARED_ROUTES.some(
     (r) => pathname === r || pathname.startsWith(r + '/')
